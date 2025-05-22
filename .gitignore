@@ -1,0 +1,16 @@
+/data/
+.idea
+/.DS_Store
+.DS_Store
+*.pkl
+/src/busi/*/data/
+
+/src/qlib_/output/
+/src/models/moment/classifiers/data/
+/src/models/moment/data/
+/src/models/moment/forecast/data/
+/src/models/moment/forecast/mlruns/
+/src/models/moment/forecast/outputs/
+/src/models/qlib_/mlruns/
+/src/mlflow_server/mlartifacts/
+/src/mlflow_server/test/outputs/

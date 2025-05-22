@@ -1,0 +1,8 @@
+linear_window,final_value,return_ratio,sharpe,momentum_type
+20,100000.0,0.0,,linear
+30,100000.0,0.0,,linear
+40,100000.0,0.0,,linear
+50,100000.0,0.0,,linear
+60,100000.0,0.0,,linear
+90,100000.0,0.0,,linear
+120,100000.0,0.0,,linear

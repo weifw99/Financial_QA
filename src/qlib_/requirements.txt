@@ -1,0 +1,9 @@
+pandas
+numpy
+scikit-learn
+mlflow
+chronos-forecasting
+pyqlib
+xgboost
+catboost
+lightgbm

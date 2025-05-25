@@ -1,0 +1,30 @@
+selector:
+  class: DualLowSelector
+  module_path: dual_low_strategy
+  params:
+    weight_premium: 0.6
+    weight_price: 0.3
+    weight_slope: 0.05
+    weight_r2: 0.05
+    topk: 10
+    price_min: 90
+    price_max: 110
+
+backtest:
+  start_time: "2023-01-01"
+  end_time: "2023-12-31"
+  freq: "W"  # 支持 W(周), M(月) 可修改用于多频率测试
+  benchmark: "SH000905"
+  accounts:
+    account1:
+      selector: DualLowSelector
+      capital: 1000000
+      instruments: "csi300"
+
+report:
+  output_dir: "./report"
+
+stop_loss:
+  enable: true
+  drop_pct: 0.08
+  max_drawdown: 0.15

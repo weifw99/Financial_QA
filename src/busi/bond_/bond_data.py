@@ -177,6 +177,7 @@ class BondDataHandle:
         :return:
         """
         # 市盈率, 市净率, 股息率数据接口
+        print(f"从 ak.stock_a_indicator_lg 获取 {symbol} 的 市盈率, 市净率, 股息率数据接口")
         stock_a_indicator_df = ak.stock_a_indicator_lg(symbol=symbol[3:])
         '''
         'trade_date', 'pe', 'pe_ttm', 'pb', 'dv_ratio', 'dv_ttm', 'ps', 'ps_ttm', 'total_mv'
@@ -285,13 +286,13 @@ class BondDataHandle:
                 # time.sleep(10)
                 if bond_zh_hs_cov_daily_df is not None and not bond_zh_hs_cov_daily_df.empty:
                     # 保存到本地
-                    temp_df = BondDataHandle.get_stock_a_indicator_lg(symbol=stock_code)
-                    temp_df['date'] = pd.to_datetime(temp_df['date'])
-                    bond_zh_hs_cov_daily_df['date'] = pd.to_datetime(bond_zh_hs_cov_daily_df['date'])
-
-                    print(len(temp_df), len(bond_zh_hs_cov_daily_df))
-
-                    bond_zh_hs_cov_daily_df = pd.merge(bond_zh_hs_cov_daily_df, temp_df, on=['date'], how='left')
+                    # temp_df = BondDataHandle.get_stock_a_indicator_lg(symbol=stock_code)
+                    # temp_df['date'] = pd.to_datetime(temp_df['date'])
+                    # bond_zh_hs_cov_daily_df['date'] = pd.to_datetime(bond_zh_hs_cov_daily_df['date'])
+                    #
+                    # print(len(temp_df), len(bond_zh_hs_cov_daily_df))
+                    #
+                    # bond_zh_hs_cov_daily_df = pd.merge(bond_zh_hs_cov_daily_df, temp_df, on=['date'], how='left')
 
                     bond_zh_hs_cov_daily_df.to_csv(path_, index=False)
             except Exception as e:
@@ -373,14 +374,14 @@ class BondDataHandle:
 
                 # 市盈率, 市净率, 股息率数据接口
                 # print(f"{symbol}-{symbol[3:]}获取市值数据-开始")
-                stock_a_indicator_df = BondDataHandle.get_stock_a_indicator_lg(symbol=symbol)
-                # print(f"{symbol}-{symbol[3:]}获取市值数据-结束")
-                if 'total_mv' in temp_df.columns:
-                    temp_df = temp_df.drop(columns=['total_mv' ], axis=1)
-                temp_df['date'] = pd.to_datetime(temp_df['date'])
-                stock_a_indicator_df['date'] = pd.to_datetime(stock_a_indicator_df['date'])
+                # stock_a_indicator_df = BondDataHandle.get_stock_a_indicator_lg(symbol=symbol)
+                # # print(f"{symbol}-{symbol[3:]}获取市值数据-结束")
+                # if 'total_mv' in temp_df.columns:
+                #     temp_df = temp_df.drop(columns=['total_mv' ], axis=1)
+                # temp_df['date'] = pd.to_datetime(temp_df['date'])
+                # stock_a_indicator_df['date'] = pd.to_datetime(stock_a_indicator_df['date'])
 
-                temp_df = pd.merge(temp_df, stock_a_indicator_df, on=['date'], how='left')
+                # temp_df = pd.merge(temp_df, stock_a_indicator_df, on=['date'], how='left')
 
                 # 格式化日期列
                 # temp_df['date'] = pd.to_datetime(temp_df['date'])

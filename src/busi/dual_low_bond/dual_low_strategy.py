@@ -1,4 +1,5 @@
 from qlib.contrib.strategy.rule_strategy import TopkSelector
+from qlib.contrib.strategy.signal_strategy import TopkSelector
 import pandas as pd
 
 class DualLowSelector(TopkSelector):

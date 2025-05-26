@@ -15,7 +15,7 @@ class Getdata():
         cols = ['date', '纯债价值', '转股价值', '纯债溢价率', '转股溢价率',
                 '转债代码_code', 'open', 'high', 'low', 'close', 'volume',
                 'momentum_5', 'pivot', 'bBreak', 'bEnter',
-                '发行规模', '上市时间', '信用评级', '正股代码_code', '双低1', '双低2', 'public_date', '']
+                '发行规模', '上市时间', '信用评级', '正股代码_code', '双低1', '双低2', 'public_date',]
         # print(data.columns)
         data = data[cols]
 

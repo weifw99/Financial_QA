@@ -162,7 +162,7 @@ class BondDataHandle:
 
         for bond_code, stock_code in zip(bond_info_dfs[0]['债券代码1'].tolist(), bond_info_dfs[0]['正股代码'].tolist()):
             bond_code_temp = f'{str(bond_code.split(".")[1]).lower()}{bond_code.split(".")[0]}'
-            stock_code_temp = f'{str(bond_code.split(".")[1])}.{str(stock_code).rjust(6, '0')}'
+            stock_code_temp = f'{str(bond_code.split(".")[1])}.{str(stock_code).rjust(6, "0")}'
             self.download_bond_zh_cov_value_analysis(symbol=bond_code_temp)
             self.download_bond_trading_day_data(symbol_tuple=(bond_code_temp, stock_code_temp) )
             self.download_stock_trading_day_data(symbol=stock_code_temp)
@@ -234,7 +234,7 @@ class BondDataHandle:
         return results
 
     @staticmethod
-    def download_bond_zh_cov_value_analysis(symbol: Union[str, List:str] = "113527", skip_exists: bool = False) -> None:
+    def download_bond_zh_cov_value_analysis(symbol: Union[str, List[str]] = "113527", skip_exists: bool = False) -> None:
         # 从接口获取数据
         if isinstance(symbol, str):
             symbols = [symbol]
@@ -260,7 +260,7 @@ class BondDataHandle:
                 print(f"获取债券 {symbol} 可转债数据-价值分析-溢价率分析数据失败: {e}")
 
     @staticmethod
-    def download_bond_trading_day_data(symbol_tuple: Union[Tuple[str, str], List:Tuple[str, str]], skip_exists: bool = False) -> None:
+    def download_bond_trading_day_data(symbol_tuple: Union[Tuple[str, str], List[Tuple[str, str]]], skip_exists: bool = False) -> None:
         """
         :param symbol_tuple:
         :return:
@@ -302,7 +302,7 @@ class BondDataHandle:
 
 
     @staticmethod
-    def download_stock_trading_day_data(symbol: Union[str, List:str],
+    def download_stock_trading_day_data(symbol: Union[str, List[str]],
                                         start_date: str = '2010-01-01',
                                         end_date: Optional[str] = None) -> None:
         """

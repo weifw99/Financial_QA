@@ -15,3 +15,5 @@
 /src/mlflow_server/mlartifacts/
 /src/mlflow_server/test/outputs/
 mlruns
+*.pyc
+__pycache__/

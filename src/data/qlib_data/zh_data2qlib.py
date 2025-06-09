@@ -12,8 +12,9 @@
 
 import os
 import pandas as pd
+import argparse
 
-from models.qlib_.data.scripts.dump_bin import DumpDataAll
+from data.qlib_data.scripts.dump_bin import DumpDataAll
 
 
 class ZhData2Qlib:
@@ -52,27 +53,29 @@ class ZhData2Qlib:
             
 
 if __name__ == '__main__':
+    # python zh_data2qlib.py --base_data_path /path/to/base_data --out_base_path /path/to/output
+    parser = argparse.ArgumentParser(description="Convert ZhData to Qlib format")
 
-    base_data_path = '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data'
+    parser.add_argument('--base_data_path', type=str, default='/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data',
+                        help='Base data directory')
+    parser.add_argument('--out_base_path', type=str,
+                        default='/Users/dabai/liepin/study/llm/Financial_QA/data/qlib_data',
+                        help='Output base directory')
+
+    args = parser.parse_args()
+
+    base_data_path = args.base_data_path
+    out_base_path = args.out_base_path
+
     zh_data_dir = base_data_path + '/market'
     zh_data_index_dir = base_data_path + '/raw/index'
 
-    out_base_path = '/Users/dabai/liepin/study/llm/Financial_QA/data/qlib_data'
-
-    qlib_data_dir = out_base_path + '/zh_qlib'
-
-
-
-    qlib_csv_dir = out_base_path + '/zh_qlib_csv/'
-    zh_data2qlib = ZhData2Qlib(zh_data_dir=zh_data_dir, qlib_data_dir=qlib_csv_dir, type='daily')
-    zh_data2qlib.convert_to_qlib()
-
-    zh_data2qlib = ZhData2Qlib(zh_data_dir=zh_data_dir, qlib_data_dir=qlib_csv_dir, type='min15')
-    zh_data2qlib.convert_to_qlib()
-
+    qlib_data_dir = out_base_path + '/cn_data'
+    qlib_csv_dir = out_base_path + '/cn_data_csv/'
 
     # python scripts/dump_bin.py dump_all --csv_path ~/dev/stock_price_data_wind --qlib_dir ~/dev/qlib_data/cn_data_wind
-
+    zh_data2qlib = ZhData2Qlib(zh_data_dir=zh_data_dir, qlib_data_dir=qlib_csv_dir, type='daily')
+    zh_data2qlib.convert_to_qlib()
     include_fields = "open,high,low,close,volume,amount,turn,pctChg,factor"
     DumpDataAll(csv_path=qlib_csv_dir + 'daily',
                 qlib_dir=qlib_data_dir,
@@ -83,8 +86,9 @@ if __name__ == '__main__':
                 symbol_field_name="symbol",
                 include_fields=include_fields,).dump()
 
-    # 设置指数股票列表
-
+    '''
+    zh_data2qlib = ZhData2Qlib(zh_data_dir=zh_data_dir, qlib_data_dir=qlib_csv_dir, type='min15')
+    zh_data2qlib.convert_to_qlib()
     DumpDataAll(csv_path=qlib_csv_dir + 'min15',
                 qlib_dir=qlib_data_dir,
                 freq="15min",
@@ -93,32 +97,18 @@ if __name__ == '__main__':
                 file_suffix=".csv",
                 symbol_field_name="symbol",
                 include_fields=include_fields, ).dump()
+                
+    '''
 
     # 更新 instruments 数据
+    # 设置指数股票列表
 
     ins_map = {
-        '/raw/index/sz50_constituents.csv': '/zh_qlib/instruments/csi50.txt',
-        '/raw/index/zz500_constituents.csv': '/zh_qlib/instruments/csi500.txt',
-        '/raw/index/hs300_constituents.csv': '/zh_qlib/instruments/csi300.txt',
+        '/raw/index/sz50_constituents.csv': '/instruments/csi50.txt',
+        '/raw/index/zz500_constituents.csv': '/instruments/csi500.txt',
+        '/raw/index/hs300_constituents.csv': '/instruments/csi300.txt',
     }
 
     for k, v in ins_map.items():
         data = pd.read_csv(base_data_path + k, sep=',')
-        data.to_csv(out_base_path + v, sep='\t', index=False, header=False)
-    '''
-    
-    from qlib.data import D
-    import pandas as pd
-
-    # 读取新的 instruments 数据
-    data = pd.read_csv('hs300_stocks.csv')
-
-    # 将数据转换为 qlib 所需的格式
-    # 这里需要根据具体的数据格式进行转换
-    # 假设数据包含 'code' 列表示证券代码
-    instruments = data['code'].tolist()
-
-    # 更新 qlib 中的 instruments 数据
-    D.update_instruments(instruments=instruments, start_time='2024-01-01', end_time='2024-12-31', freq='day', append=True)
-    '''
-
+        data.to_csv(qlib_data_dir + v, sep='\t', index=False, header=False)

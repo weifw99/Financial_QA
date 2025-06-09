@@ -379,7 +379,7 @@ class MarketDataAPI:
 
         current = start
         while current <= end:
-            if current.weekday() == 0:  # 周一
+            if current.day == 15:
                 date_str = current.strftime('%Y-%m-%d')
                 rs = bs.query_hs300_stocks(date=date_str)
                 print(f"query_hs300_stocks {date_str}")
@@ -395,6 +395,14 @@ class MarketDataAPI:
                     all_data.append(row)
 
             current += timedelta(days=1)
+
+        rs = bs.query_hs300_stocks()
+
+        # 将结果集逐条读取并添加到列表中
+        while (rs.error_code == '0') & rs.next():
+            row = rs.get_row_data()
+            # row.append(date_str)  # 添加查询日期作为原始数据的 updateDate
+            all_data.append(row)
 
         # 构建 DataFrame
         columns = ['updateDate', 'code', 'code_name']
@@ -418,7 +426,7 @@ class MarketDataAPI:
 
         current = start
         while current <= end:
-            if current.weekday() == 0:  # 周一
+            if current.day == 15:
                 date_str = current.strftime('%Y-%m-%d')
                 print(f"query_zz500_stocks {date_str}")
 
@@ -436,6 +444,13 @@ class MarketDataAPI:
 
             current += timedelta(days=1)
 
+        rs = bs.query_zz500_stocks()
+
+        # 将结果集逐条读取并添加到列表中
+        while (rs.error_code == '0') & rs.next():
+            row = rs.get_row_data()
+            # row.append(date_str)  # 添加查询日期作为原始数据的 updateDate
+            all_data.append(row)
         # 构建 DataFrame
         columns = ['updateDate', 'code', 'code_name']
         df = pd.DataFrame(all_data, columns=columns)
@@ -458,7 +473,7 @@ class MarketDataAPI:
 
         current = start
         while current <= end:
-            if current.weekday() == 0:  # 周一
+            if current.day == 15:
                 date_str = current.strftime('%Y-%m-%d')
                 rs = bs.query_sz50_stocks(date=date_str)
                 print(f"query_sz50_stocks {date_str}")
@@ -474,6 +489,14 @@ class MarketDataAPI:
                     all_data.append(row)
 
             current += timedelta(days=1)
+
+        rs = bs.query_sz50_stocks()
+
+        # 将结果集逐条读取并添加到列表中
+        while (rs.error_code == '0') & rs.next():
+            row = rs.get_row_data()
+            # row.append(date_str)  # 添加查询日期作为原始数据的 updateDate
+            all_data.append(row)
 
         print(all_data[0])
         # 构建 DataFrame

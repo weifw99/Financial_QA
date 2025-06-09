@@ -169,7 +169,7 @@ class EtfDataHandle:
 
 
     @staticmethod
-    def download_etf_trading_day_data(symbol: Union[str, List:str],
+    def download_etf_trading_day_data(symbol: Union[str, List[str]],
                                       start_date: str = '19700101',
                                       end_date: Optional[str] = None,
                                       refresh: bool = True) -> list[pd.DataFrame]:

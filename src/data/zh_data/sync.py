@@ -132,6 +132,8 @@ class DataSync:
         
         # 获取成分股，并保存
         index_types = ['sz50', 'hs300', 'zz500']
+        # index_types = [ 'zz500']
+        # index_types = []
         for index_type in index_types:
             print(f"[INFO] 开始获取{index_type}成分股")
             constituents = self.market_api.get_index_constituents(index_type)

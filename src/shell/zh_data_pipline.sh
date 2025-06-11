@@ -7,10 +7,11 @@ log() {
 
 # 配置路径
 PROJECT_DIR="/Users/dabai/liepin/study/llm/Financial_QA"
-QLIB_DATA_DIR="$PROJECT_DIR/src/data/qlib_data"
-SOURCE_DATA_DIR="$QLIB_DATA_DIR/zh_qlib_csv"
-TARGET_OUTPUT_DIR="/path/to/fixed/output_dir"  # 替换为实际的目标目录
-CONDA_ENV_NAME="your_conda_env"                # 替换为你的 Conda 环境名
+QLIB_DATA_DIR="$PROJECT_DIR/data/qlib_data"
+SOURCE_DATA_DIR="$QLIB_DATA_DIR/cn_data"
+
+TARGET_OUTPUT_DIR="/Users/dabai/.qlib/qlib_data/cn_data"  # 替换为实际的目标目录
+CONDA_ENV_NAME="env_py3_12"                # 替换为你的 Conda 环境名
 
 # 检查目标目录是否存在，不存在则创建
 if [ ! -d "$TARGET_OUTPUT_DIR" ]; then
@@ -20,7 +21,7 @@ fi
 
 # 初始化 Conda 并激活环境
 log "初始化 Conda 并激活环境: $CONDA_ENV_NAME"
-# eval "$(conda shell.bash hook)"
+eval "$(conda shell.bash hook)"
 conda activate "$CONDA_ENV_NAME"
 
 if [ $? -ne 0 ]; then
@@ -35,21 +36,19 @@ log "当前目录: $(pwd)"
 log "开始执行 src.data.zh_data.zh_run_sync..."
 python -m src.data.zh_data.zh_run_sync
 
-# 切换到 qlib_data 目录并运行 zh_data2qlib.py
-cd "$QLIB_DATA_DIR" || { log "切换目录到 $QLIB_DATA_DIR 失败"; exit 1; }
 log "当前目录: $(pwd)"
 
 log "开始执行 zh_data2qlib.py..."
-python zh_data2qlib.py --base_data_path "$PROJECT_DIR/data/zh_data" --out_base_path "$QLIB_DATA_DIR"
+python -m src.data.qlib_data.zh_data2qlib --base_data_path "$PROJECT_DIR/data/zh_data" --out_base_path "$QLIB_DATA_DIR"
 
 # 移动结果文件到固定目录
 log "将结果文件从 $SOURCE_DATA_DIR 移动到 $TARGET_OUTPUT_DIR"
 
-mv "$SOURCE_DATA_DIR"/* "$TARGET_OUTPUT_DIR"/ 2>/dev/null
+cp -rf "$SOURCE_DATA_DIR"/* "$TARGET_OUTPUT_DIR"/ 2>/dev/null
 if [ $? -eq 0 ]; then
-    log "文件移动成功。"
+    log "文件copy成功。"
 else
-    log "未找到可移动的文件或移动失败。"
+    log "未找到copy的文件或copy失败。"
 fi
 
 log "脚本执行完成。"

@@ -14,7 +14,7 @@ import os
 import pandas as pd
 import argparse
 
-from data.qlib_data.scripts.dump_bin import DumpDataAll
+from src.data.qlib_data.scripts.dump_bin import DumpDataAll
 
 
 class ZhData2Qlib:

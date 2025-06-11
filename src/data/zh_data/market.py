@@ -375,38 +375,52 @@ class MarketDataAPI:
         start = datetime.strptime(start_date, '%Y-%m-%d')
         end = datetime.strptime(end_date, '%Y-%m-%d')
 
+        # 保存成分股数据
+        from . import RAW_DATA_DIR
+        raw_data_dir = RAW_DATA_DIR
+        import os
+        index_dir = os.path.join(raw_data_dir, 'stock_set/hs300')
+        if not os.path.exists(index_dir):
+            os.makedirs(index_dir)
+
         all_data = []
 
         current = start
         while current <= end:
-            if current.day == 15:
+            if current.day == 15 or current == end:
                 date_str = current.strftime('%Y-%m-%d')
-                rs = bs.query_hs300_stocks(date=date_str)
                 print(f"query_hs300_stocks {date_str}")
+                file_path = os.path.join(index_dir, f'{date_str}.csv')
+                if os.path.exists(file_path):
+                    df = pd.read_csv(file_path)
+                    all_data.append(df)
+                    current += timedelta(days=1)
+                    continue
+
+                if current == end:
+                    rs = bs.query_hs300_stocks()
+                else:
+                    rs = bs.query_hs300_stocks(date=date_str)
 
                 if rs.error_code != '0':
                     print(f"Error querying data for {date_str}: {rs.error_msg}")
                     continue
 
-                # 将结果集逐条读取并添加到列表中
-                while rs.next():
-                    row = rs.get_row_data()
-                    # row.append(date_str)  # 添加查询日期作为原始数据的 updateDate
-                    all_data.append(row)
+                data_list = []
+                while (rs.error_code == '0') & rs.next():
+                    data_list.append(rs.get_row_data())
+
+                columns = ['updateDate', 'code', 'code_name']
+                df = pd.DataFrame(data_list, columns=columns)
+
+                if not df.empty:
+                    df.to_csv(file_path, index=False)
+
+                    all_data.append(df)
 
             current += timedelta(days=1)
 
-        rs = bs.query_hs300_stocks()
-
-        # 将结果集逐条读取并添加到列表中
-        while (rs.error_code == '0') & rs.next():
-            row = rs.get_row_data()
-            # row.append(date_str)  # 添加查询日期作为原始数据的 updateDate
-            all_data.append(row)
-
-        # 构建 DataFrame
-        columns = ['updateDate', 'code', 'code_name']
-        df = pd.DataFrame(all_data, columns=columns)
+        df = pd.concat(all_data)
 
         # 处理 code 列：转大写、去点号
         df['code'] = df['code'].str.upper().str.replace('.', '', regex=False)
@@ -422,38 +436,52 @@ class MarketDataAPI:
         start = datetime.strptime(start_date, '%Y-%m-%d')
         end = datetime.strptime(end_date, '%Y-%m-%d')
 
+        # 保存成分股数据
+        from . import RAW_DATA_DIR
+        raw_data_dir = RAW_DATA_DIR
+        import os
+        index_dir = os.path.join(raw_data_dir, 'stock_set/zz500')
+        if not os.path.exists(index_dir):
+            os.makedirs(index_dir)
+
         all_data = []
 
         current = start
         while current <= end:
-            if current.day == 15:
+            if current.day == 15 or current == end:
                 date_str = current.strftime('%Y-%m-%d')
                 print(f"query_zz500_stocks {date_str}")
+                file_path = os.path.join(index_dir, f'{date_str}.csv')
+                if os.path.exists(file_path):
+                    df = pd.read_csv(file_path)
+                    all_data.append(df)
+                    current += timedelta(days=1)
+                    continue
 
-                rs = bs.query_zz500_stocks(date=date_str)
+                if current == end:
+                    rs = bs.query_zz500_stocks()
+                else:
+                    rs = bs.query_zz500_stocks(date=date_str)
 
                 if rs.error_code != '0':
                     print(f"Error querying data for {date_str}: {rs.error_msg}")
                     continue
 
-                # 将结果集逐条读取并添加到列表中
-                while rs.next():
-                    row = rs.get_row_data()
-                    # row.append(date_str)  # 添加查询日期作为原始数据的 updateDate
-                    all_data.append(row)
+                data_list = []
+                while (rs.error_code == '0') & rs.next():
+                    data_list.append(rs.get_row_data())
+
+                columns = ['updateDate', 'code', 'code_name']
+                df = pd.DataFrame(data_list, columns=columns)
+
+                if not df.empty:
+                    df.to_csv(file_path, index=False)
+
+                    all_data.append(df)
 
             current += timedelta(days=1)
 
-        rs = bs.query_zz500_stocks()
-
-        # 将结果集逐条读取并添加到列表中
-        while (rs.error_code == '0') & rs.next():
-            row = rs.get_row_data()
-            # row.append(date_str)  # 添加查询日期作为原始数据的 updateDate
-            all_data.append(row)
-        # 构建 DataFrame
-        columns = ['updateDate', 'code', 'code_name']
-        df = pd.DataFrame(all_data, columns=columns)
+        df = pd.concat(all_data)
 
         # 处理 code 列：转大写、去点号
         df['code'] = df['code'].str.upper().str.replace('.', '', regex=False)
@@ -469,39 +497,52 @@ class MarketDataAPI:
         start = datetime.strptime(start_date, '%Y-%m-%d')
         end = datetime.strptime(end_date, '%Y-%m-%d')
 
+        # 保存成分股数据
+        from . import RAW_DATA_DIR
+        raw_data_dir = RAW_DATA_DIR
+        import os
+        index_dir = os.path.join(raw_data_dir, 'stock_set/sz50')
+        if not os.path.exists(index_dir):
+            os.makedirs(index_dir)
+
         all_data = []
 
         current = start
         while current <= end:
-            if current.day == 15:
+            if current.day == 15 or current == end:
                 date_str = current.strftime('%Y-%m-%d')
-                rs = bs.query_sz50_stocks(date=date_str)
                 print(f"query_sz50_stocks {date_str}")
+                file_path = os.path.join(index_dir, f'{date_str}.csv')
+                if os.path.exists(file_path):
+                    df = pd.read_csv(file_path)
+                    all_data.append(df)
+                    current += timedelta(days=1)
+                    continue
+
+                if current == end:
+                    rs = bs.query_sz50_stocks()
+                else:
+                    rs = bs.query_sz50_stocks(date=date_str)
 
                 if rs.error_code != '0':
                     print(f"Error querying data for {date_str}: {rs.error_msg}")
                     continue
 
-                # 将结果集逐条读取并添加到列表中
-                while rs.next():
-                    row = rs.get_row_data()
-                    # row.append(date_str)  # 添加查询日期作为原始数据的 updateDate
-                    all_data.append(row)
+                data_list = []
+                while (rs.error_code == '0') & rs.next():
+                    data_list.append(rs.get_row_data())
+
+                columns = ['updateDate', 'code', 'code_name']
+                df = pd.DataFrame(data_list, columns=columns)
+
+                if not df.empty:
+                    df.to_csv(file_path, index=False)
+
+                    all_data.append(df)
 
             current += timedelta(days=1)
 
-        rs = bs.query_sz50_stocks()
-
-        # 将结果集逐条读取并添加到列表中
-        while (rs.error_code == '0') & rs.next():
-            row = rs.get_row_data()
-            # row.append(date_str)  # 添加查询日期作为原始数据的 updateDate
-            all_data.append(row)
-
-        print(all_data[0])
-        # 构建 DataFrame
-        columns = ['updateDate', 'code', 'code_name']
-        df = pd.DataFrame(all_data, columns=columns)
+        df = pd.concat(all_data)
 
         # 处理 code 列：转大写、去点号
         df['code'] = df['code'].str.upper().str.replace('.', '', regex=False)

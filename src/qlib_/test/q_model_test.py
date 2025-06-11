@@ -68,14 +68,9 @@ def run_experiment():
         R.log_params(**flatten_dict(task))
         model.fit(dataset)
 
-        import os
-        import pickle
 
-        model_path = "./output/gbdt/LGBModel/manual/"
-        os.makedirs(model_path, exist_ok=True)
-        with open(os.path.join(model_path, "model.pkl"), "wb") as f:
-            pickle.dump(model, f)
-
+        # 保存模型
+        R.save_objects(**{"params.pkl": model})
         # prediction
         recorder = R.get_recorder()
         sr = SignalRecord(model, dataset, recorder)

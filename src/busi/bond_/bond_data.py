@@ -78,6 +78,8 @@ class BondDataHandle:
             bond_day_result = pd.merge( df, trading_day_pd, on=['date'], how='left')
             bond_day_result = pd.merge(bond_day_result, bond_info_df, on=['转债代码_code'], how='left')
 
+            bond_day_result['factor'] = 1
+
             # print( bond_day_result.columns )
             # 可转债已上市时间计算，年
             bond_day_result['public_date'] = round(abs( (pd.to_datetime(bond_day_result['date']) - pd.to_datetime(bond_day_result['上市时间'])).dt.days ) / 365.25, 1)
@@ -390,9 +392,33 @@ class BondDataHandle:
                 print(f"{symbol}获取日线数据失败: {e}")
                 break
 
+    def convert_data_to_qlib(self):
+        '''
+        转换可转债数据和正股数据到 qlib_csv
+        :return:
+        '''
+
+        # DataCons.BOND_ZH_HS_DAILY_PATH
+        if os.path.exists(DataCons.BOND_ZH_HS_DAILY_PATH):
+            for file in os.listdir(DataCons.BOND_ZH_HS_DAILY_PATH):
+                if file.endswith(".csv"):
+                    file_path = os.path.join(DataCons.BOND_ZH_HS_DAILY_PATH, file)
+                    print(f"转换可转债数据: {file_path}")
+
+
+        # DataCons.STOCK_TRADING_DAY_PATH
+        if os.path.exists(DataCons.STOCK_TRADING_DAY_PATH):
+            for file in os.listdir(DataCons.STOCK_TRADING_DAY_PATH):
+                if file.endswith(".csv"):
+                    file_path = os.path.join(DataCons.STOCK_TRADING_DAY_PATH, file)
+                    print(f"转换可转债正股数据: {file_path}")
+
+
 
 def main():
-    BondDataHandle().down_all_data()
+    data_handle = BondDataHandle()
+    data_handle.down_all_data()
+    data_handle.convert_data_to_qlib()
     # BondDataHandle().get_bond_data()
 
 

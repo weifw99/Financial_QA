@@ -107,8 +107,9 @@ class DataSync:
                             df = pd.read_csv(daily_file)
                             df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
                             today = datetime.now().strftime('%Y-%m-%d')
-                            yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-                            if today in df['date'].values or yesterday in df['date'].values:
+                            #yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+                            # if today in df['date'].values or yesterday in df['date'].values:
+                            if today in df['date'].values :
                                 print(f"股票{code}已有最新数据，跳过增量同步")
                                 continue
                         # 文件存在，执行增量同步
@@ -131,7 +132,7 @@ class DataSync:
         print(f"SYNC_CONFIG: {SYNC_CONFIG}")
         
         # 获取成分股，并保存
-        index_types = ['sz50', 'hs300', 'zz500']
+        index_types = ['sz50', 'hs300', 'zz500', 'zz1000']
         # index_types = [ 'zz500']
         # index_types = []
         for index_type in index_types:

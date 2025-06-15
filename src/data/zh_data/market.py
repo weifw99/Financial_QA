@@ -554,6 +554,22 @@ class MarketDataAPI:
         # 保存结果
         return grouped
 
+    def query_zz1000_stocks(self, start_date: str, end_date: str ) -> pd.DataFrame:
+        import akshare as ak
+
+        # 获取中证1000（000852）成分股
+        df = ak.index_stock_cons(symbol="000852")
+        '''
+        品种代码  品种名称        纳入日期
+        002093  国脉科技  2025-06-16
+        '''
+        df.columns = ['code', 'code_name', 'start_time']
+        df['end_time'] = end_date
+
+        return  df[['code', 'start_time', 'end_time']]
+
+
+
 
     def get_index_constituents(self, index_type: str) -> pd.DataFrame:
         """获取指数成分股
@@ -563,7 +579,8 @@ class MarketDataAPI:
                 - 'sz50': 上证50
                 - 'hs300': 沪深300
                 - 'zz500': 中证500
-                
+                - 'zz1000': 中证1000
+
         Returns:
             DataFrame包含以下字段：
             - code: 股票代码
@@ -583,6 +600,8 @@ class MarketDataAPI:
                 df = self.query_hs300_stocks(start_date='2010-01-01', end_date=current_date_str)
             elif index_type == 'zz500':
                 df = self.query_zz500_stocks(start_date='2010-01-01', end_date=current_date_str)
+            elif index_type == 'zz1000':
+                df = self.query_zz1000_stocks(start_date='2010-01-01', end_date=current_date_str)
             else:
                 raise ValueError(f"不支持的指数类型: {index_type}")
 

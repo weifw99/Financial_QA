@@ -78,8 +78,6 @@ class BondDataHandle:
             bond_day_result = pd.merge( df, trading_day_pd, on=['date'], how='left')
             bond_day_result = pd.merge(bond_day_result, bond_info_df, on=['转债代码_code'], how='left')
 
-            bond_day_result['factor'] = 1
-
             # print( bond_day_result.columns )
             # 可转债已上市时间计算，年
             bond_day_result['public_date'] = round(abs( (pd.to_datetime(bond_day_result['date']) - pd.to_datetime(bond_day_result['上市时间'])).dt.days ) / 365.25, 1)
@@ -283,7 +281,7 @@ class BondDataHandle:
                 print(f"从接口获取 可转债日频交易 数据: {symbol}-{stock_code}")
                 bond_zh_hs_cov_daily_df = ak.bond_zh_hs_cov_daily(symbol=symbol) # sz128039
 
-                print(len(bond_zh_hs_cov_daily_df))
+                print('download_bond_trading_day_data', symbol, len(bond_zh_hs_cov_daily_df))
 
                 # time.sleep(10)
                 if bond_zh_hs_cov_daily_df is not None and not bond_zh_hs_cov_daily_df.empty:
@@ -295,6 +293,7 @@ class BondDataHandle:
                     # print(len(temp_df), len(bond_zh_hs_cov_daily_df))
                     #
                     # bond_zh_hs_cov_daily_df = pd.merge(bond_zh_hs_cov_daily_df, temp_df, on=['date'], how='left')
+                    bond_zh_hs_cov_daily_df['factor'] = 1
 
                     bond_zh_hs_cov_daily_df.to_csv(path_, index=False)
             except Exception as e:
@@ -418,7 +417,7 @@ class BondDataHandle:
 def main():
     data_handle = BondDataHandle()
     data_handle.down_all_data()
-    data_handle.convert_data_to_qlib()
+    # data_handle.convert_data_to_qlib()
     # BondDataHandle().get_bond_data()
 
 

@@ -1,3 +1,4 @@
+import random
 import traceback
 from typing import Union, List, Optional, Tuple
 
@@ -166,7 +167,7 @@ class BondDataHandle:
             self.download_bond_zh_cov_value_analysis(symbol=bond_code_temp)
             self.download_bond_trading_day_data(symbol_tuple=(bond_code_temp, stock_code_temp) )
             self.download_stock_trading_day_data(symbol=stock_code_temp)
-            # time.sleep(3)
+            time.sleep(random.randint(1, 3))
 
 
     @staticmethod
@@ -356,9 +357,13 @@ class BondDataHandle:
                     data_list.append(rs.get_row_data())
 
                 df = pd.DataFrame(data_list, columns=rs.fields)
+                print(f"query_history_k_data_plus：{symbol}接口获取{start_date}-{end_date}日线数据为{len(df)}")
 
-                if bef_df is not None and not bef_df.empty:
-                    df = pd.concat([bef_df, df], ignore_index=True)
+                if not df.empty:
+                    if bef_df is not None and not bef_df.empty:
+                        df = pd.concat([bef_df, df], ignore_index=True)
+                else:
+                    df = bef_df
 
                 # 数值类型转换
                 numeric_columns = ['open', 'high', 'low', 'close', 'volume', 'amount']
@@ -386,7 +391,7 @@ class BondDataHandle:
 
                 # 格式化日期列
                 # temp_df['date'] = pd.to_datetime(temp_df['date'])
-                temp_df.sort_values('date', ascending=False).to_csv(path_, index=False)
+                temp_df.sort_values('date', ascending=False).drop_duplicates().to_csv(path_, index=False)
             except Exception as e:
                 print(f"{symbol}获取日线数据失败: {e}")
                 break

@@ -192,8 +192,7 @@ class EtfDataHandle:
             temp_etf0 = temp_etf[0]
             temp_etf0['代码'] = etf_code
             etf_list.append(temp_etf0)
-
-            time.sleep(random.randint(1, 6))
+            time.sleep(random.randint(1, 3))
 
         etf_trading_day_pd = pd.concat(etf_list, axis=0)
 

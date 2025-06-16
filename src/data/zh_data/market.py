@@ -199,11 +199,11 @@ class MarketDataAPI:
         
         # 根据frequency选择查询字段
         if frequency.lower() == 'd':  # 日线
-            fields = "date,open,high,low,close,volume,amount,adjustflag,turn,tradestatus,pctChg,peTTM,pbMRQ,psTTM,pcfNcfTTM"
+            fields = "date,code,open,high,low,close,volume,amount,adjustflag,turn,tradestatus,pctChg,peTTM,pbMRQ,psTTM,pcfNcfTTM,isST"
         elif frequency.lower() in {'w', 'm'}:  # 周线、月线
-            fields = "date,open,high,low,close,volume,amount,adjustflag,turn,pctChg"
+            fields = "date,code,open,high,low,close,volume,amount,adjustflag,turn,pctChg"
         else:  # 分钟线
-            fields = "date,time,open,high,low,close,volume,amount,adjustflag"
+            fields = "date,code,time,open,high,low,close,volume,amount,adjustflag"
         if end_date is None:
             end_date = datetime.now().strftime('%Y-%m-%d')
             
@@ -245,7 +245,7 @@ class MarketDataAPI:
                 # 数值类型转换
                 numeric_columns = ['open', 'high', 'low', 'close', 'volume', 'amount']
                 if frequency.lower() in {'d', 'w', 'm'}:  # 日线、周线、月线额外的指标
-                    numeric_columns.extend(['turn', 'pctChg', 'peTTM', 'pbMRQ', 'psTTM', 'pcfNcfTTM'])
+                    numeric_columns.extend(['turn', 'pctChg', 'peTTM', 'pbMRQ', 'psTTM', 'pcfNcfTTM', 'isST'])
                     
                 for col in numeric_columns:
                     if col in df.columns:

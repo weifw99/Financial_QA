@@ -16,7 +16,7 @@ from scipy.stats import linregress
 
 import sys
 
-from busi.etf_.constant import DataCons
+from src.busi.etf_.constant import DataCons
 
 
 class EtfDataHandle:

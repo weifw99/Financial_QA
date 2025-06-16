@@ -100,6 +100,10 @@ class EtfDataHandle:
                     bef_df = bef_df.sort_values(by='date', ascending=False)
                     start_date = bef_df.iloc[0]['date']
                     start_date = pd.to_datetime(start_date).strftime('%Y%m%d')
+            if start_date == end_date or start_date > end_date:
+                print(f"{symbol}本地日线数据为最新")
+                etf_result.append(bef_df)
+                continue
             try:
                 import akshare as ak
                 df = ak.fund_etf_hist_em(symbol=symbol[2:],
@@ -184,6 +188,7 @@ class EtfDataHandle:
         # etf_info_dfs = etf_info_dfs[[]]
         etf_list = []
         for etf_code in etf_info_dfs['代码1'].tolist():
+            time.sleep(random.randint(1, 3))
             temp_etf: list[pd.DataFrame] = self.download_etf_trading_day_data(symbol=str( etf_code ) )
 
             if len(temp_etf) == 0:

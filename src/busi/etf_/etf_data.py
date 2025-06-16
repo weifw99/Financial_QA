@@ -187,7 +187,13 @@ class EtfDataHandle:
 
         # etf_info_dfs = etf_info_dfs[[]]
         etf_list = []
-        for etf_code in etf_info_dfs['代码1'].tolist():
+        import random
+        # 获取 '代码1' 列并转换为列表
+        code_list = etf_info_dfs['代码1'].tolist()
+        # 随机打乱列表顺序
+        random.shuffle(code_list)
+
+        for etf_code in code_list:
             time.sleep(random.randint(1, 3))
             temp_etf: list[pd.DataFrame] = self.download_etf_trading_day_data(symbol=str( etf_code ) )
 

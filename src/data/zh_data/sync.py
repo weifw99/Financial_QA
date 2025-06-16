@@ -116,8 +116,14 @@ class DataSync:
                         end_date = datetime.now().strftime('%Y-%m-%d')
                         start_date = (datetime.now() - timedelta(days=SYNC_CONFIG['incremental_days'])).strftime('%Y-%m-%d')
                         await sync._sync_single_stock_incremental(code, start_date, end_date)
-                    
-                # 检查股票文件 
+                if 'financial' in SYNC_CONFIG['data_types']:
+                    income_file = os.path.join(sync.financial_dir, code, 'income.csv')
+                    if not os.path.exists(income_file):
+                        await sync._sync_single_financial_full(code)
+                    else:
+                        await sync._sync_single_financial_incremental(code)
+
+                # 检查股票文件
         
         # 在每个进程中运行异步任务
         import asyncio
@@ -177,10 +183,10 @@ class DataSync:
             
             print("所有数据同步任务已完成")
         self._ensure_logout()
-            
+
     async def _sync_single_stock_full(self, code: str):
         """全量同步单只股票的所有数据
-        
+
         Args:
             code: 股票代码
         """
@@ -188,7 +194,7 @@ class DataSync:
             # 同步行情数据（从2010年开始）
             # 定义所有需要同步的周期
             # frequencies = ['d', 'w', 'm', '5', '15', '30', '60']
-            frequencies = ['d', 'w', 'm', '15',]
+            frequencies = ['d', 'w', 'm', '15', ]
             for freq in frequencies:
                 # 获取对应周期的数据
                 kline_data = await self.market_api.get_stock_daily(
@@ -208,97 +214,35 @@ class DataSync:
                         '60': 'min60'
                     }[freq]
                     self._save_data(kline_data, self.market_dir, code, file_type)
-                
-            # 同步财务数据
-            if 'financial' in SYNC_CONFIG['data_types']:
-                current_year = datetime.now().year
-                # 资产负债表
-                balance_data = self.financial_api.get_balance_sheet(
-                    code
-                )
-                if not balance_data.empty:
-                    self._save_data(balance_data, self.financial_dir, code, 'balance')
-                
-                # 利润表
-                income_data = self.financial_api.get_income_statement(
-                    code
-                )
-                if not income_data.empty:
-                    self._save_data(income_data, self.financial_dir, code, 'income')
-                '''        
-                for year in range(current_year - SYNC_CONFIG['financial_years'], current_year + 1):
-                    for quarter in range(1, 5):
-                        # 资产负债表
-                        balance_data = self.financial_api.get_balance_sheet(
-                            code,
-                            year=year,
-                            quarter=quarter
-                        )
-                        if not balance_data.empty:
-                            self._save_data(balance_data, self.financial_dir, code, 'balance')
-                        
-                        # 利润表
-                        income_data = self.financial_api.get_income_statement(
-                            code,
-                            year=year,
-                            quarter=quarter
-                        )
-                        if not income_data.empty:
-                            self._save_data(income_data, self.financial_dir, code, 'income')
-                '''
-                            
-            # 同步新闻数据
-            if 'news' in SYNC_CONFIG['data_types']:
-                start_date = (datetime.now() - timedelta(days=SYNC_CONFIG['news_days'])).strftime('%Y-%m-%d')
-                end_date = datetime.now().strftime('%Y-%m-%d')
-                
-                # 公司公告
-                # 根据news_days计算起始年份和季度
-                start_date_obj = datetime.now() - timedelta(days=SYNC_CONFIG['news_days'])
-                end_date_obj = datetime.now()
-                
-                # 获取起始和结束的年份季度
-                start_year = start_date_obj.year
-                start_quarter = (start_date_obj.month - 1) // 3 + 1
-                end_year = end_date_obj.year
-                end_quarter = (end_date_obj.month - 1) // 3 + 1
-                
-                # 遍历每个季度获取公告数据
-                announcements_list = []
-                current_year = start_year
-                current_quarter = start_quarter
-                
-                while (current_year < end_year) or \
-                      (current_year == end_year and current_quarter <= end_quarter):
-                    quarter_announcements = self.news_api.get_company_announcements(
-                        code,
-                        year=current_year,
-                        quarter=current_quarter
-                    )
-                    if not quarter_announcements.empty:
-                        announcements_list.append(quarter_announcements)
-                    
-                    # 更新年份和季度
-                    current_quarter += 1
-                    if current_quarter > 4:
-                        current_quarter = 1
-                        current_year += 1
-                
-                # 合并所有季度的数据
-                announcements = pd.concat(announcements_list) if announcements_list else pd.DataFrame()
-                if not announcements.empty:
-                    self._save_data(announcements, self.news_dir, code, 'announcements')
-                    
-
 
         except Exception as e:
             print(f"同步股票{code}数据失败: {e}")
             print(f"错误详情: {str(e.__class__.__name__)}: {str(e)}")
             print(f"发生错误的位置: {e.__traceback__.tb_frame.f_code.co_filename}:{e.__traceback__.tb_lineno}")
-            
+
+    async def _sync_single_financial_full(self, code: str):
+        """全量同步单只股票的所有数据
+
+        Args:
+            code: 股票代码
+        """
+        try:
+            # 同步财务数据
+            # 利润表
+            income_data = self.financial_api.get_income_statement(
+                code
+            )
+            if not income_data.empty:
+                self._save_data(income_data, self.financial_dir, code, 'income')
+
+        except Exception as e:
+            print(f"同步股票{code}数据失败: {e}")
+            print(f"错误详情: {str(e.__class__.__name__)}: {str(e)}")
+            print(f"发生错误的位置: {e.__traceback__.tb_frame.f_code.co_filename}:{e.__traceback__.tb_lineno}")
+
     async def _sync_single_stock_incremental(self, code: str, start_date: str, end_date: str):
         """增量同步单只股票的最新数据
-        
+
         Args:
             code: 股票代码
             start_date: 开始日期
@@ -308,7 +252,7 @@ class DataSync:
             # 同步行情数据
             # 定义所有需要同步的周期
             # frequencies = ['d', 'w', 'm', '5', '15', '30', '60']
-            frequencies = ['d', 'w', 'm', '15',]
+            frequencies = ['d', 'w', 'm', '15', ]
             for freq in frequencies:
                 # 获取对应周期的数据
                 kline_data = await self.market_api.get_stock_daily(
@@ -329,22 +273,27 @@ class DataSync:
                         '60': 'min60'
                     }[freq]
                     self._save_data(kline_data, self.market_dir, code, file_type, mode='a')
-                
+
+        except Exception as e:
+            print(f"增量同步股票{code}数据失败: {e}")
+            print(f"错误详情: {str(e.__class__.__name__)}: {str(e)}")
+            print(f"发生错误的位置: {e.__traceback__.tb_frame.f_code.co_filename}:{e.__traceback__.tb_lineno}")
+
+
+    async def _sync_single_financial_incremental(self, code: str):
+        """增量同步单只股票的最新数据
+
+        Args:
+            code: 股票代码
+        """
+        try:
+
             # 同步财务数据
             # 获取当前年度和季度
             now = datetime.now()
             current_year = now.year
             current_quarter = (now.month - 1) // 3 + 1
-            
-            # 资产负债表
-            balance_data = self.financial_api.get_balance_sheet(
-                code,
-                year=current_year,
-                quarter=current_quarter
-            )
-            if not balance_data.empty:
-                self._save_data(balance_data, self.financial_dir, code, 'balance', mode='a')
-                
+
             # 利润表
             income_data = self.financial_api.get_income_statement(
                 code,
@@ -353,52 +302,13 @@ class DataSync:
             )
             if not income_data.empty:
                 self._save_data(income_data, self.financial_dir, code, 'income', mode='a')
-                
-            # 同步新闻数据
-            # 公司公告
-            # 根据start_date和end_date计算年份和季度
-            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d')
-            end_date_obj = datetime.strptime(end_date, '%Y-%m-%d')
-            
-            # 获取起始和结束的年份季度
-            start_year = start_date_obj.year
-            start_quarter = (start_date_obj.month - 1) // 3 + 1
-            end_year = end_date_obj.year
-            end_quarter = (end_date_obj.month - 1) // 3 + 1
-            
-            # 遍历每个季度获取公告数据
-            announcements_list = []
-            current_year = start_year
-            current_quarter = start_quarter
-            
-            while (current_year < end_year) or \
-                  (current_year == end_year and current_quarter <= end_quarter):
-                quarter_announcements = self.news_api.get_company_announcements(
-                    code,
-                    year=current_year,
-                    quarter=current_quarter
-                )
-                if not quarter_announcements.empty:
-                    announcements_list.append(quarter_announcements)
-                
-                # 更新年份和季度
-                current_quarter += 1
-                if current_quarter > 4:
-                    current_quarter = 1
-                    current_year += 1
-            
-            # 合并所有季度的数据
-            announcements = pd.concat(announcements_list) if announcements_list else pd.DataFrame()
-            if not announcements.empty:
-                self._save_data(announcements, self.news_dir, code, 'announcements', mode='a')
-                
-
 
         except Exception as e:
             print(f"增量同步股票{code}数据失败: {e}")
             print(f"错误详情: {str(e.__class__.__name__)}: {str(e)}")
             print(f"发生错误的位置: {e.__traceback__.tb_frame.f_code.co_filename}:{e.__traceback__.tb_lineno}")
-            
+
+
     def _save_data(self, df: pd.DataFrame, base_dir: str, code: str,
                    data_type: str, mode: str = 'w') -> None:
         """保存数据到CSV文件
@@ -439,7 +349,11 @@ class DataSync:
                 if data_type == 'daily':
                     # 行情数据按日期去重
                     merged_data = merged_data.drop_duplicates(subset=['date'], keep='first')
-                elif data_type in ['balance', 'income']:
+                elif data_type in [ 'income']:
+                    # 财务数据按年度和季度去重
+                    merged_data.ffill(inplace= True)  # 对 null 使用前先填充， 主要是MBRevenue
+                    merged_data = merged_data.drop_duplicates(subset=['pubDate'], keep='first')
+                elif data_type in ['balance']:
                     # 财务数据按年度和季度去重
                     merged_data = merged_data.drop_duplicates(subset=['year', 'quarter'], keep='first')
                 elif data_type == 'announcements':

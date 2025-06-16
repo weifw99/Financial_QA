@@ -6,7 +6,7 @@
 3. 财务指标（市盈率、市净率等）
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 from datetime import datetime
 import time
 import random
@@ -26,64 +26,40 @@ class FinancialDataAPI:
     def get_income_statement(
         self,
         code: str,
-        year: int = None,
-        quarter: int = None
+        year: Union[int, List[int]] = None,
+        quarter: Union[int, List[int]] = None
     ) -> pd.DataFrame:
-        for retry in range(self._max_retries):
-            try:
-                rs = bs.query_profit_data(
-                    code=code,
-                    # year=year,
-                    # quarter=quarter
-                )
-                time.sleep(self._api_delay())  # API调用后休眠
-                
-                if rs.error_code != '0':
-                    raise Exception(f"获取利润表数据失败: {rs.error_msg}")
-                    
-                data_list = []
-                while (rs.error_code == '0') & rs.next():
-                    data_list.append(rs.get_row_data())
-                    
-                df = pd.DataFrame(data_list, columns=rs.fields)
-                return df.sort_values('statDate', ascending=False)
-            except Exception as e:
-                if retry < self._max_retries - 1:
-                    print(f"第{retry + 1}次尝试失败: {e}，将在{self._retry_delay}秒后重试")
-                    time.sleep(self._retry_delay)
-                    continue
-                print(f"获取利润表数据失败: {e}")
-                return pd.DataFrame()
-            
-    def get_balance_sheet(
-        self,
-        code: str,
-        year: int = None,
-        quarter: int = None
-    ) -> pd.DataFrame:
-        for retry in range(self._max_retries):
-            try:
-                rs = bs.query_balance_data(
-                    code=code,
-                    # year=year,
-                    # quarter=quarter
-                )
-                time.sleep(self._api_delay())  # API调用后休眠
-                
-                if rs.error_code != '0':
-                    raise Exception(f"获取资产负债表数据失败: {rs.error_msg}")
-                    
-                data_list = []
-                while (rs.error_code == '0') & rs.next():
-                    data_list.append(rs.get_row_data())
-                    
-                df = pd.DataFrame(data_list, columns=rs.fields)
-                return df.sort_values('statDate', ascending=False)
-            except Exception as e:
-                if retry < self._max_retries - 1:
-                    print(f"第{retry + 1}次尝试失败: {e}，将在{self._retry_delay}秒后重试")
-                    time.sleep(self._retry_delay)
-                    continue
-                print(f"获取资产负债表数据失败: {e}")
-                return pd.DataFrame()
+
+        import datetime
+        if year is None:
+            years = [i for i in range(2000, datetime.datetime.now().year + 1)]
+            quarters = [1, 2, 3, 4]
+        else:
+            if type(year) == int:
+                years = [year]
+            else:
+                years = year
+            if type(quarter) == int:
+                quarters = [quarter]
+            else:
+                quarters = quarter
+
+        data_list = []
+        for year in years:
+            for q in quarters:
+                rs = bs.query_profit_data(code=code, year=year, quarter=q)
+                if rs.error_code == '0':
+                    while rs.next():
+                        row = rs.get_row_data()
+                        data_list.append(row)
+        columns = ['code','pubDate','statDate', 'roeAvg', 'npMargin', 'gpMargin', 'netProfit', 'epsTTM', 'MBRevenue', 'totalShare', 'liqaShare']
+        df_profit = pd.DataFrame(data_list, columns=columns).sort_values(['pubDate'])
+        df_profit.ffill(inplace=True) # 对 null 使用前先填充， 主要是MBRevenue
+
+        df_profit.dropna(inplace=True)
+
+        print(code, 'query_profit_data' ,len(df_profit))
+
+        return df_profit
+
             

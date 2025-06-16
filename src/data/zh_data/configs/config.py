@@ -26,7 +26,8 @@ MARKET_DATA = {
 SYNC_CONFIG = {
     # 'mode': 'incremental',  # 同步模式: full(全量) / incremental(增量)
     # 'data_types': ['market', 'financial', 'news'],  # 需要同步的数据类型
-    'data_types': ['market'],  # 需要同步的数据类型
+    # 'data_types': ['market', 'financial'],  # 需要同步的数据类型
+    'data_types': ['financial'],  # 需要同步的数据类型
     'incremental_days': 3,  # 增量同步时的时间范围（天）
     'financial_years': 5,  # 财务数据同步的年限范围
     'news_days': 365,  # 新闻数据同步的时间范围（天）

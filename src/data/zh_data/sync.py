@@ -119,8 +119,10 @@ class DataSync:
                 if 'financial' in SYNC_CONFIG['data_types']:
                     income_file = os.path.join(sync.financial_dir, code, 'income.csv')
                     if not os.path.exists(income_file):
+                        print(f"index: {i}, stock: {code}, full sync, dealing date: {datetime.now().strftime('%Y-%m-%d:%H:%M:%S')}")
                         await sync._sync_single_financial_full(code)
                     else:
+                        print(f"index: {i}, stock: {code}, incremental sync, dealing date: {datetime.now().strftime('%Y-%m-%d:%H:%M:%S')}")
                         await sync._sync_single_financial_incremental(code)
 
                 # 检查股票文件

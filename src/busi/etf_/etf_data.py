@@ -99,6 +99,7 @@ class EtfDataHandle:
                     bef_df = bef_df.drop_duplicates(subset=['date'], keep='last')
                     bef_df = bef_df.sort_values(by='date', ascending=False)
                     start_date = bef_df.iloc[0]['date']
+                    start_date = pd.to_datetime(start_date).strftime('%Y%m%d')
             try:
                 import akshare as ak
                 df = ak.fund_etf_hist_em(symbol=symbol[2:],
@@ -106,14 +107,14 @@ class EtfDataHandle:
                                          start_date=start_date,
                                          end_date=end_date,
                                          adjust="hfq")
-                if bef_df is not None and not bef_df.empty:
-                    df = pd.concat([bef_df, df], ignore_index=True)
-
+                print(f"fund_etf_hist_em：{symbol}接口获取{start_date}-{end_date}日线数据为{len(df)}")
                 if len(df) == 0:
-                    print(f"{symbol}获取日线数据为 null")
+                    print(f"{symbol}接口获取日线数据为 null")
+                    if len(bef_df) > 0:
+                        etf_result.append(bef_df)
                     continue
-
                 time.sleep(0.01)
+
                 df['factor'] = 1  # 赋权因子
 
                 # 日期,开盘,收盘,最高,最低,成交量,成交额,涨跌幅,换手率,factor
@@ -132,12 +133,17 @@ class EtfDataHandle:
                     'factor': 'factor'
                 }
                 temp_df.rename(columns=columns, inplace=True)
-
                 temp_df['date'] = pd.to_datetime(temp_df['date'])
-                temp_df = temp_df.sort_values('date', ascending=False)
 
-                temp_df.to_csv(path_, index=False)
-                etf_result.append(temp_df)
+                if bef_df is not None and not bef_df.empty and not temp_df.empty:
+                    df = pd.concat([bef_df, temp_df], ignore_index=True)
+
+                df['date'] = pd.to_datetime(df['date'])
+                df = df.drop_duplicates().sort_values('date', ascending=False)
+
+                df.to_csv(path_, index=False)
+                etf_result.append(df)
+
             except Exception as e:
                 print(f"{symbol}获取日线数据失败: {e}")
                 break

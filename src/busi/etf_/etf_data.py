@@ -108,35 +108,34 @@ class EtfDataHandle:
                                          end_date=end_date,
                                          adjust="hfq")
                 print(f"fund_etf_hist_em：{symbol}接口获取{start_date}-{end_date}日线数据为{len(df)}")
-                if len(df) == 0:
+                if not df.empty:
+
+                    df['factor'] = 1  # 赋权因子
+
+                    # 日期,开盘,收盘,最高,最低,成交量,成交额,涨跌幅,换手率,factor
+                    # date,open,close,high,low,volume,amount,pctChg,turn,factor
+                    df = df.drop_duplicates(subset=['日期'], keep='last')
+                    columns = {
+                        '日期': 'date',
+                        '开盘': 'open',
+                        '收盘': 'close',
+                        '最高': 'high',
+                        '最低': 'low',
+                        '成交量': 'volume',
+                        '成交额': 'amount',
+                        '涨跌幅': 'pctChg',
+                        '换手率': 'turn',
+                        'factor': 'factor'
+                    }
+                    df.rename(columns=columns, inplace=True)
+                    # df['date'] = pd.to_datetime(df['date'])
+
+                    if bef_df is not None and not bef_df.empty:
+                        df = pd.concat([bef_df, df], ignore_index=True)
+                else:
                     print(f"{symbol}接口获取日线数据为 null")
-                    if len(bef_df) > 0:
-                        etf_result.append(bef_df)
-                    continue
+                    df = bef_df
                 time.sleep(0.01)
-
-                df['factor'] = 1  # 赋权因子
-
-                # 日期,开盘,收盘,最高,最低,成交量,成交额,涨跌幅,换手率,factor
-                # date,open,close,high,low,volume,amount,pctChg,turn,factor
-                temp_df = df.drop_duplicates(subset=['日期'], keep='last')
-                columns = {
-                    '日期': 'date',
-                    '开盘': 'open',
-                    '收盘': 'close',
-                    '最高': 'high',
-                    '最低': 'low',
-                    '成交量': 'volume',
-                    '成交额': 'amount',
-                    '涨跌幅': 'pctChg',
-                    '换手率': 'turn',
-                    'factor': 'factor'
-                }
-                temp_df.rename(columns=columns, inplace=True)
-                temp_df['date'] = pd.to_datetime(temp_df['date'])
-
-                if bef_df is not None and not bef_df.empty and not temp_df.empty:
-                    df = pd.concat([bef_df, temp_df], ignore_index=True)
 
                 df['date'] = pd.to_datetime(df['date'])
                 df = df.drop_duplicates().sort_values('date', ascending=False)

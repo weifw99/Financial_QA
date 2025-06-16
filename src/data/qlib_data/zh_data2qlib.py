@@ -11,6 +11,8 @@
 # 每个股票保存为一个csv文件。其中日期列命名为'date'。文件名为股票代码，如股票600000的价格数据，保存在'SH600000.csv'
 
 import os
+from pathlib import Path
+
 import pandas as pd
 import argparse
 
@@ -31,7 +33,9 @@ class ZhData2Qlib:
         self.type = type
 
     def convert_to_qlib(self):
-        
+
+        financial_data_dir = Path(base_data_path).parent / 'financial'
+
         for i, stock_file in enumerate(os.listdir(self.zh_data_dir)):
             # if i > 10:
             #     break
@@ -49,6 +53,30 @@ class ZhData2Qlib:
             df = pd.read_csv(file_path)
             # 使用后复权价格，factor均设置为1， 回测使用该因子
             df['factor'] = 1.0
+
+            # 获取财务盈利信息
+            financial_path = f'{financial_data_dir}/{stock_file}/income.csv'
+            if os.path.exists(financial_path):
+                import pandas as pd
+
+                financial_df = pd.read_csv(financial_path)
+
+                financial_df['date'] = financial_df['pubDate']
+
+                financial_df = financial_df[['date', 'netProfit', 'MBRevenue', 'totalShare', 'liqaShare']]
+                # 确保 date 列为 datetime 类型并排序
+                df['date'] = pd.to_datetime(df['date'])
+                financial_df['date'] = pd.to_datetime(financial_df['date'])
+
+                df_sorted = df.sort_values('date')
+                df2_sorted = financial_df.sort_values('date')
+
+                # 使用 pd.merge_asof 实现按时间向前填充匹配
+                df = pd.merge_asof(df_sorted, df2_sorted, on='date', direction='backward')
+
+            else:
+                print(f'{financial_path} not exists')
+
             df.to_csv(save_path, index=False)
             
 

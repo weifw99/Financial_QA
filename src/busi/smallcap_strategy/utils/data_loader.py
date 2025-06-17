@@ -1,22 +1,25 @@
 # utils/data_loader.py
 # 封装股票与指数的 CSV 数据加载，注入自定义字段：市值、利润、营收、ST
 import os
+from pathlib import Path
+
 import pandas as pd
 import backtrader as bt
 
-class CustomCSV(bt.feeds.GenericCSVData):
+class CustomPandasData(bt.feeds.PandasData):
     """
     自定义数据类，包含：市值、市盈率、利润、营收、是否ST标记等基本面数据
-    需要保证CSV中有以下字段：datetime, open, high, low, close, volume, mv, profit, revenue, is_st
+    需要保证df中有以下字段：datetime, open, high, low, close, volume, mv, profit, revenue, is_st
     """
     lines = ('mv', 'profit', 'revenue', 'is_st',)
-    params = (
+    params = (# 'datetime', 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue', 'is_st'
         ('datetime', 0),
         ('open', 1),
         ('high', 2),
         ('low', 3),
         ('close', 4),
         ('volume', 5),
+
         ('mv', 6),
         ('profit', 7),
         ('revenue', 8),
@@ -35,19 +38,65 @@ def load_stock_data(data_dir):
     :return: list of data feeds
     """
     datas = []
-    for fname in os.listdir(data_dir):
-        if not fname.endswith('.csv'):
-            continue
-        fpath = os.path.join(data_dir, fname)
-        df = pd.read_csv(fpath)
 
-        # 检查并填充关键列
-        required_cols = ['datetime', 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue', 'is_st']
-        for col in required_cols:
-            if col not in df.columns:
-                raise ValueError(f"缺失字段：{col} in {fname}")
+    base_data_path = '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data'
+    zh_data_dir = Path(base_data_path) / 'market'
+    financial_data_dir = Path(base_data_path).parent / 'zh_data/financial'
 
-        data = CustomCSV(dataname=fpath)
-        data._name = fname.replace('.csv', '')  # 设置数据名称（用于后续匹配指数名等）
-        datas.append(data)
+    for i, stock_file in enumerate(os.listdir(zh_data_dir)):
+        # if i > 10:
+        #     break
+        print(f'{i}/{stock_file}')
+        file_path = f'{zh_data_dir}/{stock_file}/daily.csv'
+
+        # 获取财务盈利信息
+        financial_path = f'{financial_data_dir}/{stock_file}/income.csv'
+        if os.path.exists(file_path) and os.path.exists(financial_path):
+            df = pd.read_csv(file_path)
+            # 使用后复权价格，factor均设置为1， 回测使用该因子
+            df['factor'] = 1.0
+
+            financial_df = pd.read_csv(financial_path)
+            financial_df['date'] = financial_df['pubDate']
+
+            financial_df = financial_df[['date', 'netProfit', 'MBRevenue', 'totalShare', 'liqaShare']]
+            # 确保 date 列为 datetime 类型并排序
+            df['date'] = pd.to_datetime(df['date'])
+            financial_df['date'] = pd.to_datetime(financial_df['date'])
+
+            df_sorted = df.sort_values('date')
+            df2_sorted = financial_df.sort_values('date').ffill().dropna()
+
+
+            # pubDate	公司发布财报的日期
+            # statDate	财报统计的季度的最后一天, 比如2017-03-31, 2017-06-30
+            # netProfit	净利润(元)
+            # MBRevenue	主营营业收入(元)
+            # totalShare	总股本(股)
+            # 使用 pd.merge_asof 实现按时间向前填充匹配
+            df = pd.merge_asof(df_sorted, df2_sorted, on='date', direction='backward')
+
+            df.rename(columns={'netProfit': 'profit', 'MBRevenue': 'revenue', 'isST': 'is_st', 'date': 'datetime'}, inplace=True)
+
+            df['mv'] = df['totalShare'] * df['close'] # 市值 = 总股本 * 收盘价（不复权）
+
+            # 检查并填充关键列
+            required_cols = ['datetime', 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue', 'is_st']
+            for col in required_cols:
+                if col not in df.columns:
+                    raise ValueError(f"缺失字段：{col} in {stock_file}")
+
+            df = df[required_cols]
+
+            # df.set_index('datetime', inplace=True)  # 设置 datetime 为索引
+            data = CustomPandasData(
+                dataname=df,
+                dtformat='%Y-%m-%d',
+                timeframe=bt.TimeFrame.Days,
+                compression=1,
+                openinterest=-1
+            )
+            data._name = stock_file.replace('.csv', '')  # 设置数据名称（用于后续匹配指数名等）
+            datas.append(data)
     return datas
+

@@ -29,6 +29,7 @@ def run():
     cerebro.broker.set_cash(1000000)  # 初始资金
 
     # 设置 MLflow 实验记录
+    '''
     mlflow.set_tracking_uri("outputs/mlruns")
     with mlflow.start_run(run_name="smallcap_strategy"):
         result = cerebro.run()
@@ -40,6 +41,15 @@ def run():
         cerebro.plot(style='candlestick')
         plt.savefig("outputs/plots/net_value.png")
         mlflow.log_artifact("outputs/plots/net_value.png")
+    '''
+    result = cerebro.run()
+    port_value = cerebro.broker.getvalue()
+    print("Final Portfolio Value: %.2f" % port_value)
+
+    # 绘制净值图并记录
+    import matplotlib.pyplot as plt
+    cerebro.plot(style='candlestick')
+    plt.savefig("outputs/plots/net_value.png")
 
 if __name__ == '__main__':
     run()

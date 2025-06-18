@@ -19,12 +19,15 @@ class SmallCapStrategy(bt.Strategy):
     )
 
     def __init__(self):
+        super().__init__()
+        print('SmallCapStrategy.init')
         # 标记调仓时间与状态
         self.rebalance_date = None
         self.clear_until = None  # 清仓维持到的日期
         self.is_cleared = False  # 当前是否处于清仓状态
 
     def next(self):
+        print('SmallCapStrategy.next')
         dt = self.datas[0].datetime.datetime(0)
 
         # 判断是否为调仓时间（每周二上午10点）
@@ -66,11 +69,13 @@ class SmallCapStrategy(bt.Strategy):
                     self.buy(d)
 
     def sell_all(self):
+        print('SmallCapStrategy.sell_all')
         for d in self.datas:
             if self.getposition(d).size > 0:
                 self.close(d)
 
     def get_index_return(self, name, days):
+        print('SmallCapStrategy.get_index_return')
         """获取指定指数的N日收益率"""
         d = self.getdatabyname(name)
         if len(d) < days + 1:
@@ -78,16 +83,19 @@ class SmallCapStrategy(bt.Strategy):
         return d.close[0] / d.close[-days] - 1
 
     def check_trend_crash(self):
+        print('SmallCapStrategy.check_trend_crash')
         """判断是否触发趋势熔断"""
         return self.get_index_return(self.p.smallcap_index, 1) < self.p.trend_threshold
 
     def check_momentum_rank(self):
+        print('SmallCapStrategy.check_momentum_rank')
         """判断小市值指数是否仍然是动量排名第一"""
         indices = [self.p.smallcap_index] + self.p.large_indices
         returns = {name: self.get_index_return(name, self.p.momentum_days) for name in indices}
         return sorted(returns.items(), key=lambda x: x[1], reverse=True)[0][0] == self.p.smallcap_index
 
     def filter_stocks(self):
+        print('SmallCapStrategy.filter_stocks')
         """选出符合财务和市值要求的小市值股票"""
         candidates = []
         for d in self.datas:

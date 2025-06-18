@@ -13,24 +13,24 @@ class CustomPandasData(bt.feeds.PandasData):
     """
     lines = ('mv', 'profit', 'revenue', 'is_st',)
     params = (# 'datetime', 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue', 'is_st'
-        ('datetime', 0),
-        ('open', 1),
-        ('high', 2),
-        ('low', 3),
-        ('close', 4),
-        ('volume', 5),
+        ('datetime', None),
+        ('open', 'open'),
+        ('high', 'high'),
+        ('low', 'low'),
+        ('close', 'close'),
+        ('volume', 'volume'),
 
-        ('mv', 6),
-        ('profit', 7),
-        ('revenue', 8),
-        ('is_st', 9),  # 0 or 1 表示是否ST
+        ('mv', 'mv'),
+        ('profit', 'profit'),
+        ('revenue', 'revenue'),
+        ('is_st', 'is_st'),  # 0 or 1 表示是否ST
         ('dtformat', '%Y-%m-%d'),
         ('timeframe', bt.TimeFrame.Days),
         ('compression', 1),
         ('openinterest', -1),
     )
 
-def load_stock_data(data_dir):
+def load_stock_data(from_idx, to_idx):
     """
     批量加载 data_dir 下的所有 CSV 文件，返回数据列表
     文件名将作为数据名称注入，如 '600000.csv' -> data._name = '600000'
@@ -87,16 +87,19 @@ def load_stock_data(data_dir):
                     raise ValueError(f"缺失字段：{col} in {stock_file}")
 
             df = df[required_cols]
-
-            # df.set_index('datetime', inplace=True)  # 设置 datetime 为索引
-            data = CustomPandasData(
-                dataname=df,
-                dtformat='%Y-%m-%d',
-                timeframe=bt.TimeFrame.Days,
-                compression=1,
-                openinterest=-1
-            )
+            df['openinterest'] = 0
+            df['datetime'] = pd.to_datetime(df['datetime'])
+            df.set_index('datetime', inplace=True)  # 设置 datetime 为索引
+            data = CustomPandasData(dataname=df,
+                                    fromdate=from_idx,
+                                    todate=to_idx,
+                                    dtformat='%Y-%m-%d',
+                                    timeframe=bt.TimeFrame.Days,
+                                    compression=1,
+                                    openinterest=-1
+                                    )
             data._name = stock_file.replace('.csv', '')  # 设置数据名称（用于后续匹配指数名等）
+            # print(f'添加数据源：{data._name}，数据日期范围：{df["datetime"].min()} ~ {df["datetime"].max()}，共 {len(df)} 条记录')
             datas.append(data)
     return datas
 

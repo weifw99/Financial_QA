@@ -192,13 +192,13 @@ class MarketDataAPI:
             - pcfNcfTTM: 市现率（仅日线数据）
         """
         # 验证frequency参数
-        valid_frequencies = {'d', 'w', 'm', '5', '15', '30', '60'}
+        valid_frequencies = {'d', 'a_d', 'w', 'm', '5', '15', '30', '60'}
         if frequency.lower() not in valid_frequencies:
             print(f"无效的数据周期: {frequency}，使用默认值'd'")
             frequency = 'd'
         
         # 根据frequency选择查询字段
-        if frequency.lower() == 'd':  # 日线
+        if frequency.lower() == 'd' or frequency.lower() == 'a_d':  # 日线
             fields = "date,code,open,high,low,close,volume,amount,adjustflag,turn,tradestatus,pctChg,peTTM,pbMRQ,psTTM,pcfNcfTTM,isST"
         elif frequency.lower() in {'w', 'm'}:  # 周线、月线
             fields = "date,code,open,high,low,close,volume,amount,adjustflag,turn,pctChg"
@@ -206,16 +206,21 @@ class MarketDataAPI:
             fields = "date,code,time,open,high,low,close,volume,amount,adjustflag"
         if end_date is None:
             end_date = datetime.now().strftime('%Y-%m-%d')
-            
+
+        adjustflag = "1"  # 复权状态(1：后复权， 2：前复权，3：不复权）
+        if frequency.lower() == 'a_d':
+            adjustflag = "3"
+            frequency = 'd'
         for retry in range(self._max_retries):
             try:
+                print(f"[INFO] 正在获取股票K线数据，股票代码: {code}, adjustflag: {adjustflag},开始日期: {start_date}, 结束日期: {end_date}, 数据周期: {frequency}")
                 rs = bs.query_history_k_data_plus(
                     code,
                     fields,
                     start_date=start_date,
                     end_date=end_date,
                     frequency=frequency.lower(),
-                    adjustflag="1"  # 复权状态(1：后复权， 2：前复权，3：不复权）
+                    adjustflag=adjustflag  # 复权状态(1：后复权， 2：前复权，3：不复权）
                 )
                 time.sleep(self._get_api_delay())  # API调用后休眠
                 
@@ -397,6 +402,8 @@ class MarketDataAPI:
                     current += timedelta(days=1)
                     continue
 
+                time.sleep(random.randint(1, 2))
+
                 if current == end:
                     rs = bs.query_hs300_stocks()
                 else:
@@ -467,6 +474,8 @@ class MarketDataAPI:
                     print(f"Error querying data for {date_str}: {rs.error_msg}")
                     continue
 
+                time.sleep(random.randint(1, 2))
+
                 data_list = []
                 while (rs.error_code == '0') & rs.next():
                     data_list.append(rs.get_row_data())
@@ -518,6 +527,8 @@ class MarketDataAPI:
                     all_data.append(df)
                     current += timedelta(days=1)
                     continue
+
+                time.sleep(random.randint(1,2))
 
                 if current == end:
                     rs = bs.query_sz50_stocks()

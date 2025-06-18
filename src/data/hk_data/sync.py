@@ -87,7 +87,7 @@ class DataSync:
                     # 文件存在，执行增量同步
                     end_date = datetime.now().strftime('%Y-%m-%d')
                     start_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
-                    await sync_instance._sync_single_stock_incremental(code, start_date, end_date)
+                    # await sync_instance._sync_single_stock_incremental(code, start_date, end_date)
         
         # 在每个进程中运行异步任务
         import asyncio

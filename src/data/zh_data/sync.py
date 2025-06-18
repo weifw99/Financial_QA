@@ -7,6 +7,7 @@
 """
 
 import os
+import time
 from datetime import datetime, timedelta
 from typing import List, Optional
 import re
@@ -84,45 +85,16 @@ class DataSync:
                     if not adjust_factor_data.empty:
                         sync._save_data(adjust_factor_data, sync.market_dir, code, 'adjust_factor')
                     '''
-                    
-                    # 检查数据文件是否存在
-                    daily_file = os.path.join(sync.market_dir, code, 'daily.csv')
-                    # min5_file = os.path.join(sync.market_dir, code, 'min5.csv')
-                    # min15_file = os.path.join(sync.market_dir, code, 'min15.csv')
-                    # min30_file = os.path.join(sync.market_dir, code, 'min30.csv')
-                    # min60_file = os.path.join(sync.market_dir, code, 'min60.csv')
-                    monthly_file = os.path.join(sync.market_dir, code, 'monthly.csv')
-                    weekly_file = os.path.join(sync.market_dir, code, 'weekly.csv')
-                    # if (not os.path.exists(daily_file) )  or (not os.path.exists(min5_file)) or (not os.path.exists(monthly_file)) or (not os.path.exists(weekly_file)) :
-                    if (not os.path.exists(daily_file) ) or (not os.path.exists(monthly_file)) or (not os.path.exists(weekly_file)) :
-                        # 文件不存在，执行全量同步
-                        print(f"index: {i}, stock: {code}, full sync, dealing date: {datetime.now().strftime('%Y-%m-%d:%H:%M:%S')}")
-                        await sync._sync_single_stock_full(code)
-                    else:
-                        # continue
-                        # 检查daily.csv文件中的最新日期
-                        daily_file = os.path.join(sync.market_dir, code, 'daily.csv')
-                        if os.path.exists(daily_file):
-                            print(f"股票{code}, daily_file 已存在")
-                            df = pd.read_csv(daily_file)
-                            df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
-                            today = datetime.now().strftime('%Y-%m-%d')
-                            #yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-                            # if today in df['date'].values or yesterday in df['date'].values:
-                            if today in df['date'].values :
-                                print(f"股票{code}已有最新数据，跳过增量同步")
-                                continue
-                        # 文件存在，执行增量同步
-                        end_date = datetime.now().strftime('%Y-%m-%d')
-                        start_date = (datetime.now() - timedelta(days=SYNC_CONFIG['incremental_days'])).strftime('%Y-%m-%d')
-                        await sync._sync_single_stock_incremental(code, start_date, end_date)
+                    print(f"index: {i}, stock: {code}, full sync, dealing date: {datetime.now().strftime('%Y-%m-%d:%H:%M:%S')}")
+                    await sync._sync_single_stock_full(code)
+
                 if 'financial' in SYNC_CONFIG['data_types']:
                     income_file = os.path.join(sync.financial_dir, code, 'income.csv')
                     if not os.path.exists(income_file):
-                        print(f"index: {i}, stock: {code}, full sync, dealing date: {datetime.now().strftime('%Y-%m-%d:%H:%M:%S')}")
+                        print(f"financial index: {i}, stock: {code}, full sync, dealing date: {datetime.now().strftime('%Y-%m-%d:%H:%M:%S')}")
                         await sync._sync_single_financial_full(code)
                     else:
-                        print(f"index: {i}, stock: {code}, incremental sync, dealing date: {datetime.now().strftime('%Y-%m-%d:%H:%M:%S')}")
+                        print(f"financial index: {i}, stock: {code}, incremental sync, dealing date: {datetime.now().strftime('%Y-%m-%d:%H:%M:%S')}")
                         await sync._sync_single_financial_incremental(code)
 
                 # 检查股票文件
@@ -142,7 +114,7 @@ class DataSync:
         # 获取成分股，并保存
         index_types = ['sz50', 'hs300', 'zz500', 'zz1000']
         # index_types = [ 'zz500']
-        # index_types = []
+        index_types = []
         for index_type in index_types:
             print(f"[INFO] 开始获取{index_type}成分股")
             constituents = self.market_api.get_index_constituents(index_type)
@@ -192,30 +164,71 @@ class DataSync:
         Args:
             code: 股票代码
         """
+
+        type_file_map = {
+            'd': 'daily',
+            'a_d': 'daily_a',
+            'w': 'weekly',
+            'm': 'monthly',
+            '5': 'min5',
+            '15': 'min15',
+            '30': 'min30',
+            '60': 'min60'
+        }
+
         try:
             # 同步行情数据（从2010年开始）
             # 定义所有需要同步的周期
             # frequencies = ['d', 'w', 'm', '5', '15', '30', '60']
             frequencies = ['d', 'w', 'm', '15', ]
+            frequencies = ['d', 'a_d', 'w', 'm', '15', ]
             for freq in frequencies:
-                # 获取对应周期的数据
-                kline_data = await self.market_api.get_stock_daily(
-                    code,
-                    start_date='2010-01-01',
-                    frequency=freq
-                )
-                if not kline_data.empty:
-                    # 根据周期设置保存的文件名
-                    file_type = {
-                        'd': 'daily',
-                        'w': 'weekly',
-                        'm': 'monthly',
-                        '5': 'min5',
-                        '15': 'min15',
-                        '30': 'min30',
-                        '60': 'min60'
-                    }[freq]
-                    self._save_data(kline_data, self.market_dir, code, file_type)
+
+                _file = os.path.join(self.market_dir, code, f'{type_file_map[freq]}.csv')
+
+                if os.path.exists(_file):
+                    df = pd.read_csv(_file)
+                    if 'datetime' in df.columns:
+                        df['date'] = df['datetime']
+                    start_date = pd.to_datetime(df['date']).max().strftime('%Y-%m-%d')
+                    end_date = datetime.now().strftime('%Y-%m-%d')
+                    # today = datetime.now().strftime('%Y-%m-%d')
+                    # yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+                    # if today in df['date'].values or yesterday in df['date'].values:
+                    print(f"股票{code}-freq:{freq} 已存在{type_file_map[freq]}增量数据，开始同步，start_date:{start_date}, end_date:{end_date}")
+                    today = datetime.now().strftime('%Y-%m-%d')
+                    yesterday = (datetime.now() - timedelta(days=3)).strftime('%Y-%m-%d')
+                    # if today in df['date'].values or yesterday in df['date'].values:
+                    df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
+                    if freq in ['w', 'm']  or today in df['date'].values or yesterday in df['date'].values:
+                        print(f"股票{code}已有最新数据，跳过增量同步")
+                        continue
+                    # 获取对应周期的数据
+                    kline_data = await self.market_api.get_stock_daily(
+                        code,
+                        start_date=start_date,
+                        end_date=end_date,
+                        frequency=freq
+                    )
+                    if not kline_data.empty:
+                        # 根据周期设置保存的文件名
+                        file_type = type_file_map[freq]
+                        self._save_data(kline_data, self.market_dir, code, file_type, mode='a')
+
+                else:
+                    print(f"股票{code}-freq:{freq} 不存在{type_file_map[freq]}全量数据，开始同步")
+
+                    # 获取对应周期的数据
+                    kline_data = await self.market_api.get_stock_daily(
+                        code,
+                        start_date='2010-01-01',
+                        frequency=freq
+                    )
+                    if not kline_data.empty:
+                        # 根据周期设置保存的文件名
+                        file_type = type_file_map[freq]
+                        self._save_data(kline_data, self.market_dir, code, file_type)
+                time.sleep(0.2)
 
         except Exception as e:
             print(f"同步股票{code}数据失败: {e}")
@@ -241,46 +254,6 @@ class DataSync:
             print(f"同步股票{code}数据失败: {e}")
             print(f"错误详情: {str(e.__class__.__name__)}: {str(e)}")
             print(f"发生错误的位置: {e.__traceback__.tb_frame.f_code.co_filename}:{e.__traceback__.tb_lineno}")
-
-    async def _sync_single_stock_incremental(self, code: str, start_date: str, end_date: str):
-        """增量同步单只股票的最新数据
-
-        Args:
-            code: 股票代码
-            start_date: 开始日期
-            end_date: 结束日期
-        """
-        try:
-            # 同步行情数据
-            # 定义所有需要同步的周期
-            # frequencies = ['d', 'w', 'm', '5', '15', '30', '60']
-            frequencies = ['d', 'w', 'm', '15', ]
-            for freq in frequencies:
-                # 获取对应周期的数据
-                kline_data = await self.market_api.get_stock_daily(
-                    code,
-                    start_date=start_date,
-                    end_date=end_date,
-                    frequency=freq
-                )
-                if not kline_data.empty:
-                    # 根据周期设置保存的文件名
-                    file_type = {
-                        'd': 'daily',
-                        'w': 'weekly',
-                        'm': 'monthly',
-                        '5': 'min5',
-                        '15': 'min15',
-                        '30': 'min30',
-                        '60': 'min60'
-                    }[freq]
-                    self._save_data(kline_data, self.market_dir, code, file_type, mode='a')
-
-        except Exception as e:
-            print(f"增量同步股票{code}数据失败: {e}")
-            print(f"错误详情: {str(e.__class__.__name__)}: {str(e)}")
-            print(f"发生错误的位置: {e.__traceback__.tb_frame.f_code.co_filename}:{e.__traceback__.tb_lineno}")
-
 
     async def _sync_single_financial_incremental(self, code: str):
         """增量同步单只股票的最新数据
@@ -331,6 +304,7 @@ class DataSync:
         file_path = os.path.join(stock_dir, f'{data_type}.csv')
         
         try:
+            # print(f"code: {code}, data_tyle: {data_type}, mode: {mode}, df columns: {df.columns}")
             # 如果文件存在且是增量模式，合并数据并去重
             if os.path.exists(file_path) and mode == 'a':
                 # print(f"文件存在，合并数据并去重: {file_path}")
@@ -338,19 +312,24 @@ class DataSync:
                 existing_data = pd.read_csv(file_path )
                 # existing_data = existing_data[4:].reset_index(drop=True)
                 # 统一日期格式为YYYY-MM-DD
-                if data_type == 'daily' or data_type == 'weekly' or data_type == 'monthly':
-
+                if data_type == 'daily_a' or data_type == 'daily' or data_type == 'weekly' or data_type == 'monthly':
                     # print(f"existing_data: {existing_data.columns}")
                     #print(f"df: {df.columns}")
                     df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
                     existing_data['date'] = pd.to_datetime(existing_data['date']).dt.strftime('%Y-%m-%d')
+                if data_type == 'min5' or data_type == 'min15' or data_type == 'min30' or data_type == 'min60':
+                    df['datetime'] = pd.to_datetime(df['datetime']).dt.strftime('%Y-%m-%d %H:%M:%S')
+                    existing_data['datetime'] = pd.to_datetime(existing_data['datetime']).dt.strftime('%Y-%m-%d %H:%M:%S')
                 
                 # 合并数据，新数据在前
                 merged_data = pd.concat([df, existing_data], ignore_index=True)
                 # 根据数据类型选择去重的关键字段
-                if data_type == 'daily':
+                if data_type == 'daily_a' or data_type == 'daily' or data_type == 'weekly' or data_type == 'monthly':
                     # 行情数据按日期去重
                     merged_data = merged_data.drop_duplicates(subset=['date'], keep='first')
+                elif data_type == 'min5' or data_type == 'min15' or data_type == 'min30' or data_type == 'min60':
+                    # 行情数据按日期去重
+                    merged_data = merged_data.drop_duplicates(subset=['datetime'], keep='first')
                 elif data_type in [ 'income']:
                     # 财务数据按年度和季度去重
                     merged_data.ffill(inplace= True)  # 对 null 使用前先填充， 主要是MBRevenue

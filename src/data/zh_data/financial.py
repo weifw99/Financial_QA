@@ -47,6 +47,7 @@ class FinancialDataAPI:
         data_list = []
         for year in years:
             for q in quarters:
+                time.sleep(0.1)
                 rs = bs.query_profit_data(code=code, year=year, quarter=q)
                 if rs.error_code == '0':
                     while rs.next():

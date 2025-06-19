@@ -1,50 +1,86 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
-class BidirectionalGRU3L256_TCN_LN_GELU_Attention(torch.nn.Module):
-    def __init__(self, num_features, num_timesteps):
-        super().__init__()
-        self.tcn = nn.Sequential(
-            nn.Conv1d(in_channels=num_features, out_channels=128, kernel_size=3, padding=64, dilation=64),
-            nn.GELU(),
-            nn.Dropout(p=0.1),
-            nn.Conv1d(128, 256, 3, padding=128, dilation=128),
-            nn.GELU(),
-            nn.Dropout(0.1),
-            nn.Conv1d(256, 256, 3, padding=256, dilation=256),
-            nn.GELU(),
-            nn.Dropout(0.1)
+class DeepCNNTimeSeriesWithAttention(torch.nn.Module):
+    def __init__(self, num_features, num_timesteps=1):
+        super(DeepCNNTimeSeriesWithAttention, self).__init__()
+        
+        # Convolutional layers
+        self.convs = nn.Sequential(
+            nn.Conv1d(in_channels=num_features, out_channels=64, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.LayerNorm([64, num_timesteps]),
+            
+            nn.Conv1d(in_channels=64, out_channels=128, kernel_size=5, padding=2),
+            nn.ReLU(),
+            nn.LayerNorm([128, num_timesteps]),
+            
+            nn.Conv1d(in_channels=128, out_channels=256, kernel_size=7, padding=3),
+            nn.ReLU(),
+            nn.LayerNorm([256, num_timesteps]),
+            
+            nn.Conv1d(in_channels=256, out_channels=512, kernel_size=9, padding=4),
+            nn.ReLU(),
+            nn.LayerNorm([512, num_timesteps]),
+            
+            nn.Conv1d(in_channels=512, out_channels=1024, kernel_size=11, padding=5),
+            nn.ReLU(),
+            nn.LayerNorm([1024, num_timesteps])
         )
-        self.gru = nn.GRU(input_size=256, hidden_size=256, num_layers=3, bidirectional=True, batch_first=True)
-        self.norm_tcn = nn.LayerNorm(256)
-        self.norm_gru = nn.LayerNorm(512)
-        self.residual_proj = nn.Linear(512, 512)
-        self.attention = nn.Linear(512, 1)
+        
+        # Self-attention layer
+        self.attention = nn.MultiheadAttention(embed_dim=1024, num_heads=8)
+        
+        # MLP with residual connections
         self.mlp = nn.Sequential(
-            nn.GELU(),
-            nn.Linear(512, 1)
+            nn.Linear(1024, 256),
+            nn.ReLU(),
+            nn.LayerNorm(256),
+            
+            nn.Linear(256, 128),
+            nn.ReLU(),
+            nn.LayerNorm(128),
+            
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.LayerNorm(64),
+            
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.LayerNorm(32),
+            
+            nn.Linear(32, 1)
         )
 
     def forward(self, x):
         # x shape: (batch_size, num_timesteps, num_features)
-        x = x.transpose(1, 2)  # (batch, features, timesteps)
-        tcn_out = self.tcn(x)  # (batch, 256, timesteps)
-        tcn_out = tcn_out.transpose(1, 2)  # (batch, timesteps, 256)
-        tcn_out = self.norm_tcn(tcn_out)
-        gru_out, _ = self.gru(tcn_out)
-
-        # Residual connection
-        residual = self.residual_proj(gru_out)
-        gru_out = gru_out + residual
-
-        gru_out = self.norm_gru(gru_out)
-
-        # Attention pooling
-        attention_weights = torch.softmax(self.attention(gru_out), dim=1)  # (batch, timesteps, 1)
-        weighted_sum = torch.sum(gru_out * attention_weights, dim=1)  # (batch, 512)
-
-        output = self.mlp(weighted_sum)
+        batch_size, timesteps, features = x.shape
+        
+        # Reshape to (batch_size, features, timesteps) for Conv1d
+        x = x.permute(0, 2, 1)  # (B, F, T)
+        
+        # Apply convolutional layers
+        conv_out = self.convs(x)  # (B, 1024, T)
+        
+        # Reshape back to (batch_size, timesteps, features)
+        conv_out = conv_out.permute(0, 2, 1)  # (B, T, 1024)
+        
+        # Apply self-attention
+        attn_output, _ = self.attention(
+            conv_out.transpose(0, 1),  # (T, B, 1024)
+            conv_out.transpose(0, 1),
+            conv_out.transpose(0, 1)
+        )
+        attn_output = attn_output.transpose(0, 1)  # (B, T, 1024)
+        
+        # Combine with original features
+        combined = conv_out + attn_output
+        
+        # Global average pooling over time dimension
+        pooled = combined.mean(dim=1)  # (B, 1024)
+        
+        # MLP prediction
+        output = self.mlp(pooled)  # (B, 1)
         return output
 
-model_cls = BidirectionalGRU3L256_TCN_LN_GELU_Attention
+model_cls = DeepCNNTimeSeriesWithAttention

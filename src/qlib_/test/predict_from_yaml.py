@@ -75,7 +75,9 @@ def init_qlib(config):
         region=config["qlib_init"].get("region", "cn")
     )
     # R.set_uri(uri=config["mlflow"]["uri"])
-    R.set_uri("/Users/dabai/Downloads/rd_agent_test/result_ck/7b18b8c5cd83478db6fd1f8ad755522d/mlruns")
+    # git_ignore_folder/RD-Agent_workspace/7b18b8c5cd83478db6fd1f8ad755522d/mlruns/153096223065276677/da7cb29b508149cb942e71c711556df5/artifacts/params.pkl
+    # R.set_uri("/Users/dabai/Downloads/rd_agent_test/result_ck/7b18b8c5cd83478db6fd1f8ad755522d/mlruns")
+    R.set_uri("/Users/dabai/Downloads/rd_agent_test/git_ignore_folder/RD-Agent_workspace/7b18b8c5cd83478db6fd1f8ad755522d/mlruns")
 
 
 def get_latest_recorder(experiment_name):
@@ -110,7 +112,11 @@ def predict_from_yaml(config_path="config.yaml"):
     dataset = build_dataset(config['task']["dataset"])
     # model = build_model(config["task"]['model'])
 
-    recorder = get_latest_recorder(config["experiment_name"])
+    if "experiment_name" in config:
+        experiment_name = config['experiment_name']
+    else:
+        experiment_name = 'workflow'
+    recorder = get_latest_recorder(experiment_name)
     print(f"✅ 加载模型: params.pkl")
     model = recorder.load_object("params.pkl")
     # trainset, validset, testset = dataset.prepare(["train", "valid", "test"])
@@ -120,6 +126,7 @@ def predict_from_yaml(config_path="config.yaml"):
 
 
 if __name__ == "__main__":
+
     # OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 PYTHONFAULTHANDLER=1
     os.environ["OMP_NUM_THREADS"] = '1'
     os.environ["MKL_NUM_THREADS"] = '1'
@@ -129,7 +136,18 @@ if __name__ == "__main__":
     os.environ["TF_CPP_MIN_LOG_LEVEL"] = '2'
     os.environ["PYTHONUNBUFFERED"] = '1'
 
-    predict_from_yaml("config.yaml")
+    config_path = '/Users/dabai/Downloads/rd_agent_test/git_ignore_folder/RD-Agent_workspace/7b18b8c5cd83478db6fd1f8ad755522d/conf.yaml'
+    config_path = 'config.yaml'
+
+    # predict_from_yaml(config_path)
+
+    import joblib
+
+    params_path = '/Users/dabai/Downloads/rd_agent_test/git_ignore_folder/RD-Agent_workspace/7b18b8c5cd83478db6fd1f8ad755522d/mlruns/153096223065276677/da7cb29b508149cb942e71c711556df5/artifacts/params.pkl'
+    params_path = '/Users/dabai/Downloads/rd_agent_test/git_ignore_folder/RD-Agent_workspace/7b18b8c5cd83478db6fd1f8ad755522d/ret.pkl'
+    params = joblib.load(params_path)
+    print(params)
+
 
 # model: Model = init_instance_by_config(task_config["model"], accept_types=Model)
 # dataset: Dataset = init_instance_by_config(task_config["dataset"], accept_types=Dataset)

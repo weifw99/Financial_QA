@@ -222,19 +222,18 @@ class MarketDataAPI:
                     frequency=frequency.lower(),
                     adjustflag=adjustflag  # 复权状态(1：后复权， 2：前复权，3：不复权）
                 )
-                time.sleep(self._get_api_delay())  # API调用后休眠
-                
+
                 if rs.error_code != '0':
                     error_msg = f"API错误 - 错误码: {rs.error_code}, 错误信息: {rs.error_msg}"
                     print(f"[ERROR] {error_msg}")
                     raise Exception(error_msg)
-                    
+
                 data_list = []
                 while (rs.error_code == '0') & rs.next():
                     data_list.append(rs.get_row_data())
-                    
+
                 df = pd.DataFrame(data_list, columns=rs.fields)
-                
+
                 # 格式化日期列
                 if not df.empty:
                     if frequency.lower() in {'d', 'w', 'm'}:  # 日线、周线、月线
@@ -246,16 +245,16 @@ class MarketDataAPI:
                             df['time'] = df['time'].apply(lambda x: x[8:10] + ':' + x[10:12] + ':' + x[12:14])
                             df['datetime'] = pd.to_datetime(df['date'] + ' ' + df['time'])
                             df.drop(['date', 'time'], axis=1, inplace=True)
-                    
+
                 # 数值类型转换
                 numeric_columns = ['open', 'high', 'low', 'close', 'volume', 'amount']
                 if frequency.lower() in {'d', 'w', 'm'}:  # 日线、周线、月线额外的指标
                     numeric_columns.extend(['turn', 'pctChg', 'peTTM', 'pbMRQ', 'psTTM', 'pcfNcfTTM', 'isST'])
-                    
+
                 for col in numeric_columns:
                     if col in df.columns:
                         df[col] = pd.to_numeric(df[col], errors='coerce')
-                        
+
                 # 根据时间列排序
                 sort_column = 'datetime' if 'datetime' in df.columns else 'date'
                 return df.sort_values(sort_column, ascending=False)

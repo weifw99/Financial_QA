@@ -391,7 +391,7 @@ class MarketDataAPI:
 
         current = start
         while current <= end:
-            if current.day == 15 or current == end:
+            if current.day == 15 or abs((end - current).days) < 5:
                 date_str = current.strftime('%Y-%m-%d')
                 print(f"query_hs300_stocks {date_str}")
                 file_path = os.path.join(index_dir, f'{date_str}.csv')
@@ -435,6 +435,12 @@ class MarketDataAPI:
         grouped = df.groupby(['code'])['updateDate'].agg(['min', 'max'])
         grouped.columns = ['start_time', 'end_time']
         grouped = grouped.reset_index()
+
+        # 找到 end_time 最大的行
+        max_end_time_mask = grouped['end_time'] == grouped['end_time'].max()
+        # 将这些行的 end_time 替换为当前日期
+        grouped.loc[max_end_time_mask, 'end_time'] = end.strftime('%Y-%m-%d')
+
         # 保存结果
         return grouped
 
@@ -454,7 +460,9 @@ class MarketDataAPI:
 
         current = start
         while current <= end:
-            if current.day == 15 or current == end:
+            # 计算 current end 的时间差，得到相差的天数
+
+            if current.day == 15 or abs((end - current).days) < 5:
                 date_str = current.strftime('%Y-%m-%d')
                 print(f"query_zz500_stocks {date_str}")
                 file_path = os.path.join(index_dir, f'{date_str}.csv')
@@ -498,6 +506,12 @@ class MarketDataAPI:
         grouped = df.groupby(['code'])['updateDate'].agg(['min', 'max'])
         grouped.columns = ['start_time', 'end_time']
         grouped = grouped.reset_index()
+
+        # 找到 end_time 最大的行
+        max_end_time_mask = grouped['end_time'] == grouped['end_time'].max()
+        # 将这些行的 end_time 替换为当前日期
+        grouped.loc[max_end_time_mask, 'end_time'] = end.strftime('%Y-%m-%d')
+
         # 保存结果
         return grouped
 
@@ -517,7 +531,7 @@ class MarketDataAPI:
 
         current = start
         while current <= end:
-            if current.day == 15 or current == end:
+            if current.day == 15 or abs((end - current).days) < 5:
                 date_str = current.strftime('%Y-%m-%d')
                 print(f"query_sz50_stocks {date_str}")
                 file_path = os.path.join(index_dir, f'{date_str}.csv')
@@ -561,6 +575,12 @@ class MarketDataAPI:
         grouped = df.groupby(['code'])['updateDate'].agg(['min', 'max'])
         grouped.columns = ['start_time', 'end_time']
         grouped = grouped.reset_index()
+
+        # 找到 end_time 最大的行
+        max_end_time_mask = grouped['end_time'] == grouped['end_time'].max()
+        # 将这些行的 end_time 替换为当前日期
+        grouped.loc[max_end_time_mask, 'end_time'] = end.strftime('%Y-%m-%d')
+
         # 保存结果
         return grouped
 

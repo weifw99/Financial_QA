@@ -35,6 +35,7 @@ class Doublelow(bt.Strategy):
         print('%s, %s' % (dt.isoformat(), txt))
 
     def __init__(self):
+        print('初始化')
         self.lastRanks = []  # 上次交易股票的列表
         self.order = {}
         self.stocks = self.datas
@@ -55,11 +56,11 @@ class Doublelow(bt.Strategy):
             return
         self.log(f"策略收益：\n毛收益 {trade.pnl:.2f}, 净收益 {trade.pnlcomm:.2f}")
 
-    def log(self, txt, dt=None, do_print=False):
+    def log(self, txt, dt=None, do_print=True):
         """
         Logging function fot this strategy
         """
-        if self.params.printlog or do_print:
+        if do_print:
             dt = dt or self.datas[0].datetime.date(0)
             print('%s, %s' % (dt.isoformat(), txt))
 
@@ -156,6 +157,8 @@ if __name__ == '__main__':
 
     from_idx = datetime(2018, 4, 1)  # 记录行情数据的开始时间和结束时间
     to_idx = datetime(2023, 4, 28)
+    from_idx = datetime(2020, 1, 1)  # 记录行情数据的开始时间和结束时间
+    to_idx = datetime(2025, 1, 1)
     print(from_idx, to_idx)
     #启动回测
 

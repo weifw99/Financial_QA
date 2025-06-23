@@ -96,13 +96,24 @@ def load_stock_data(from_idx, to_idx):
             df['openinterest'] = 0
             df['datetime'] = pd.to_datetime(df['datetime'])
             df.set_index('datetime', inplace=True)  # 设置 datetime 为索引
+
+            data_ = df.sort_index()
+            data_.loc[:, ['volume', 'openinterest']] = data_.loc[:, ['volume', 'openinterest']].fillna(0)
+            data_.loc[:, ['open', 'high', 'low', 'close']] = data_.loc[:, ['open', 'high', 'low', 'close']].bfill()
+            data_.bfill(inplace=True)
+            data_.fillna(0, inplace=True)
+            rsub_cols = [ 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue', 'is_st']
+
+            data_.dropna(subset=rsub_cols, inplace=True)
+
+            if data_.empty or len(data_) < 100:
+                continue
+
             data = CustomPandasData(dataname=df,
                                     fromdate=from_idx,
                                     todate=to_idx,
                                     dtformat='%Y-%m-%d',
                                     timeframe=bt.TimeFrame.Days,
-                                    compression=1,
-                                    openinterest=-1
                                     )
             data._name = stock_file.replace('.csv', '')  # 设置数据名称（用于后续匹配指数名等）
             # print(f'添加数据源：{data._name}，数据日期范围：{df["datetime"].min()} ~ {df["datetime"].max()}，共 {len(df)} 条记录')

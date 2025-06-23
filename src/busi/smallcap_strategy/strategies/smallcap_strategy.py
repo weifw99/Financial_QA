@@ -27,7 +27,7 @@ class SmallCapStrategy(bt.Strategy):
         self.is_cleared = False  # 当前是否处于清仓状态
 
     def next(self):
-        print('SmallCapStrategy.next')
+        print('SmallCapStrategy.next', self.datetime.datetime(0))
         dt = self.datas[0].datetime.datetime(0)
 
         # 判断是否为调仓时间（每周二上午10点）

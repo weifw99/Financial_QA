@@ -48,11 +48,17 @@ def load_stock_data(from_idx, to_idx):
         #     break
         print(f'{i}/{stock_file}')
         file_path = f'{zh_data_dir}/{stock_file}/daily.csv'
+        file_path_a = f'{zh_data_dir}/{stock_file}/daily_a.csv'
 
         # 获取财务盈利信息
         financial_path = f'{financial_data_dir}/{stock_file}/income.csv'
         if os.path.exists(file_path) and os.path.exists(financial_path):
             df = pd.read_csv(file_path)
+            df_a = pd.read_csv(file_path_a)[['date','close']]
+            df_a.rename(columns={'close': 'close_1'}, inplace=True)
+
+            df = pd.merge(df, df_a, on='date', how='inner')
+
             # 使用后复权价格，factor均设置为1， 回测使用该因子
             df['factor'] = 1.0
 
@@ -78,7 +84,7 @@ def load_stock_data(from_idx, to_idx):
 
             df.rename(columns={'netProfit': 'profit', 'MBRevenue': 'revenue', 'isST': 'is_st', 'date': 'datetime'}, inplace=True)
 
-            df['mv'] = df['totalShare'] * df['close'] # 市值 = 总股本 * 收盘价（不复权）
+            df['mv'] = df['totalShare'] * df['close_1'] # 市值 = 总股本 * 收盘价（不复权）
 
             # 检查并填充关键列
             required_cols = ['datetime', 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue', 'is_st']

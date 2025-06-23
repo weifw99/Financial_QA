@@ -226,25 +226,62 @@ if __name__ == "__main__":
         '/Users/dabai/work/data/agent_qlib/online_check/fin_model_orig/2025-06-07_07-14-29-272373/csi300_qwen30b_loop61',
 
     ]
-    for i, base_path in enumerate(path_list):
+    # for i, base_path in enumerate(path_list):
+    #
+    #
+    #     import sys
+    #     print(i, sys.path)
+    #     if i>0:
+    #         sys.path.remove(path_list[i-1])
+    #     sys.path.append(base_path)
+    #     print(i, sys.path)
+    #
+    #     # 如果模块已经导入，需要删除缓存，确保下次重新加载
+    #     module_name = "model"  # 替换为你要重新加载的模块名
+    #     if module_name in sys.modules:
+    #         del sys.modules[module_name]
+    #
+    #     config_path = f'{base_path}/conf.yaml'
+    #     # config_path = 'config.yaml'
+    #
+    #     predict_from_yaml(config_path, uri=base_path)
+    #
+    #
+    # df_list = []
+    # for base_path in path_list:
+    #     print(base_path)
+    #     date_str = '2025-06-20'
+    #     result_path = os.path.join(Path(base_path).parent, "result")
+    #     output_file = f"{result_path}/{date_str}_{Path(base_path).name}_sorted_preds.csv"
+    #
+    #     df = pd.read_csv(output_file)
+    #     df_list.append(df)
 
+    base_p = '/Users/dabai/liepin/飞书_bak/搜索算法/搜索召回/result/'
+    df_list = []
+    for p_ in os.listdir(base_p):
+        if p_.endswith('csv'):
+            df = pd.read_csv(base_p + p_)
+            df_list.append(df)
 
-        import sys
-        print(i, sys.path)
-        if i>0:
-            sys.path.remove(path_list[i-1])
-        sys.path.append(base_path)
-        print(i, sys.path)
+    # 步骤 1：合并所有数据
+    all_df = pd.concat(df_list, ignore_index=True)
 
-        # 如果模块已经导入，需要删除缓存，确保下次重新加载
-        module_name = "model"  # 替换为你要重新加载的模块名
-        if module_name in sys.modules:
-            del sys.modules[module_name]
+    # 步骤 2：按 instrument 聚合，统计次数和 score 平均
+    agg_df = all_df.groupby(["datetime", "instrument"]).agg(
+        count=("score", "count"),
+        avg_score=("score", "mean"),
+        sum_score=("score", "sum")
+    ).reset_index()
 
-        config_path = f'{base_path}/conf.yaml'
-        # config_path = 'config.yaml'
+    # 步骤 3：排序 - 先按 count 降序，再按 avg_score 降序
+    agg_df = agg_df.sort_values(by=["avg_score", "count" ], ascending=[False, False])
 
-        predict_from_yaml(config_path, uri=base_path)
+    # 输出前几行结果
+    print(agg_df.head())
+
+    output_file = f"{base_p}/merge_sorted_preds.csv"
+    agg_df.to_csv(output_file, index=False)
 
     # import joblib
     #

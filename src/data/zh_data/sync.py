@@ -182,11 +182,14 @@ class DataSync:
             # frequencies = ['d', 'w', 'm', '5', '15', '30', '60']
             frequencies = ['d', 'w', 'm', '15', ]
             frequencies = ['d', 'a_d', 'w', 'm', '15', ]
+            frequencies = ['d', 'a_d', '15', ]
+            frequencies = ['m' ]
+            frequencies = ['d', 'a_d',]
             for freq in frequencies:
 
                 _file = os.path.join(self.market_dir, code, f'{type_file_map[freq]}.csv')
 
-                if os.path.exists(_file):
+                if os.path.exists(_file) and freq not in ['w', 'm'] :
                     df = pd.read_csv(_file)
                     if 'datetime' in df.columns:
                         df['date'] = df['datetime']
@@ -197,10 +200,10 @@ class DataSync:
                     # if today in df['date'].values or yesterday in df['date'].values:
                     print(f"股票{code}-freq:{freq} 已存在{type_file_map[freq]}增量数据，开始同步，start_date:{start_date}, end_date:{end_date}")
                     today = datetime.now().strftime('%Y-%m-%d')
-                    yesterday = (datetime.now() - timedelta(days=3)).strftime('%Y-%m-%d')
+                    yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
                     # if today in df['date'].values or yesterday in df['date'].values:
                     df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
-                    if freq in ['w', 'm']  or today in df['date'].values or yesterday in df['date'].values:
+                    if today in df['date'].values or yesterday in df['date'].values:
                         print(f"股票{code}已有最新数据，跳过增量同步")
                         continue
                     # 获取对应周期的数据
@@ -224,6 +227,7 @@ class DataSync:
                         start_date='2010-01-01',
                         frequency=freq
                     )
+                    print(f"股票{code}-freq:{freq} 全量数据：{len(kline_data)}")
                     if not kline_data.empty:
                         # 根据周期设置保存的文件名
                         file_type = type_file_map[freq]

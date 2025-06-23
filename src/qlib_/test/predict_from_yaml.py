@@ -1,5 +1,6 @@
 import datetime
 import os
+from pathlib import Path
 
 import pandas as pd
 import torch
@@ -177,12 +178,23 @@ def predict_from_yaml(config_path="config.yaml", uri=None):
     preds1 = preds.reset_index()
 
     # 2. 筛选指定日期，例如：2025-06-20
-    specified_date = pd.to_datetime('2025-06-20')  # 确保与索引的日期类型一致
+    date_str = '2025-06-20'
+    specified_date = pd.to_datetime(date_str)  # 确保与索引的日期类型一致
     filtered_preds = preds1[preds1['datetime'] == specified_date]
 
     filtered_preds.columns = ['datetime', 'instrument', 'score']
-    # 3. 按照 'score' 列降序排列
+    # 筛选 score 大于 0 的数据
+    filtered_preds = filtered_preds[filtered_preds['score'] > 0]
+
+    # 按照 'score' 列降序排列
     sorted_preds = filtered_preds.sort_values(by='score', ascending=False)
+
+    # 保存为 CSV 文件
+    result_path = os.path.join(Path(uri).parent, "result")
+    if not os.path.exists(result_path):
+        os.makedirs(result_path)
+    output_file = f"{result_path}/{date_str}_{Path(uri).name}_sorted_preds.csv"
+    sorted_preds.to_csv(output_file, index=False)
 
     # 4. 取出前20条数据
     top_preds = sorted_preds.head(30)

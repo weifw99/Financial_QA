@@ -33,12 +33,15 @@ fi
 cd "$PROJECT_DIR" || { log "切换目录到 $PROJECT_DIR 失败"; exit 1; }
 log "当前目录: $(pwd)"
 
-log "开始执行 src.data.zh_data.zh_run_sync..."
+log "开始执行 所有 A 股数据任务 src.data.zh_data.zh_run_sync..."
 python -m src.data.zh_data.zh_run_sync
+
+log "开始执行 重要指数数据任务 src.data.zh_data.index.important_indices_sh_sz..."
+python -m src.data.zh_data.index.important_indices_sh_sz
 
 log "当前目录: $(pwd)"
 
-log "开始执行 zh_data2qlib.py..."
+log "开始执行 数据转换任务  zh_data2qlib.py..."
 python -m src.data.qlib_data.zh_data2qlib --base_data_path "$PROJECT_DIR/data/zh_data" --out_base_path "$QLIB_DATA_DIR"
 
 # 移动结果文件到固定目录

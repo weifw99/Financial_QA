@@ -35,42 +35,6 @@ class CustomPandasData(bt.feeds.PandasData):
         ('dtformat', '%Y-%m-%d'),
     )
 
-    '''
-    def __init__(self, **kwargs):
-        # 确保数据格式正确
-        if 'dataname' in kwargs:
-            df = kwargs['dataname']
-            if isinstance(df.index, pd.MultiIndex):
-                # 重置索引，将日期和symbol作为列
-                df = df.reset_index()
-                # 设置日期为索引
-                df.set_index('date', inplace=True)
-                kwargs['dataname'] = df
-
-        super().__init__(**kwargs)
-
-        # 验证数据
-        if self.p.dataname is None or self.p.dataname.empty:
-            print("警告：输入数据为空")
-            return
-
-        print(f"数据源基本信息：\n{self.p.dataname.info()}")
-        # print(f"数据源前5行：\n{self.p.dataname.head()}")
-
-        # 检查价格数据
-        # price_cols = ['open', 'high', 'low', 'close']
-        price_cols = ['open', 'high', 'low', 'close',  'mv', 'profit', 'revenue',]
-
-        for col in price_cols:
-            if col not in self.p.dataname.columns:
-                print(f"警告：缺少价格列 {col}")
-            else:
-                zero_prices = self.p.dataname[self.p.dataname[col] == 0]
-                if not zero_prices.empty:
-                    print(f"警告：{col}列中有{len(zero_prices)}个零值")
-                    print(f"零值记录：\n{zero_prices[[ col]].head()}")
-
-    '''
 
 
 def load_stock_data(from_idx, to_idx):
@@ -90,13 +54,56 @@ def load_stock_data(from_idx, to_idx):
     pdf = pd.read_csv(f'{zh_data_dir}/sh.000001/daily.csv')
     pdf['date'] = pd.to_datetime(pdf['date'])
 
+    data = pd.DataFrame(index=pdf['date'].unique())
+    data = data.sort_index()
+
+    select_cols = ['date', 'open', 'high', 'low', 'close', 'volume', ]
+    add_cols = ['mv', 'profit', 'revenue', 'is_st', 'openinterest', ]
+    # 加载 510880
+    etf_path_510880 = '/Users/dabai/liepin/study/llm/Financial_QA/src/busi/etf_/data/etf_trading/daily/SZ510880.csv'
+    etf_510880_df = pd.read_csv(etf_path_510880)
+
+    # 选择需要的列
+    etf_510880_df = etf_510880_df[select_cols]
+    for col in add_cols:
+        etf_510880_df[col] = 0
+
+    etf_510880_df.set_index('date', inplace=True)  # 设置 datetime 为索引
+    etf_510880_df = etf_510880_df.sort_index()
+    data_ = pd.merge(data, etf_510880_df, left_index=True, right_index=True, how='left')
+    data_ = data_.sort_index()  # ✅ 强制升序
+    pandas_data = CustomPandasData(dataname=data_,
+                                   fromdate=from_idx,
+                                   todate=to_idx,
+                                   timeframe=bt.TimeFrame.Days,
+                                   name='etf_SZ510880')
+    datas.append(pandas_data)
+
+
+    # 获取指数数据
+    zz2000_path = '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/index/csi932000.csv'
+    zz2000_df = pd.read_csv(zz2000_path)
+
+    # 选择需要的列
+    zz2000_df = zz2000_df[select_cols]
+    for col in add_cols:
+        zz2000_df[col] = 0
+
+    zz2000_df.set_index('date', inplace=True)  # 设置 datetime 为索引
+    zz2000_df = zz2000_df.sort_index()
+    data_ = pd.merge(data, zz2000_df, left_index=True, right_index=True, how='left')
+    data_ = data_.sort_index()  # ✅ 强制升序
+    pandas_data = CustomPandasData(dataname=data_,
+                                   fromdate=from_idx,
+                                   todate=to_idx,
+                                   timeframe=bt.TimeFrame.Days,
+                                   name='csi932000')
+    datas.append(pandas_data)
+
+
     for i, stock_file in enumerate(os.listdir(zh_data_dir)):
         if i > 500:
             break
-
-        data = pd.DataFrame(index=pdf['date'].unique())
-        data = data.sort_index()
-
 
         print(f'{i}/{stock_file}')
         file_path = f'{zh_data_dir}/{stock_file}/daily.csv'
@@ -172,7 +179,7 @@ def load_stock_data(from_idx, to_idx):
 
             # if df.empty or len(df) < 100:
             #     continue
-            data = CustomPandasData(dataname=data_,
+            pandas_data = CustomPandasData(dataname=data_,
                                     fromdate=from_idx,
                                     todate=to_idx,
                                     timeframe=bt.TimeFrame.Days,
@@ -180,6 +187,6 @@ def load_stock_data(from_idx, to_idx):
 
             # data._name = stock_file.replace('.csv', '')  # 设置数据名称（用于后续匹配指数名等）
             # print(f'添加数据源：{data._name}，数据日期范围：{df["datetime"].min()} ~ {df["datetime"].max()}，共 {len(df)} 条记录')
-            datas.append(data)
+            datas.append(pandas_data)
     return datas
 

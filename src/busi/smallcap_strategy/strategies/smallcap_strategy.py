@@ -17,9 +17,9 @@ class SmallCapStrategy(bt.Strategy):
         hold_count_low=10,           # 行情差时持股数（分散）
         momentum_days=20,            # 动量观察窗口
         trend_threshold=-0.05,       # 快速熔断阈值（小市值单日下跌5%）
-        smallcap_index='ZZ2000',     # 小市值指数名称  小市值的动量如何确定 第一种，用中证2000可以近似代替/第二种，用微盘指数可以近似代替
+        smallcap_index='csi932000',     # 小市值指数名称  小市值的动量如何确定 第一种，用中证2000可以近似代替/第二种，用微盘指数可以近似代替
         # large_indices=['HS300', 'SH50', 'DividendETF'],  # 大盘指数对比列表
-        large_indices=['sh.000300', 'sh.000016', 'DividendETF']  # 大盘指数对比列表  沪深300/上证50/红利ETF 510880
+        large_indices=['sh.000300', 'sh.000016', 'etf_SZ510880']  # 大盘指数对比列表  沪深300/上证50/红利ETF 510880
     )
 
     def __init__(self):
@@ -82,42 +82,41 @@ class SmallCapStrategy(bt.Strategy):
         dt = self.datas[0].datetime.datetime(0)
 
         # 判断是否为调仓时间（每周二上午10点）
-        if dt.weekday() == self.p.rebalance_weekday and dt.hour * 100 + dt.minute >= self.p.rebalance_time:
-            if self.rebalance_date == dt.date():
-                return
-            self.rebalance_date = dt.date()
+        if self.rebalance_date == dt.date():
+            return
+        self.rebalance_date = dt.date()
 
-            # 快速趋势止损（小市值单日下跌5%）
-            if self.check_trend_crash():
-                self.sell_all()
-                self.clear_until = dt.date() + timedelta(days=7)
-                self.is_cleared = True
-                return
+        # 快速趋势止损（小市值单日下跌5%）
+        if self.check_trend_crash():
+            self.sell_all()
+            self.clear_until = dt.date() + timedelta(days=7)
+            self.is_cleared = True
+            return
 
-            # 动量止损（小市值动量不再领先）
-            if self.check_momentum_rank() is False:
-                self.sell_all()
-                self.is_cleared = True
-                return
+        # 动量止损（小市值动量不再领先）
+        if self.check_momentum_rank() is False:
+            self.sell_all()
+            self.is_cleared = True
+            return
 
-            # 如果处于清仓观察期则跳过调仓
-            if self.clear_until and dt.date() < self.clear_until:
-                return
-            else:
-                self.is_cleared = False
+        # 如果处于清仓观察期则跳过调仓
+        if self.clear_until and dt.date() < self.clear_until:
+            return
+        else:
+            self.is_cleared = False
 
-            # 选股
-            candidates = self.filter_stocks()
-            hold_num = self.p.hold_count_high if self.check_momentum_rank() else self.p.hold_count_low
-            to_hold = candidates[:hold_num]  # 取前N只小市值股
+        # 选股
+        candidates = self.filter_stocks()
+        hold_num = self.p.hold_count_high if self.check_momentum_rank() else self.p.hold_count_low
+        to_hold = candidates[:hold_num]  # 取前N只小市值股
 
-            # 调仓逻辑：先清掉非目标股票，再买入新股
-            for d in self.datas:
-                if self.getposition(d).size > 0 and d not in to_hold:
-                    self.close(d)
-            for d in to_hold:
-                if self.getposition(d).size == 0:
-                    self.buy(d)
+        # 调仓逻辑：先清掉非目标股票，再买入新股
+        for d in self.datas:
+            if self.getposition(d).size > 0 and d not in to_hold:
+                self.close(d)
+        for d in to_hold:
+            if self.getposition(d).size == 0:
+                self.buy(d)
 
 
     def sell_all(self):

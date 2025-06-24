@@ -14,6 +14,7 @@ if __name__ == '__main__':
         print(stock_zh_index_spot_em_df)
         print('---'*20)
         print('\n')
+        stock_zh_index_spot_em_df.to_csv(f"{name_zs}.csv", index=False)
     # stock_zh_index_spot_em_df = ak.stock_zh_index_spot_em(symbol="上证系列指数")
     # print(stock_zh_index_spot_em_df)
 
@@ -23,3 +24,4 @@ if __name__ == '__main__':
     # symbol: 带市场标识的指数代码; sz: 深交所, sh: 上交所, csi: 中信指数 + id(000905)
     stock_zh_index_daily_em_df = ak.stock_zh_index_daily_em(symbol="csi932000")
     print(stock_zh_index_daily_em_df)
+    stock_zh_index_daily_em_df.to_csv("中证2000-csi932000.csv", index=False)

@@ -113,11 +113,10 @@ def build_model(config):
     return model_cls(**config["kwargs"])
 
 
-def predict_from_yaml(config_path="config.yaml", uri=None):
+def predict_from_yaml(config_path="config.yaml", uri=None, end_time:datetime.date=None):
     config = load_config(config_path)
 
     # 修改时间
-    end_time = datetime.date(2025, 6, 20)
     config["task"]["dataset"]["kwargs"]["segments"]["test"] = [ datetime.date(2025, 6, 1),  end_time]
     config['data_handler_config']['end_time'] = end_time
 
@@ -178,7 +177,7 @@ def predict_from_yaml(config_path="config.yaml", uri=None):
     preds1 = preds.reset_index()
 
     # 2. 筛选指定日期，例如：2025-06-20
-    date_str = '2025-06-20'
+    date_str = end_time.strftime('%Y-%m-%d')
     specified_date = pd.to_datetime(date_str)  # 确保与索引的日期类型一致
     filtered_preds = preds1[preds1['datetime'] == specified_date]
 
@@ -226,31 +225,33 @@ if __name__ == "__main__":
         '/Users/dabai/work/data/agent_qlib/online_check/fin_model_orig/2025-06-07_07-14-29-272373/csi300_qwen30b_loop61',
 
     ]
+    end_time = datetime.date(2025, 6, 23)
+    date_str = end_time.strftime('%Y-%m-%d')
 
-    # for i, base_path in enumerate(path_list):
-    #
-    #     import sys
-    #     print(i, sys.path)
-    #     if i>0:
-    #         sys.path.remove(path_list[i-1])
-    #     sys.path.append(base_path)
-    #     print(i, sys.path)
-    #
-    #     # 如果模块已经导入，需要删除缓存，确保下次重新加载
-    #     module_name = "model"  # 替换为你要重新加载的模块名
-    #     if module_name in sys.modules:
-    #         del sys.modules[module_name]
-    #
-    #     config_path = f'{base_path}/conf.yaml'
-    #     # config_path = 'config.yaml'
-    #
-    #     predict_from_yaml(config_path, uri=base_path)
+    for i, base_path in enumerate(path_list):
+
+        import sys
+        print(i, sys.path)
+        if i>0:
+            sys.path.remove(path_list[i-1])
+        sys.path.append(base_path)
+        print(i, sys.path)
+
+        # 如果模块已经导入，需要删除缓存，确保下次重新加载
+        module_name = "model"  # 替换为你要重新加载的模块名
+        if module_name in sys.modules:
+            del sys.modules[module_name]
+
+        config_path = f'{base_path}/conf.yaml'
+        # config_path = 'config.yaml'
+
+        predict_from_yaml(config_path, uri=base_path, end_time=end_time)
 
 
     df_list = []
+
     for base_path in path_list:
         print(base_path)
-        date_str = '2025-06-20'
         result_path = os.path.join(Path(base_path).parent, "result")
         output_file = f"{result_path}/{date_str}_{Path(base_path).name}_sorted_preds.csv"
 
@@ -283,7 +284,7 @@ if __name__ == "__main__":
     config_path = f'{base_path}/conf.yaml'
     config = load_config(config_path)
 
-    output_file = f"{result_path}/merge_sorted_preds.csv"
+    output_file = f"{result_path}/{date_str}_merge_sorted_preds.csv"
     agg_df.to_csv(output_file, index=False)
 
     init_qlib(config, uri=base_path)

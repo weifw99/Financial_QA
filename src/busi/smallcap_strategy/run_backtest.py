@@ -22,8 +22,8 @@ def run():
     cerebro.broker.setcommission(commission=0.00025)  # 万 2.5 的佣金
     cerebro.broker.setcash(1000000)  # 初始资金
 
-    from_idx = datetime(2020, 1, 1)  # 记录行情数据的开始时间和结束时间
-    to_idx = datetime(2025, 1, 1)
+    from_idx = datetime(2010, 1, 1)  # 记录行情数据的开始时间和结束时间
+    to_idx = datetime(2022, 1, 1)
     print(from_idx, to_idx)
     # 加载所有股票与指数数据
     datafeeds = load_stock_data(from_idx, to_idx)
@@ -31,30 +31,32 @@ def run():
         cerebro.adddata(feed)
     print('load data DONE.', len(datafeeds))
 
-
     # 添加策略及其参数
-    cerebro.addstrategy(SmallCapStrategy, **config['strategy'])
-
+    # cerebro.addstrategy(SmallCapStrategy, **config['strategy'])
+    cerebro.addstrategy(SmallCapStrategy)
     print('add strategy DONE.')
 
     # 添加 PyFolio分析组件
     cerebro.addanalyzer(bt.analyzers.PyFolio, _name='PyFolio')
     cerebro.addanalyzer(bt.analyzers.TimeReturn, _name='_TimeReturn')
     # 计算夏普率
-    cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='mysharpe')
+    # cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='mysharpe')
 
     print('add analyzers DONE.')
-
 
     start_portfolio_value = cerebro.broker.getvalue()
     print(f'初始本金: {start_portfolio_value:.2f}')
 
     # ✅ 真正执行策略
 
-    result = cerebro.run()
-    strat = result[0]
-
     print('cerebro.run()')
+    # result = cerebro.run(runonce=False, preload=True,stdstats=False)
+    result = cerebro.run()
+    print("数据长度:", len(result[0].datas[0]))
+
+    # 打印下每个 data 的长度：
+    # for d in cerebro.datas:
+    #     print(d._name, len(d))
 
     end_portfolio_value = cerebro.broker.getvalue()  # 最后的总资产
     pnl = end_portfolio_value - start_portfolio_value # 盈亏
@@ -68,10 +70,11 @@ def run():
     port_value = cerebro.broker.getvalue()
     print("Final Portfolio Value: %.2f" % port_value)
 
-    # 绘制净值图并记录
-    import matplotlib.pyplot as plt
-    cerebro.plot(style='candlestick')
-    plt.savefig("outputs/plots/net_value.png")
+    # # 绘制净值图并记录
+    # import matplotlib.pyplot as plt
+    # cerebro.plot(style='candlestick')
+    # # cerebro.plot(strat=result, style='candlestick')
+    # plt.savefig("outputs/plots/net_value.png")
 
 if __name__ == '__main__':
     run()

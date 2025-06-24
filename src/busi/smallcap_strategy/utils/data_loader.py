@@ -35,6 +35,7 @@ class CustomPandasData(bt.feeds.PandasData):
         ('dtformat', '%Y-%m-%d'),
     )
 
+    '''
     def __init__(self, **kwargs):
         # 确保数据格式正确
         if 'dataname' in kwargs:
@@ -54,10 +55,12 @@ class CustomPandasData(bt.feeds.PandasData):
             return
 
         print(f"数据源基本信息：\n{self.p.dataname.info()}")
-        print(f"数据源前5行：\n{self.p.dataname.head()}")
+        # print(f"数据源前5行：\n{self.p.dataname.head()}")
 
         # 检查价格数据
-        price_cols = ['open', 'high', 'low', 'close']
+        # price_cols = ['open', 'high', 'low', 'close']
+        price_cols = ['open', 'high', 'low', 'close',  'mv', 'profit', 'revenue',]
+
         for col in price_cols:
             if col not in self.p.dataname.columns:
                 print(f"警告：缺少价格列 {col}")
@@ -65,7 +68,10 @@ class CustomPandasData(bt.feeds.PandasData):
                 zero_prices = self.p.dataname[self.p.dataname[col] == 0]
                 if not zero_prices.empty:
                     print(f"警告：{col}列中有{len(zero_prices)}个零值")
-                    print(f"零值记录：\n{zero_prices[['symbol', col]].head()}")
+                    print(f"零值记录：\n{zero_prices[[ col]].head()}")
+
+    '''
+
 
 def load_stock_data(from_idx, to_idx):
     """
@@ -80,9 +86,18 @@ def load_stock_data(from_idx, to_idx):
     zh_data_dir = Path(base_data_path) / 'market'
     financial_data_dir = Path(base_data_path).parent / 'zh_data/financial'
 
+    # 获取所有时间数据， 使用000001.csv
+    pdf = pd.read_csv(f'{zh_data_dir}/sh.000001/daily.csv')
+    pdf['date'] = pd.to_datetime(pdf['date'])
+
     for i, stock_file in enumerate(os.listdir(zh_data_dir)):
-        # if i > 10:
-        #     break
+        if i > 500:
+            break
+
+        data = pd.DataFrame(index=pdf['date'].unique())
+        data = data.sort_index()
+
+
         print(f'{i}/{stock_file}')
         file_path = f'{zh_data_dir}/{stock_file}/daily.csv'
         file_path_a = f'{zh_data_dir}/{stock_file}/daily_a.csv'
@@ -119,18 +134,22 @@ def load_stock_data(from_idx, to_idx):
             # 使用 pd.merge_asof 实现按时间向前填充匹配
             df = pd.merge_asof(df_sorted, df2_sorted, on='date', direction='backward')
 
-            df.rename(columns={'netProfit': 'profit', 'MBRevenue': 'revenue', 'isST': 'is_st', 'date': 'datetime'}, inplace=True)
+            # df.rename(columns={'netProfit': 'profit', 'MBRevenue': 'revenue', 'isST': 'is_st', 'date': 'datetime'}, inplace=True)
+            df.rename(columns={'netProfit': 'profit', 'MBRevenue': 'revenue', 'isST': 'is_st', }, inplace=True)
 
             df['mv'] = df['totalShare'] * df['close_1'] # 市值 = 总股本 * 收盘价（不复权）
 
             df['openinterest'] = 0
-            df['datetime'] = pd.to_datetime(df['datetime'])
-            df.set_index('datetime', inplace=True)  # 设置 datetime 为索引
+            df['date'] = pd.to_datetime(df['date'])
 
             # 选择需要的列
-            df = df[['open', 'high', 'low', 'close', 'volume', 'openinterest', 'mv', 'profit', 'revenue', 'is_st']]
+            df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue', 'is_st', 'openinterest',]]
 
+            df.set_index('date', inplace=True)  # 设置 datetime 为索引
+            df = df.sort_index()
 
+            data_ = pd.merge(data, df, left_index=True, right_index=True, how='left')
+            data_ = data_.sort_index()  # ✅ 强制升序
             # 检查并填充关键列
             # required_cols = ['datetime', 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue', 'is_st']
             # for col in required_cols:
@@ -139,22 +158,26 @@ def load_stock_data(from_idx, to_idx):
             # df = df[required_cols]
 
             # data_ = df.sort_index()
-            df.loc[:, ['volume', 'openinterest']] = df.loc[:, ['volume', 'openinterest']].fillna(0)
-            df.loc[:, ['open', 'high', 'low', 'close']] = df.loc[:, ['open', 'high', 'low', 'close']].bfill()
-            df.bfill(inplace=True)
-            df.fillna(0, inplace=True)
-            rsub_cols = [ 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue', 'is_st']
+            data_.loc[:, ['volume', 'openinterest']] = data_.loc[:, ['volume', 'openinterest']].fillna(0)
+            data_.loc[:, ['open', 'high', 'low', 'close']] = data_.loc[:, ['open', 'high', 'low', 'close']].bfill()
+            data_.bfill(inplace=True)
+            data_.fillna(0, inplace=True)
+            rsub_cols = [ 'open', 'high', 'low', 'close', ]
 
-            df.dropna(subset=rsub_cols, inplace=True)
+            data_.dropna(subset=rsub_cols, inplace=True)
 
-            if df.empty or len(df) < 100:
-                continue
+            # print("最终合并后的 data_ 形状:", data_.shape)
+            # print("缺失字段统计:\n", data_.isnull().sum())
+            # print("close 列前5行:\n", data_['close'].head())
 
-            data = CustomPandasData(dataname=df,
+            # if df.empty or len(df) < 100:
+            #     continue
+            data = CustomPandasData(dataname=data_,
                                     fromdate=from_idx,
                                     todate=to_idx,
                                     timeframe=bt.TimeFrame.Days,
                                     name=stock_file.replace('.csv', ''))
+
             # data._name = stock_file.replace('.csv', '')  # 设置数据名称（用于后续匹配指数名等）
             # print(f'添加数据源：{data._name}，数据日期范围：{df["datetime"].min()} ~ {df["datetime"].max()}，共 {len(df)} 条记录')
             datas.append(data)

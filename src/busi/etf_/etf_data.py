@@ -88,7 +88,7 @@ class EtfDataHandle:
         #date_list = pd.date_range(start=start_date, end=end_date, freq='D').strftime('%Y%m%d').tolist()
 
         etf_result = []
-        for symbol in symbols:
+        for i, symbol in enumerate(symbols):
             path_ = DataCons.ETF_HS_DAILY_FILE_PATH.format(symbol)
             Path(path_).parent.mkdir(parents=True, exist_ok=True)
             bef_df: pd.DataFrame = None
@@ -139,13 +139,15 @@ class EtfDataHandle:
                 else:
                     print(f"{symbol}接口获取日线数据为 null")
                     df = bef_df
-                time.sleep(0.01)
 
                 df['date'] = pd.to_datetime(df['date'])
                 df = df.drop_duplicates().sort_values('date', ascending=False)
 
                 df.to_csv(path_, index=False)
                 etf_result.append(df)
+
+                if i > 1:
+                    time.sleep(0.01)
 
             except Exception as e:
                 print(f"{symbol}获取日线数据失败: {e}")
@@ -192,9 +194,11 @@ class EtfDataHandle:
         code_list = etf_info_dfs['代码1'].tolist()
         # 随机打乱列表顺序
         random.shuffle(code_list)
+        print('总得数据量', len(code_list))
 
-        for etf_code in code_list:
-            time.sleep(random.randint(1, 3))
+        for i, etf_code in enumerate(code_list):
+            print(f"正在获取第 {i} 个 etf: {etf_code}")
+            time.sleep(random.randint(1, 2))
             temp_etf: list[pd.DataFrame] = self.download_etf_trading_day_data(symbol=str( etf_code ) )
 
             if len(temp_etf) == 0:

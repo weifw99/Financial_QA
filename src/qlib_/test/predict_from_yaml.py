@@ -226,8 +226,8 @@ if __name__ == "__main__":
         '/Users/dabai/work/data/agent_qlib/online_check/fin_model_orig/2025-06-07_07-14-29-272373/csi300_qwen30b_loop61',
 
     ]
+
     # for i, base_path in enumerate(path_list):
-    #
     #
     #     import sys
     #     print(i, sys.path)
@@ -245,24 +245,24 @@ if __name__ == "__main__":
     #     # config_path = 'config.yaml'
     #
     #     predict_from_yaml(config_path, uri=base_path)
-    #
-    #
-    # df_list = []
-    # for base_path in path_list:
-    #     print(base_path)
-    #     date_str = '2025-06-20'
-    #     result_path = os.path.join(Path(base_path).parent, "result")
-    #     output_file = f"{result_path}/{date_str}_{Path(base_path).name}_sorted_preds.csv"
-    #
-    #     df = pd.read_csv(output_file)
-    #     df_list.append(df)
 
-    base_p = '/Users/dabai/liepin/飞书_bak/搜索算法/搜索召回/result/'
+
     df_list = []
-    for p_ in os.listdir(base_p):
-        if p_.endswith('csv'):
-            df = pd.read_csv(base_p + p_)
-            df_list.append(df)
+    for base_path in path_list:
+        print(base_path)
+        date_str = '2025-06-20'
+        result_path = os.path.join(Path(base_path).parent, "result")
+        output_file = f"{result_path}/{date_str}_{Path(base_path).name}_sorted_preds.csv"
+
+        df = pd.read_csv(output_file)
+        df_list.append(df)
+
+    # base_p = '/Users/dabai/liepin/飞书_bak/搜索算法/搜索召回/result/'
+    # df_list = []
+    # for p_ in os.listdir(base_p):
+    #     if p_.endswith('csv'):
+    #         df = pd.read_csv(base_p + p_)
+    #         df_list.append(df)
 
     # 步骤 1：合并所有数据
     all_df = pd.concat(df_list, ignore_index=True)
@@ -280,8 +280,48 @@ if __name__ == "__main__":
     # 输出前几行结果
     print(agg_df.head())
 
-    output_file = f"{base_p}/merge_sorted_preds.csv"
+    config_path = f'{base_path}/conf.yaml'
+    config = load_config(config_path)
+
+    output_file = f"{result_path}/merge_sorted_preds.csv"
     agg_df.to_csv(output_file, index=False)
+
+    init_qlib(config, uri=base_path)
+    # dataset = build_dataset(config['task']["dataset"])
+
+    # 获取指定市场数据，使用 instruments 指定市场（如 csi300）
+    market = 'csi300'  # 可以换成其他市场名，比如 'szse', 'hs300' 等
+    from qlib.data import D
+
+    start_time = '2025-06-20'
+    end_time = '2025-06-20'
+    # 获取某个日期的指定市场股票数据
+    instruments = D.instruments(market=market)
+    instrument_list = D.list_instruments(instruments=instruments, start_time=start_time, end_time=end_time, as_list=True)
+    required_fields = ["$open", "$close", "$low", "$high", "$volume", "$factor", "Ref($close, -1) / $close - 1"]
+
+    df = D.features(instrument_list, required_fields,  start_time=start_time,  end_time=end_time)
+    df.rename(
+        columns={
+            "$open": "open",
+            "$close": "close",
+            "$low": "low",
+            "$high": "high",
+            "$volume": "volume",
+            "$factor": "factor",
+            "Ref($close, -1) / $close - 1": "lab",
+        },
+        inplace=True,
+    )
+    df = df.reset_index()
+    print(df)
+    df['datetime'] = pd.to_datetime(df['datetime']).dt.strftime("%Y-%m-%d")
+    result = pd.merge(df, agg_df, on=['datetime', 'instrument'],  how='inner')
+    output_file = f"{result_path}/merge_lab_preds.csv"
+    result.to_csv(output_file, index=False)
+    print('vgafdg')
+
+
 
     # import joblib
     #

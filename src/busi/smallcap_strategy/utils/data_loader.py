@@ -13,22 +13,59 @@ class CustomPandasData(bt.feeds.PandasData):
     """
     lines = ('mv', 'profit', 'revenue', 'is_st',)
     params = (# 'datetime', 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue', 'is_st'
-        ('datetime', None),
-        ('open', 'open'),
-        ('high', 'high'),
-        ('low', 'low'),
-        ('close', 'close'),
-        ('volume', 'volume'),
+        # ('datetime', None),
+        # ('open', 'open'),
+        # ('high', 'high'),
+        # ('low', 'low'),
+        # ('close', 'close'),
+        # ('volume', 'volume'),
 
-        ('mv', 'mv'),
-        ('profit', 'profit'),
-        ('revenue', 'revenue'),
-        ('is_st', 'is_st'),  # 0 or 1 表示是否ST
+        # ('mv', 'mv'),
+        # ('profit', 'profit'),
+        # ('revenue', 'revenue'),
+        # ('is_st', 'is_st'),  # 0 or 1 表示是否ST
+        # ('dtformat', '%Y-%m-%d'),
+        # ('timeframe', bt.TimeFrame.Days),
+        # ('compression', 1),
+        # ('openinterest', -1),
+        ('mv', -1),
+        ('profit', -1),
+        ('revenue', -1),
+        ('is_st', -1),  # 0 or 1 表示是否ST
         ('dtformat', '%Y-%m-%d'),
-        ('timeframe', bt.TimeFrame.Days),
-        ('compression', 1),
-        ('openinterest', -1),
     )
+
+    def __init__(self, **kwargs):
+        # 确保数据格式正确
+        if 'dataname' in kwargs:
+            df = kwargs['dataname']
+            if isinstance(df.index, pd.MultiIndex):
+                # 重置索引，将日期和symbol作为列
+                df = df.reset_index()
+                # 设置日期为索引
+                df.set_index('date', inplace=True)
+                kwargs['dataname'] = df
+
+        super().__init__(**kwargs)
+
+        # 验证数据
+        if self.p.dataname is None or self.p.dataname.empty:
+            print("警告：输入数据为空")
+            return
+
+        print(f"数据源基本信息：\n{self.p.dataname.info()}")
+        print(f"数据源前5行：\n{self.p.dataname.head()}")
+
+        # 检查价格数据
+        price_cols = ['open', 'high', 'low', 'close']
+        for col in price_cols:
+            if col not in self.p.dataname.columns:
+                print(f"警告：缺少价格列 {col}")
+            else:
+                zero_prices = self.p.dataname[self.p.dataname[col] == 0]
+                if not zero_prices.empty:
+                    print(f"警告：{col}列中有{len(zero_prices)}个零值")
+                    print(f"零值记录：\n{zero_prices[['symbol', col]].head()}")
 
 def load_stock_data(from_idx, to_idx):
     """
@@ -86,36 +123,39 @@ def load_stock_data(from_idx, to_idx):
 
             df['mv'] = df['totalShare'] * df['close_1'] # 市值 = 总股本 * 收盘价（不复权）
 
-            # 检查并填充关键列
-            required_cols = ['datetime', 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue', 'is_st']
-            for col in required_cols:
-                if col not in df.columns:
-                    raise ValueError(f"缺失字段：{col} in {stock_file}")
-
-            df = df[required_cols]
             df['openinterest'] = 0
             df['datetime'] = pd.to_datetime(df['datetime'])
             df.set_index('datetime', inplace=True)  # 设置 datetime 为索引
 
-            data_ = df.sort_index()
-            data_.loc[:, ['volume', 'openinterest']] = data_.loc[:, ['volume', 'openinterest']].fillna(0)
-            data_.loc[:, ['open', 'high', 'low', 'close']] = data_.loc[:, ['open', 'high', 'low', 'close']].bfill()
-            data_.bfill(inplace=True)
-            data_.fillna(0, inplace=True)
+            # 选择需要的列
+            df = df[['open', 'high', 'low', 'close', 'volume', 'openinterest', 'mv', 'profit', 'revenue', 'is_st']]
+
+
+            # 检查并填充关键列
+            # required_cols = ['datetime', 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue', 'is_st']
+            # for col in required_cols:
+            #     if col not in df.columns:
+            #         raise ValueError(f"缺失字段：{col} in {stock_file}")
+            # df = df[required_cols]
+
+            # data_ = df.sort_index()
+            df.loc[:, ['volume', 'openinterest']] = df.loc[:, ['volume', 'openinterest']].fillna(0)
+            df.loc[:, ['open', 'high', 'low', 'close']] = df.loc[:, ['open', 'high', 'low', 'close']].bfill()
+            df.bfill(inplace=True)
+            df.fillna(0, inplace=True)
             rsub_cols = [ 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue', 'is_st']
 
-            data_.dropna(subset=rsub_cols, inplace=True)
+            df.dropna(subset=rsub_cols, inplace=True)
 
-            if data_.empty or len(data_) < 100:
+            if df.empty or len(df) < 100:
                 continue
 
             data = CustomPandasData(dataname=df,
                                     fromdate=from_idx,
                                     todate=to_idx,
-                                    dtformat='%Y-%m-%d',
                                     timeframe=bt.TimeFrame.Days,
-                                    )
-            data._name = stock_file.replace('.csv', '')  # 设置数据名称（用于后续匹配指数名等）
+                                    name=stock_file.replace('.csv', ''))
+            # data._name = stock_file.replace('.csv', '')  # 设置数据名称（用于后续匹配指数名等）
             # print(f'添加数据源：{data._name}，数据日期范围：{df["datetime"].min()} ~ {df["datetime"].max()}，共 {len(df)} 条记录')
             datas.append(data)
     return datas

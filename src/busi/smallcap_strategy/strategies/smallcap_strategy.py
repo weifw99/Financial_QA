@@ -8,7 +8,7 @@ import numpy as np
 
 class SmallCapStrategy(bt.Strategy):
     params = dict(
-        min_mv=10e8,                   # 最小市值
+        min_mv=10e8,                   # 最小市值 10亿
         min_profit=0,                  # 最小净利润
         min_revenue=1e8,              # 最小营业收入
         rebalance_weekday=1,         # 每周调仓日（1 = 周二）
@@ -29,8 +29,6 @@ class SmallCapStrategy(bt.Strategy):
         self.rebalance_date = None
         self.clear_until = None  # 清仓维持到的日期
         self.is_cleared = False  # 当前是否处于清仓状态
-
-        self.stocks = self.datas
 
         # 定时器
         self.add_timer(
@@ -81,9 +79,18 @@ class SmallCapStrategy(bt.Strategy):
 
         dt = self.datas[0].datetime.datetime(0)
 
+
+        datanames = self.getdatanames()
+        indices = [self.p.smallcap_index] + self.p.large_indices
+        for name in indices:
+            if name not in datanames:
+                print(f'SmallCapStrategy.next1 {name} is not available' )
+                return
+
+
         # 判断是否为调仓时间（每周二上午10点）
-        if self.rebalance_date == dt.date():
-            return
+        # if self.rebalance_date == dt.date():
+        #     return
         self.rebalance_date = dt.date()
 
         # 快速趋势止损（小市值单日下跌5%）
@@ -153,11 +160,16 @@ class SmallCapStrategy(bt.Strategy):
             try:
                 if d._name in [self.p.smallcap_index] + self.p.large_indices:
                     continue
-                mv = d.mv[0]
-                profit = d.profit[0]
-                revenue = d.revenue[0]
-                is_st = d.is_st[0]
-                if mv > self.p.min_mv and profit > 0 and revenue > self.p.min_revenue and not is_st:
+                mv = d.mv[0] # 市值
+                profit = d.profit[0] # 净利润
+                revenue = d.revenue[0] # 主营营业收入
+                is_st = d.is_st[0] # 是否ST
+                profit_ttm = d.profit_ttm[0] # 母公司股东净利润
+                if (mv > self.p.min_mv  # 市值大于 10亿
+                        and profit > 0  # 净利润大于0
+                        and profit_ttm > 0  # 母公司股东净利润大于0
+                        and revenue > self.p.min_revenue  # 主营收入大于 1亿
+                        and is_st == 0):
                     candidates.append((d, mv))
             except:
                 continue

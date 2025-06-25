@@ -11,7 +11,7 @@ class CustomPandasData(bt.feeds.PandasData):
     自定义数据类，包含：市值、市盈率、利润、营收、是否ST标记等基本面数据
     需要保证df中有以下字段：datetime, open, high, low, close, volume, mv, profit, revenue, is_st
     """
-    lines = ('mv', 'profit', 'revenue', 'is_st',)
+    lines = ('mv', 'profit', 'revenue', 'is_st', 'profit_ttm')
     params = (# 'datetime', 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue', 'is_st'
         # ('datetime', None),
         # ('open', 'open'),
@@ -32,6 +32,7 @@ class CustomPandasData(bt.feeds.PandasData):
         ('profit', -1),
         ('revenue', -1),
         ('is_st', -1),  # 0 or 1 表示是否ST
+        ('profit_ttm', -1),  #
         ('dtformat', '%Y-%m-%d'),
     )
 
@@ -58,7 +59,7 @@ def load_stock_data(from_idx, to_idx):
     data = data.sort_index()
 
     select_cols = ['date', 'open', 'high', 'low', 'close', 'volume', ]
-    add_cols = ['mv', 'profit', 'revenue', 'is_st', 'openinterest', ]
+    add_cols = ['mv', 'profit', 'revenue', 'is_st', 'profit_ttm', 'openinterest', ]
     # 加载 510880
     etf_path_510880 = '/Users/dabai/liepin/study/llm/Financial_QA/src/busi/etf_/data/etf_trading/daily/SZ510880.csv'
     etf_510880_df = pd.read_csv(etf_path_510880)
@@ -102,8 +103,8 @@ def load_stock_data(from_idx, to_idx):
 
 
     for i, stock_file in enumerate(os.listdir(zh_data_dir)):
-        if i > 500:
-            break
+        # if i > 500:
+        #     break
 
         print(f'{i}/{stock_file}')
         file_path = f'{zh_data_dir}/{stock_file}/daily.csv'
@@ -111,7 +112,7 @@ def load_stock_data(from_idx, to_idx):
 
         # 获取财务盈利信息
         financial_path = f'{financial_data_dir}/{stock_file}/income.csv'
-        if os.path.exists(file_path) and os.path.exists(financial_path):
+        if os.path.exists(file_path):
             df = pd.read_csv(file_path)
             df_a = pd.read_csv(file_path_a)[['date','close']]
             df_a.rename(columns={'close': 'close_1'}, inplace=True)
@@ -120,73 +121,98 @@ def load_stock_data(from_idx, to_idx):
 
             # 使用后复权价格，factor均设置为1， 回测使用该因子
             df['factor'] = 1.0
-
-            financial_df = pd.read_csv(financial_path)
-            financial_df['date'] = financial_df['pubDate']
-
-            financial_df = financial_df[['date', 'netProfit', 'MBRevenue', 'totalShare', 'liqaShare']]
             # 确保 date 列为 datetime 类型并排序
             df['date'] = pd.to_datetime(df['date'])
-            financial_df['date'] = pd.to_datetime(financial_df['date'])
-
             df_sorted = df.sort_values('date')
-            df2_sorted = financial_df.sort_values('date').ffill().dropna()
+            if os.path.exists(financial_path):
+
+                financial_df = pd.read_csv(financial_path)
+                financial_df['date'] = financial_df['pubDate']
+
+                financial_df = financial_df[['date', 'netProfit', 'MBRevenue', 'totalShare', 'liqaShare', 'epsTTM']]
+
+                # 确保 date 列为 datetime 类型并排序
+                financial_df['date'] = pd.to_datetime(financial_df['date'])
 
 
-            # pubDate	公司发布财报的日期
-            # statDate	财报统计的季度的最后一天, 比如2017-03-31, 2017-06-30
-            # netProfit	净利润(元)
-            # MBRevenue	主营营业收入(元)
-            # totalShare	总股本(股)
-            # 使用 pd.merge_asof 实现按时间向前填充匹配
-            df = pd.merge_asof(df_sorted, df2_sorted, on='date', direction='backward')
+                df2_sorted = financial_df.sort_values('date').ffill().dropna()
 
-            # df.rename(columns={'netProfit': 'profit', 'MBRevenue': 'revenue', 'isST': 'is_st', 'date': 'datetime'}, inplace=True)
-            df.rename(columns={'netProfit': 'profit', 'MBRevenue': 'revenue', 'isST': 'is_st', }, inplace=True)
+                # 归属母公司股东的净利润TTM
+                # epsTTM	每股收益	归属母公司股东的净利润TTM/最新总股本
+                df2_sorted['profit_ttm'] = df2_sorted['totalShare'] * df2_sorted['epsTTM']
 
-            df['mv'] = df['totalShare'] * df['close_1'] # 市值 = 总股本 * 收盘价（不复权）
+                # pubDate	公司发布财报的日期
+                # statDate	财报统计的季度的最后一天, 比如2017-03-31, 2017-06-30
+                # netProfit	净利润(元)
+                # MBRevenue	主营营业收入(元)
+                # totalShare	总股本(股)
+                # 使用 pd.merge_asof 实现按时间向前填充匹配
+                df = pd.merge_asof(df_sorted, df2_sorted, on='date', direction='backward')
 
-            df['openinterest'] = 0
-            df['date'] = pd.to_datetime(df['date'])
+                # df.rename(columns={'netProfit': 'profit', 'MBRevenue': 'revenue', 'isST': 'is_st', 'date': 'datetime'}, inplace=True)
+                df.rename(columns={'netProfit': 'profit', 'MBRevenue': 'revenue', 'isST': 'is_st', }, inplace=True)
 
-            # 选择需要的列
-            df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue', 'is_st', 'openinterest',]]
+                df['mv'] = df['totalShare'] * df['close_1'] # 市值 = 总股本 * 收盘价（不复权）
 
-            df.set_index('date', inplace=True)  # 设置 datetime 为索引
-            df = df.sort_index()
+                df['openinterest'] = 0
+                df['date'] = pd.to_datetime(df['date'])
 
-            data_ = pd.merge(data, df, left_index=True, right_index=True, how='left')
-            data_ = data_.sort_index()  # ✅ 强制升序
-            # 检查并填充关键列
-            # required_cols = ['datetime', 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue', 'is_st']
-            # for col in required_cols:
-            #     if col not in df.columns:
-            #         raise ValueError(f"缺失字段：{col} in {stock_file}")
-            # df = df[required_cols]
+                # 选择需要的列
+                df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue', 'is_st', 'profit_ttm', 'openinterest',]]
 
-            # data_ = df.sort_index()
-            data_.loc[:, ['volume', 'openinterest']] = data_.loc[:, ['volume', 'openinterest']].fillna(0)
-            data_.loc[:, ['open', 'high', 'low', 'close']] = data_.loc[:, ['open', 'high', 'low', 'close']].bfill()
-            data_.bfill(inplace=True)
-            data_.fillna(0, inplace=True)
-            rsub_cols = [ 'open', 'high', 'low', 'close', ]
+                df.set_index('date', inplace=True)  # 设置 datetime 为索引
+                df = df.sort_index()
 
-            data_.dropna(subset=rsub_cols, inplace=True)
+                data_ = pd.merge(data, df, left_index=True, right_index=True, how='left')
+                data_ = data_.sort_index()  # ✅ 强制升序
+                # 检查并填充关键列
+                # required_cols = ['datetime', 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue', 'is_st']
+                # for col in required_cols:
+                #     if col not in df.columns:
+                #         raise ValueError(f"缺失字段：{col} in {stock_file}")
+                # df = df[required_cols]
 
-            # print("最终合并后的 data_ 形状:", data_.shape)
-            # print("缺失字段统计:\n", data_.isnull().sum())
-            # print("close 列前5行:\n", data_['close'].head())
+                # data_ = df.sort_index()
+                data_.loc[:, ['volume', 'openinterest']] = data_.loc[:, ['volume', 'openinterest']].fillna(0)
+                data_.loc[:, ['open', 'high', 'low', 'close']] = data_.loc[:, ['open', 'high', 'low', 'close']].bfill()
+                data_.bfill(inplace=True)
+                data_.fillna(0, inplace=True)
+                rsub_cols = [ 'open', 'high', 'low', 'close', ]
 
-            # if df.empty or len(df) < 100:
-            #     continue
-            pandas_data = CustomPandasData(dataname=data_,
-                                    fromdate=from_idx,
-                                    todate=to_idx,
-                                    timeframe=bt.TimeFrame.Days,
-                                    name=stock_file.replace('.csv', ''))
+                data_.dropna(subset=rsub_cols, inplace=True)
 
-            # data._name = stock_file.replace('.csv', '')  # 设置数据名称（用于后续匹配指数名等）
-            # print(f'添加数据源：{data._name}，数据日期范围：{df["datetime"].min()} ~ {df["datetime"].max()}，共 {len(df)} 条记录')
-            datas.append(pandas_data)
+                # print("最终合并后的 data_ 形状:", data_.shape)
+                # print("缺失字段统计:\n", data_.isnull().sum())
+                # print("close 列前5行:\n", data_['close'].head())
+
+                # if df.empty or len(df) < 100:
+                #     continue
+                pandas_data = CustomPandasData(dataname=data_,
+                                               fromdate=from_idx,
+                                               todate=to_idx,
+                                               timeframe=bt.TimeFrame.Days,
+                                               name=stock_file.replace('.csv', ''))
+
+                # data._name = stock_file.replace('.csv', '')  # 设置数据名称（用于后续匹配指数名等）
+                # print(f'添加数据源：{data._name}，数据日期范围：{df["datetime"].min()} ~ {df["datetime"].max()}，共 {len(df)} 条记录')
+                datas.append(pandas_data)
+            else:
+                print(f'{stock_file} 缺少财务信息')
+                # 选择需要的列
+                df_sorted = df_sorted[select_cols]
+                for col in add_cols:
+                    df_sorted[col] = 0
+
+                df_sorted.set_index('date', inplace=True)  # 设置 datetime 为索引
+                df_sorted = df_sorted.sort_index()
+                data_ = pd.merge(data, df_sorted, left_index=True, right_index=True, how='left')
+                data_ = data_.sort_index()  # ✅ 强制升序
+                pandas_data = CustomPandasData(dataname=data_,
+                                               fromdate=from_idx,
+                                               todate=to_idx,
+                                               timeframe=bt.TimeFrame.Days,
+                                               name='csi932000')
+                datas.append(pandas_data)
+
     return datas
 

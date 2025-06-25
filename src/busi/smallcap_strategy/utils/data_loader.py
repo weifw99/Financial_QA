@@ -60,47 +60,50 @@ def load_stock_data(from_idx, to_idx):
 
     select_cols = ['date', 'open', 'high', 'low', 'close', 'volume', ]
     add_cols = ['mv', 'profit', 'revenue', 'is_st', 'profit_ttm', 'openinterest', ]
-    # 加载 510880
-    etf_path_510880 = '/Users/dabai/liepin/study/llm/Financial_QA/src/busi/etf_/data/etf_trading/daily/SZ510880.csv'
-    etf_510880_df = pd.read_csv(etf_path_510880)
+    # 加载 SZ510880 SH159300
+    etf_list = ['SZ510880', 'SH159300', 'SZ510050']
+    etf_path = '/Users/dabai/liepin/study/llm/Financial_QA/src/busi/etf_/data/etf_trading/daily'
+    for etf_code in etf_list:
+        etf_df = pd.read_csv(f'{etf_path}/{etf_code}.csv')
+        # 选择需要的列
+        etf_df = etf_df[select_cols]
+        for col in add_cols:
+            etf_df[col] = 0
 
-    # 选择需要的列
-    etf_510880_df = etf_510880_df[select_cols]
-    for col in add_cols:
-        etf_510880_df[col] = 0
-
-    etf_510880_df.set_index('date', inplace=True)  # 设置 datetime 为索引
-    etf_510880_df = etf_510880_df.sort_index()
-    data_ = pd.merge(data, etf_510880_df, left_index=True, right_index=True, how='left')
-    data_ = data_.sort_index()  # ✅ 强制升序
-    pandas_data = CustomPandasData(dataname=data_,
-                                   fromdate=from_idx,
-                                   todate=to_idx,
-                                   timeframe=bt.TimeFrame.Days,
-                                   name='etf_SZ510880')
-    datas.append(pandas_data)
+        etf_df.set_index('date', inplace=True)  # 设置 datetime 为索引
+        etf_df = etf_df.sort_index()
+        data_ = pd.merge(data, etf_df, left_index=True, right_index=True, how='left')
+        data_ = data_.sort_index()  # ✅ 强制升序
+        pandas_data = CustomPandasData(dataname=data_,
+                                       fromdate=from_idx,
+                                       todate=to_idx,
+                                       timeframe=bt.TimeFrame.Days,
+                                       name=f'etf_{etf_code}')
+        datas.append(pandas_data)
 
 
+    index_list =['csi932000', ]
     # 获取指数数据
-    zz2000_path = '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/index/csi932000.csv'
-    zz2000_df = pd.read_csv(zz2000_path)
+    zz_path = '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/index'
 
-    # 选择需要的列
-    zz2000_df = zz2000_df[select_cols]
-    for col in add_cols:
-        zz2000_df[col] = 0
+    for index_code in index_list:
 
-    zz2000_df.set_index('date', inplace=True)  # 设置 datetime 为索引
-    zz2000_df = zz2000_df.sort_index()
-    data_ = pd.merge(data, zz2000_df, left_index=True, right_index=True, how='left')
-    data_ = data_.sort_index()  # ✅ 强制升序
-    pandas_data = CustomPandasData(dataname=data_,
-                                   fromdate=from_idx,
-                                   todate=to_idx,
-                                   timeframe=bt.TimeFrame.Days,
-                                   name='csi932000')
-    datas.append(pandas_data)
+        zz_df = pd.read_csv(f'{zz_path}/{index_code}.csv')
+        # 选择需要的列
+        zz_df = zz_df[select_cols]
+        for col in add_cols:
+            zz_df[col] = 0
 
+        zz_df.set_index('date', inplace=True)  # 设置 datetime 为索引
+        zz_df = zz_df.sort_index()
+        data_ = pd.merge(data, zz_df, left_index=True, right_index=True, how='left')
+        data_ = data_.sort_index()  # ✅ 强制升序
+        pandas_data = CustomPandasData(dataname=data_,
+                                       fromdate=from_idx,
+                                       todate=to_idx,
+                                       timeframe=bt.TimeFrame.Days,
+                                       name=index_code)
+        datas.append(pandas_data)
 
     for i, stock_file in enumerate(os.listdir(zh_data_dir)):
         # if i > 500:
@@ -211,7 +214,7 @@ def load_stock_data(from_idx, to_idx):
                                                fromdate=from_idx,
                                                todate=to_idx,
                                                timeframe=bt.TimeFrame.Days,
-                                               name='csi932000')
+                                               name=stock_file.replace('.csv', ''))
                 datas.append(pandas_data)
 
     return datas

@@ -18,8 +18,8 @@ class SmallCapStrategy(bt.Strategy):
         momentum_days=20,            # 动量观察窗口
         trend_threshold=-0.05,       # 快速熔断阈值（小市值单日下跌5%）
         smallcap_index='csi932000',     # 小市值指数名称  小市值的动量如何确定 第一种，用中证2000可以近似代替/第二种，用微盘指数可以近似代替
-        # large_indices=['HS300', 'SH50', 'DividendETF'],  # 大盘指数对比列表
-        large_indices=['sh.000300', 'sh.000016', 'etf_SZ510880']  # 大盘指数对比列表  沪深300/上证50/红利ETF 510880
+        # large_indices=['HS300', '300etf', 'SH50', '50etf', 'DividendETF'],  # 大盘指数对比列表
+        large_indices=['sh.000300', 'etf_SH159300', 'sh.000016', 'etf_SZ510050',  'etf_SZ510880']  # 大盘指数对比列表  沪深300/上证50/红利ETF 510880
     )
 
     def __init__(self):
@@ -58,27 +58,8 @@ class SmallCapStrategy(bt.Strategy):
         # dt = self.datetime.date(0)
         # print(f"当前时间: {dt}")
 
-        valid_datas = []
-        for d in self.datas:
-            try:
-                # 如果当前 bar 没有 close 数据，会抛出异常或为 nan
-                if not np.isnan(d.close[0]):
-                    valid_datas.append(d)
-            except IndexError:
-                continue
-
-        if not valid_datas:
-            return  # 当前时刻没有可交易数据，跳过
-
-        # 只在 valid_datas 中做你的逻辑
-        # for d in valid_datas:
-        #     print(f"{d._name} 可用，收盘价: {d.close[0]}")
-            # 策略逻辑如买入卖出等
-
-        print('SmallCapStrategy.next1 valid_datas: ', len(valid_datas), )
-
         dt = self.datas[0].datetime.datetime(0)
-
+        print('SmallCapStrategy.next1 : ', dt, )
 
         datanames = self.getdatanames()
         indices = [self.p.smallcap_index] + self.p.large_indices

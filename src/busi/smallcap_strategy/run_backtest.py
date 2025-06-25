@@ -22,7 +22,7 @@ def run():
     cerebro.broker.setcommission(commission=0.00025)  # 万 2.5 的佣金
     cerebro.broker.setcash(1000000)  # 初始资金
 
-    from_idx = datetime(2012, 1, 1)  # 记录行情数据的开始时间和结束时间
+    from_idx = datetime(2015, 1, 1)  # 记录行情数据的开始时间和结束时间
     to_idx = datetime(2025, 5, 1)
     print(from_idx, to_idx)
     # 加载所有股票与指数数据

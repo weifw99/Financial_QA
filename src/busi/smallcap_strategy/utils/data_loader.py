@@ -69,10 +69,11 @@ def load_stock_data(from_idx, to_idx):
         etf_df = etf_df[select_cols]
         for col in add_cols:
             etf_df[col] = 0
-
+        etf_df['date'] = pd.to_datetime(etf_df['date'])
         etf_df.set_index('date', inplace=True)  # 设置 datetime 为索引
         etf_df = etf_df.sort_index()
         data_ = pd.merge(data, etf_df, left_index=True, right_index=True, how='left')
+        data_.fillna(0, inplace=True)
         data_ = data_.sort_index()  # ✅ 强制升序
         pandas_data = CustomPandasData(dataname=data_,
                                        fromdate=from_idx,
@@ -93,10 +94,11 @@ def load_stock_data(from_idx, to_idx):
         zz_df = zz_df[select_cols]
         for col in add_cols:
             zz_df[col] = 0
-
+        zz_df['date'] = pd.to_datetime(zz_df['date'])
         zz_df.set_index('date', inplace=True)  # 设置 datetime 为索引
         zz_df = zz_df.sort_index()
         data_ = pd.merge(data, zz_df, left_index=True, right_index=True, how='left')
+        data_.fillna(0, inplace=True)
         data_ = data_.sort_index()  # ✅ 强制升序
         pandas_data = CustomPandasData(dataname=data_,
                                        fromdate=from_idx,
@@ -105,9 +107,13 @@ def load_stock_data(from_idx, to_idx):
                                        name=index_code)
         datas.append(pandas_data)
 
+    temp_stock_list = ['sh.000300',  'sh.000016' ]
     for i, stock_file in enumerate(os.listdir(zh_data_dir)):
         # if i > 500:
         #     break
+
+        # if len(datas) >100 and stock_file  not in temp_stock_list:
+        #     continue
 
         print(f'{i}/{stock_file}')
         file_path = f'{zh_data_dir}/{stock_file}/daily.csv'
@@ -209,6 +215,7 @@ def load_stock_data(from_idx, to_idx):
                 df_sorted.set_index('date', inplace=True)  # 设置 datetime 为索引
                 df_sorted = df_sorted.sort_index()
                 data_ = pd.merge(data, df_sorted, left_index=True, right_index=True, how='left')
+                data_.fillna(0, inplace=True)
                 data_ = data_.sort_index()  # ✅ 强制升序
                 pandas_data = CustomPandasData(dataname=data_,
                                                fromdate=from_idx,

@@ -88,6 +88,10 @@ def run():
     returns, positions, transactions, gross_lev = portfolio_stats.get_pf_items()
     # returns.index = returns.index.tz_convert(None)
 
+    print(type(returns))
+    print(returns)
+    quantstats.reports.html(returns, output=f'data/小市值策略{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}.html', title='小市值策略')
+
     # print('-- RETURNS')
     # print(returns)
     # print('-- POSITIONS')
@@ -130,7 +134,7 @@ def run():
     # plt.style.use('seaborn')  # plt.style.use('dark_background')
     plt.style.use('ggplot')  # 或者 plt.style.use('bmh')
 
-    fig, (ax0, ax1) = plt.subplots(2, 1, gridspec_kw={'height_ratios': [1.5, 4]}, figsize=(20, 8))
+    fig, (ax0, ax1) = plt.subplots(2, 1, gridspec_kw={'height_ratios': [3, 4]}, figsize=(30, 15))
     cols_names = ['date', 'Annual\nreturn', 'Cumulative\nreturns', 'Annual\nvolatility',
                   'Sharpe\nratio', 'Calmar\nratio', 'Stability', 'Max\ndrawdown',
                   'Omega\nratio', 'Sortino\nratio', 'Skew', 'Kurtosis', 'Tail\nratio',
@@ -144,14 +148,15 @@ def run():
     # 绘制表格
     ax0.set_axis_off()  # 除去坐标轴
     table = ax0.table(cellText=perf_stats_.values,
-                      bbox=(0, 0, 1, 1),  # 设置表格位置， (x0, y0, width, height)
+                      bbox=(0, -0.05, 1, 1),  # 设置表格位置， (x0, y0, width, height)
                       rowLoc='right',  # 行标题居中
                       cellLoc='right',
                       colLabels=cols_names,  # 设置列标题
                       colLoc='right',  # 列标题居中
                       edges='open'  # 不显示表格边框
                       )
-    table.set_fontsize(13)
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)  # 手动设置字体大小
 
     # 绘制累计收益曲线
     ax2 = ax1.twinx()
@@ -161,6 +166,12 @@ def run():
     drawdown.plot.area(ax=ax1, label='drawdown (right)', rot=0, alpha=0.3, fontsize=13, grid=False)
     # 绘制累计收益曲线
     (cumulative).plot(ax=ax2, color='#F1C40F', lw=3.0, label='cumret (left)', rot=0, fontsize=13, grid=False)
+    # 设置横坐标标签竖排显示
+    for label in ax2.get_xticklabels():
+        label.set_rotation(90)
+    # 或使用自动美化（建议同时使用）
+    fig.autofmt_xdate()
+
     # 不然 x 轴留有空白
     ax2.set_xbound(lower=cumulative.index.min(), upper=cumulative.index.max())
     # 主轴定位器：每 5 个月显示一个日期：根据具体天数来做排版
@@ -173,10 +184,6 @@ def run():
     fig.tight_layout()  # 规整排版
     plt.show()
 
-
-    print(type(returns))
-    print(returns)
-    quantstats.reports.html(returns, output=f'data/小市值策略{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}.html', title='小市值策略')
 
 
 if __name__ == '__main__':

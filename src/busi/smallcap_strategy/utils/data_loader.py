@@ -46,7 +46,7 @@ def load_stock_data(from_idx, to_idx):
     :return: list of data feeds
     """
     zz_code_data_path = '/Users/dabai/liepin/study/llm/Financial_QA/src/test/中证1000-000852.csv'
-    zz_code_data_path = '/Users/dabai/liepin/study/llm/Financial_QA/src/test/中证2000-932000.csv'
+    # zz_code_data_path = '/Users/dabai/liepin/study/llm/Financial_QA/src/test/中证2000-932000.csv'
 
     zz_code_df = pd.read_csv(zz_code_data_path)
 
@@ -124,7 +124,7 @@ def load_stock_data(from_idx, to_idx):
         #     continue
 
         # 使用中证1000或则中证2000股票回测
-        if stock_file not in zz_code_list or stock_file not in temp_stock_list:
+        if stock_file not in zz_code_list and stock_file not in temp_stock_list:
             continue
 
         print(f'{i}/{stock_file}')

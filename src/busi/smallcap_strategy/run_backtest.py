@@ -22,7 +22,8 @@ def run():
     # 设置滑点和佣金
     cerebro.broker.set_slippage_perc(perc=0.00015)  # 买卖滑点各 0.015%
     cerebro.broker.setcommission(commission=0.00025)  # 万 2.5 的佣金
-    cerebro.broker.setcash(1000000)  # 初始资金
+    # cerebro.broker.setcash(1000000)  # 初始资金
+    cerebro.broker.setcash(100000)  # 初始资金
 
     from_idx = datetime(2015, 1, 1)  # 记录行情数据的开始时间和结束时间
     to_idx = datetime(2025, 5, 1)

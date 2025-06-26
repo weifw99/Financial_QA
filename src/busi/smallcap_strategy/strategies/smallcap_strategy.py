@@ -12,7 +12,7 @@ class SmallCapStrategy(bt.Strategy):
         min_mv=10e8,                   # 最小市值 10亿
         min_profit=0,                  # 最小净利润
         min_revenue=1e8,              # 最小营业收入
-        rebalance_weekday=1,         # 每周调仓日（1 = 周二）
+        rebalance_weekday=1,         # 每周调仓日（1 = 周一数据）周二早上开盘买入
         rebalance_time=1000,         # 调仓时间（上午10点）
         hold_count_high=5,           # 行情好时持股数（集中）
         hold_count_low=10,           # 行情差时持股数（分散）
@@ -61,6 +61,9 @@ class SmallCapStrategy(bt.Strategy):
             return
         self.rebalance_date = dt.date()
 
+        print("📥 调仓前持仓情况：")
+        self.print_positions()
+
         # 快速趋势止损（小市值单日下跌5%）
         if self.check_trend_crash():
             self.sell_all()
@@ -70,6 +73,7 @@ class SmallCapStrategy(bt.Strategy):
 
         # 动量止损
         is_momentum_ok = self.check_momentum_rank()
+        print(f'SmallCapStrategy.check_momentum_rank result is_momentum_ok： {is_momentum_ok}')
         if not is_momentum_ok:
             print(f"⚠️ {dt.date()} 动量止损触发")
             self.sell_all()
@@ -110,6 +114,9 @@ class SmallCapStrategy(bt.Strategy):
                 print(f"买入：{d._name}, size={size}")
                 self.buy(d, size=size)
 
+        print("📤 调仓后持仓情况：")
+        self.print_positions()
+
 
     def validate_index_data(self):
         """检查所有指数数据是否存在且长度够"""
@@ -122,7 +129,7 @@ class SmallCapStrategy(bt.Strategy):
 
     def get_index_return(self, name, days):
         """获取指定指数的 N 日动量值（可配置动量方法）"""
-        print('SmallCapStrategy.get_index_return')
+        # print('SmallCapStrategy.get_index_return')
 
         try:
             d = self.getdatabyname(name)
@@ -155,7 +162,7 @@ class SmallCapStrategy(bt.Strategy):
         return r < self.p.trend_threshold
 
     def check_momentum_rank(self):
-        print('SmallCapStrategy.check_momentum_rank')
+        # print('SmallCapStrategy.check_momentum_rank')
         """判断小市值指数是否仍然是动量排名第一"""
         indices = [self.p.smallcap_index] + self.p.large_indices
         returns = {name: self.get_index_return(name, self.p.momentum_days) for name in indices}
@@ -196,3 +203,35 @@ class SmallCapStrategy(bt.Strategy):
         for data, pos in self.positions.items():
             if pos.size > 0:
                 self.close(data)
+
+    def print_positions(self):
+        total_value = self.broker.getvalue()
+        total_cost = 0.0
+        total_market_value = 0.0
+
+        print(f"\n\n📊 当前账户总市值: {total_value:,.2f}")
+        print(f"{'股票':<12} {'数量':>6} {'买入价':>10} {'当前价':>10} "
+              f"{'市值':>12} {'占比%':>8} {'盈亏¥':>10} {'盈亏%':>8}")
+
+        for d in self.datas:
+            pos = self.getposition(d)
+            if pos.size > 0:
+                buy_price = pos.price
+                current_price = d.close[0]
+                market_value = pos.size * current_price
+                cost = pos.size * buy_price
+                profit = market_value - cost
+                percent = 100 * market_value / total_value
+                pnl_pct = 100 * profit / cost if cost else 0
+
+                total_cost += cost
+                total_market_value += market_value
+
+                print(f"{d._name:<12} {pos.size:>6} {buy_price:>10.2f} {current_price:>10.2f} "
+                      f"{market_value:>12,.2f} {percent:>8.2f} {profit:>10,.2f} {pnl_pct:>8.2f}")
+
+        # 汇总行
+        total_profit = total_market_value - total_cost
+        total_profit_pct = 100 * total_profit / total_cost if total_cost else 0
+        print("-" * 90)
+        print(f"{'合计':<40} {total_market_value:>12,.2f} {'':>8} {total_profit:>10,.2f} {total_profit_pct:>8.2f}\n")

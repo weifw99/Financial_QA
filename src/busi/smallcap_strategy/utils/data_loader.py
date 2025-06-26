@@ -61,7 +61,7 @@ def load_stock_data(from_idx, to_idx):
     select_cols = ['date', 'open', 'high', 'low', 'close', 'volume', ]
     add_cols = ['mv', 'profit', 'revenue', 'is_st', 'profit_ttm', 'openinterest', ]
     # 加载 SZ510880 SH159300
-    etf_list = ['SZ510880', 'SH159300', 'SZ510050']
+    etf_list = ['SZ510880', 'SH159919', 'SZ510050']
     etf_path = '/Users/dabai/liepin/study/llm/Financial_QA/src/busi/etf_/data/etf_trading/daily'
     for etf_code in etf_list:
         etf_df = pd.read_csv(f'{etf_path}/{etf_code}.csv')

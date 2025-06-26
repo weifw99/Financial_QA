@@ -20,7 +20,7 @@ class SmallCapStrategy(bt.Strategy):
         trend_threshold=-0.05,       # 快速熔断阈值（小市值单日下跌5%）
         smallcap_index='csi932000',     # 小市值指数名称  小市值的动量如何确定 第一种，用中证2000可以近似代替/第二种，用微盘指数可以近似代替
         # large_indices=['HS300', '300etf', 'SH50', '50etf', 'DividendETF'],  # 大盘指数对比列表
-        large_indices=['sh.000300', 'etf_SH159300', 'sh.000016', 'etf_SZ510050',  'etf_SZ510880']  # 大盘指数对比列表  沪深300/上证50/红利ETF 510880
+        large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050',  'etf_SZ510880']  # 大盘指数对比列表  沪深300/上证50/红利ETF 510880
     )
 
     def __init__(self):

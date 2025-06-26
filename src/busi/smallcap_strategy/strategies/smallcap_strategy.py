@@ -4,6 +4,8 @@ import backtrader as bt
 from datetime import datetime, timedelta
 import numpy as np
 
+from busi.smallcap_strategy.utils.momentum_utils import get_momentum
+
 
 class SmallCapStrategy(bt.Strategy):
     params = dict(
@@ -119,15 +121,33 @@ class SmallCapStrategy(bt.Strategy):
         return True
 
     def get_index_return(self, name, days):
+        """获取指定指数的 N 日动量值（可配置动量方法）"""
         print('SmallCapStrategy.get_index_return')
-        """获取指定指数的N日收益率"""
-        d = self.getdatabyname(name)
-        if len(d) < days + 1:
-            return -999  # 明显异常的负收益
-        p_now, p_past = d.close[0], d.close[-days]
-        if np.isnan(p_now) or np.isnan(p_past) or p_past == 0:
+
+        try:
+            d = self.getdatabyname(name)
+        except Exception as e:
+            print(f"⚠️ 指数 {name} 获取失败: {e}")
             return -999
-        return p_now / p_past - 1
+
+        if len(d) < days + 1:
+            print(f"⚠️ 指数 {name} 长度不足（{len(d)} < {days + 1}）")
+            return -999
+
+        # 获取最近 (days + 1) 个收盘价
+        prices = d.close.get(size=days + 1)
+        if prices is None or len(prices) < days + 1:
+            print(f"⚠️ 指数 {name} 获取价格失败或不足")
+            return -999
+
+        # 判定异常数据
+        if np.any(np.isnan(prices)) or prices[-1] == 0:
+            print(f"⚠️ 指数 {name} 存在缺失值或最新价为0")
+            return -999
+
+        # 计算动量（可替换方法: "return" / "log" / "slope" / "slope_r2"）
+        return get_momentum(prices, method="slope_r2", days=days)
+
 
     def check_trend_crash(self):
         r = self.get_index_return(self.p.smallcap_index, 1)

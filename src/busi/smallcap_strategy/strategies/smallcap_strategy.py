@@ -151,13 +151,16 @@ class SmallCapStrategy(bt.Strategy):
             try:
                 if d._name in [self.p.smallcap_index] + self.p.large_indices:
                     continue
+                close = d.close[0] # 收盘价
                 mv = d.mv[0] # 市值
                 profit = d.profit[0] # 净利润
                 revenue = d.revenue[0] # 主营营业收入
                 is_st = d.is_st[0] # 是否ST
                 profit_ttm = d.profit_ttm[0] # 母公司股东净利润
                 if (mv > self.p.min_mv  # 市值大于 10亿
+                        and mv < self.p.min_mv*10  # 市值小于 100亿
                         and profit > 0  # 净利润大于0
+                        and close > 1  # 收盘价大于1
                         and profit_ttm > 0  # 母公司股东净利润大于0
                         and revenue > self.p.min_revenue  # 主营收入大于 1亿
                         and is_st == 0):

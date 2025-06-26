@@ -589,6 +589,14 @@ class MarketDataAPI:
 
         # 获取中证1000（000852）成分股
         df = ak.index_stock_cons(symbol="000852")
+        index_stock_cons_csindex_df = ak.index_stock_cons_csindex(symbol="000852")
+        print(len(index_stock_cons_csindex_df))
+
+        index_stock_cons_csindex_df['type'] = index_stock_cons_csindex_df['交易所'].apply(
+            lambda x: 'SZ' if x == '深圳证券交易所' else 'SH') + index_stock_cons_csindex_df['成分券代码']
+
+        index_stock_cons_csindex_df = index_stock_cons_csindex_df[['type', '成分券代码']]
+        index_stock_cons_csindex_df.columns = ['type', 'code']
         '''
         品种代码  品种名称        纳入日期
         002093  国脉科技  2025-06-16
@@ -596,7 +604,11 @@ class MarketDataAPI:
         df.columns = ['code', 'code_name', 'start_time']
         df['end_time'] = end_date
 
-        return  df[['code', 'start_time', 'end_time']]
+        df = pd.merge(df, index_stock_cons_csindex_df, left_on='code', right_on='code', how='left')
+        df1 = df[['type', 'start_time', 'end_time']]
+        df1.columns = ['code', 'start_time', 'end_time']
+
+        return df1
 
 
 

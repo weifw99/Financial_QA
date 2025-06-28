@@ -25,31 +25,34 @@ if __name__ == '__main__':
     '''
 
     # 000开头是上证、
-
-    stock_zh_index_spot_em_df = ak.stock_zh_index_spot_em(symbol="沪深重要指数")
-    print(stock_zh_index_spot_em_df['代码'].tolist())
-    code_list = stock_zh_index_spot_em_df['代码'].tolist()
+    zs_list = ["沪深重要指数",  "指数成份", ]
 
     bast_path = '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/index'
     if not os.path.exists(bast_path):
         os.makedirs(bast_path)
-    for code in code_list:
-        query_code =  code
-        if code.startswith("000"):
-            query_code = 'sh' + query_code
-        elif code.startswith("399"):
-            query_code = 'sz' + query_code
-        elif code.startswith("93"):
-            query_code = 'csi' + query_code
-        else:
-            continue
 
-        time.sleep(random.randint(1,3))
+    for name_zs in zs_list:
+        stock_zh_index_spot_em_df = ak.stock_zh_index_spot_em(symbol=name_zs)
+        print(stock_zh_index_spot_em_df['代码'].tolist())
+        code_list = stock_zh_index_spot_em_df['代码'].tolist()
 
-        print(query_code)
-        stock_zh_index_daily_em_df = ak.stock_zh_index_daily_em(symbol=query_code)
-        print(stock_zh_index_daily_em_df)
-        stock_zh_index_daily_em_df.to_csv(f"{bast_path}/{query_code}.csv", index=False)
+        for code in code_list:
+            query_code =  code
+            if code.startswith("000"):
+                query_code = 'sh' + query_code
+            elif code.startswith("399"):
+                query_code = 'sz' + query_code
+            elif code.startswith("93"):
+                query_code = 'csi' + query_code
+            else:
+                continue
+
+            time.sleep(random.randint(1,3))
+
+            print(query_code)
+            stock_zh_index_daily_em_df = ak.stock_zh_index_daily_em(symbol=query_code)
+            print(stock_zh_index_daily_em_df)
+            stock_zh_index_daily_em_df.to_csv(f"{bast_path}/{query_code}.csv", index=False)
 
 
 

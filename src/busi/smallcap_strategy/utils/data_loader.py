@@ -11,7 +11,7 @@ class CustomPandasData(bt.feeds.PandasData):
     自定义数据类，包含：市值、市盈率、利润、营收、是否ST标记等基本面数据
     需要保证df中有以下字段：datetime, open, high, low, close, volume, mv, profit, revenue, is_st
     """
-    lines = ('mv', 'profit', 'revenue', 'is_st', 'profit_ttm')
+    lines = ('mv', 'profit', 'revenue', 'is_st', 'profit_ttm', 'roeAvg',)
     params = (# 'datetime', 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue', 'is_st'
         # ('datetime', None),
         # ('open', 'open'),
@@ -33,6 +33,7 @@ class CustomPandasData(bt.feeds.PandasData):
         ('revenue', -1),
         ('is_st', -1),  # 0 or 1 表示是否ST
         ('profit_ttm', -1),  #
+        ('roeAvg', -1),  #
         ('dtformat', '%Y-%m-%d'),
     )
 
@@ -45,12 +46,16 @@ def load_stock_data(from_idx, to_idx):
     :param data_dir: 包含CSV的路径
     :return: list of data feeds
     """
-    zz_code_data_path = '/Users/dabai/liepin/study/llm/Financial_QA/src/test/中证1000-000852.csv'
+    zz_code_data_paths = [
+        '/Users/dabai/liepin/study/llm/Financial_QA/src/test/中证1000-000852.csv',
+        '/Users/dabai/liepin/study/llm/Financial_QA/src/test/中证2000-932000.csv',
+    ]
+    # zz_code_data_path = '/Users/dabai/liepin/study/llm/Financial_QA/src/test/中证1000-000852.csv'
     # zz_code_data_path = '/Users/dabai/liepin/study/llm/Financial_QA/src/test/中证2000-932000.csv'
-
-    zz_code_df = pd.read_csv(zz_code_data_path)
-
-    zz_code_list = zz_code_df['type'].tolist()
+    zz_code_list = []
+    for zz_code_data_path in zz_code_data_paths:
+        zz_code_df = pd.read_csv(zz_code_data_path)
+        zz_code_list += zz_code_df['type'].tolist()
 
     datas = []
 
@@ -66,9 +71,9 @@ def load_stock_data(from_idx, to_idx):
     data = data.sort_index()
 
     select_cols = ['date', 'open', 'high', 'low', 'close', 'volume', ]
-    add_cols = ['mv', 'profit', 'revenue', 'is_st', 'profit_ttm', 'openinterest', ]
+    add_cols = ['mv', 'profit', 'revenue', 'is_st', 'profit_ttm', 'roeAvg', 'openinterest', ]
     # 加载 SZ510880 SH159300
-    etf_list = ['SZ510880', 'SH159919', 'SZ510050']
+    etf_list = ['SZ510880', 'SH159919', 'SZ510050', 'SZ588000', 'SZ511880']
     etf_path = '/Users/dabai/liepin/study/llm/Financial_QA/src/busi/etf_/data/etf_trading/daily'
     for etf_code in etf_list:
         etf_df = pd.read_csv(f'{etf_path}/{etf_code}.csv')
@@ -90,7 +95,7 @@ def load_stock_data(from_idx, to_idx):
         datas.append(pandas_data)
 
 
-    index_list =['csi932000', ]
+    index_list =['csi932000', 'sz399101' ]
     # 获取指数数据
     zz_path = '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/index'
 
@@ -114,7 +119,7 @@ def load_stock_data(from_idx, to_idx):
                                        name=index_code)
         datas.append(pandas_data)
 
-    temp_stock_list = ['sh.000300',  'sh.000016' ]
+    temp_stock_list = ['sh.000300',  'sh.000016', 'sh.000852' ]
     for i, stock_file in enumerate(os.listdir(zh_data_dir)):
         # if i > 500:
         #     break
@@ -150,7 +155,7 @@ def load_stock_data(from_idx, to_idx):
                 financial_df = pd.read_csv(financial_path)
                 financial_df['date'] = financial_df['pubDate']
 
-                financial_df = financial_df[['date', 'netProfit', 'MBRevenue', 'totalShare', 'liqaShare', 'epsTTM']]
+                financial_df = financial_df[['date', 'netProfit', 'MBRevenue', 'totalShare', 'liqaShare', 'epsTTM', 'roeAvg', ]]
 
                 # 确保 date 列为 datetime 类型并排序
                 financial_df['date'] = pd.to_datetime(financial_df['date'])
@@ -163,6 +168,7 @@ def load_stock_data(from_idx, to_idx):
                 df2_sorted['profit_ttm'] = df2_sorted['totalShare'] * df2_sorted['epsTTM']
 
                 # pubDate	公司发布财报的日期
+                # roeAvg	净资产收益率(平均)(%)	归属母公司股东净利润/[(期初归属母公司股东的权益+期末归属母公司股东的权益)/2]*100%
                 # statDate	财报统计的季度的最后一天, 比如2017-03-31, 2017-06-30
                 # netProfit	净利润(元)
                 # MBRevenue	主营营业收入(元)
@@ -179,7 +185,7 @@ def load_stock_data(from_idx, to_idx):
                 df['date'] = pd.to_datetime(df['date'])
 
                 # 选择需要的列
-                df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue', 'is_st', 'profit_ttm', 'openinterest',]]
+                df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue', 'is_st', 'profit_ttm', 'roeAvg', 'openinterest',]]
 
                 df.set_index('date', inplace=True)  # 设置 datetime 为索引
                 df = df.sort_index()

@@ -13,19 +13,23 @@ class SmallCapStrategy(bt.Strategy):
         min_profit=0,                  # 最小净利润
         min_revenue=1e8,              # 最小营业收入
         rebalance_weekday=1,         # 每周调仓日（1 = 周一数据）周二早上开盘买入
-        rebalance_time=1000,         # 调仓时间（上午10点）
         hold_count_high=5,           # 行情好时持股数（集中）
         hold_count_low=10,           # 行情差时持股数（分散）
-        momentum_days=20,            # 动量观察窗口
+        hight_price=50,           # 个股最高限价
+        momentum_days=15,            # 动量观察窗口
         trend_threshold=-0.05,       # 快速熔断阈值（小市值单日下跌5%）
-        smallcap_index='csi932000',     # 小市值指数名称  小市值的动量如何确定 第一种，用中证2000可以近似代替/第二种，用微盘指数可以近似代替
+        null_index='etf_SZ511880',   # 空仓期备选 etf
+        # 588000,科创50ETF
+        # smallcap_index='sh.000852',     # 中证 1000 sh000852 # 小市值指数名称  小市值的动量如何确定 第一种，用中证2000可以近似代替/第二种，用微盘指数可以近似代替
+        smallcap_index='csi932000',     # 中证 1000 sh000852 # 小市值指数名称  小市值的动量如何确定 第一种，用中证2000可以近似代替/第二种，用微盘指数可以近似代替
+        # smallcap_index='sz399101',     # 399101 中小综指399101
         # large_indices=['HS300', '300etf', 'SH50', '50etf', 'DividendETF'],  # 大盘指数对比列表
         large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050',  'etf_SZ510880']  # 大盘指数对比列表  沪深300/上证50/红利ETF 510880
+        # large_indices=['sh.000300',  'etf_SZ510050',  'etf_SZ510880']  # 大盘指数对比列表  沪深300/上证50/红利ETF 510880
     )
 
     def __init__(self):
         print('✅ 初始化 SmallCapStrategy')
-        self.rebalance_date = None
         self.clear_until = None  # 清仓维持到的日期
         self.is_cleared = False  # 当前是否处于清仓状态
 
@@ -46,7 +50,25 @@ class SmallCapStrategy(bt.Strategy):
         """
         主逻辑, 每次都会调用
         """
+        dt = self.data0.datetime.datetime(0)
         print('📈 next 执行时间:', self.datetime.datetime(0), '账户净值:', self.broker.getvalue())
+
+        # todo 止损模块应该每天都计算
+        # 快速趋势止损（小市值单日下跌5%）
+        if self.check_trend_crash():
+            self.sell_all()
+            self.clear_until = dt.date() + timedelta(days=7)
+            self.is_cleared = True
+            return
+
+        # 动量止损
+        is_momentum_ok = self.check_momentum_rank()
+        print(f'SmallCapStrategy.check_momentum_rank result is_momentum_ok： {is_momentum_ok}')
+        if not is_momentum_ok:
+            print(f"⚠️ {dt.date()} 动量止损触发")
+            self.sell_all()
+            self.is_cleared = True
+            return
 
     def rebalance(self):
         dt = self.data0.datetime.datetime(0)
@@ -55,11 +77,6 @@ class SmallCapStrategy(bt.Strategy):
         if not self.validate_index_data():
             print("⚠️ 指数数据不足，跳过调仓")
             return
-
-        # 同一天内不重复调仓
-        if self.rebalance_date == dt.date():
-            return
-        self.rebalance_date = dt.date()
 
         print("📥 调仓前持仓情况：")
         self.print_positions()
@@ -153,11 +170,32 @@ class SmallCapStrategy(bt.Strategy):
             return -999
 
         # 计算动量（可替换方法: "return" / "log" / "slope" / "slope_r2"）
-        return get_momentum(prices, method="slope_r2", days=days)
+        return get_momentum(prices, method="log", days=days)
+        # return get_momentum(prices, method="slope_r2", days=days)
+        # return get_momentum(prices, method="slope", days=days)
 
 
     def check_trend_crash(self):
-        r = self.get_index_return(self.p.smallcap_index, 1)
+        """获取指定指数的 N 日动量值（可配置动量方法）"""
+        # print('SmallCapStrategy.get_index_return')
+        try:
+            d = self.getdatabyname(self.p.smallcap_index)
+        except Exception as e:
+            print(f"⚠️ 指数 {self.p.smallcap_index} 获取失败: {e}")
+            return -999
+        if len(d) < 2:
+            print(f"⚠️ 指数 {self.p.smallcap_index} 长度不足（{len(d)} < 2）")
+            return -999
+        # 获取最近 (1) 个收盘价
+        close_prices = d.close.get(size=1)
+        open_prices = d.open.get(size=1)
+
+        # 判定异常数据
+        if np.any(np.isnan(close_prices)) or close_prices[-1] == 0 or np.any(np.isnan(open_prices)) or open_prices[-1] == 0:
+            print(f"⚠️ 指数 {self.p.smallcap_index} 存在缺失值或最新价为0")
+            return -999
+        r = close_prices[-1] / open_prices[-1] - 1
+
         print(f'🚨 趋势止损判断：{r:.4f}')
         return r < self.p.trend_threshold
 
@@ -179,15 +217,17 @@ class SmallCapStrategy(bt.Strategy):
                 if d._name in [self.p.smallcap_index] + self.p.large_indices:
                     continue
                 close = d.close[0] # 收盘价
+                roeAvg = d.roeAvg[0] # 收盘价
                 mv = d.mv[0] # 市值
                 profit = d.profit[0] # 净利润
                 revenue = d.revenue[0] # 主营营业收入
                 is_st = d.is_st[0] # 是否ST
                 profit_ttm = d.profit_ttm[0] # 母公司股东净利润
                 if (mv > self.p.min_mv  # 市值大于 10亿
-                        and mv < self.p.min_mv*10  # 市值小于 100亿
+                        # and mv < self.p.min_mv*10  # 市值小于 100亿
                         and profit > 0  # 净利润大于0
-                        and close > 1  # 收盘价大于1
+                        and 2 < close < self.p.hight_price  # 收盘价限制
+                        and roeAvg > 0  # ROE（净资产收益率，Return on Equity）为正表示公司 盈利，
                         and profit_ttm > 0  # 母公司股东净利润大于0
                         and revenue > self.p.min_revenue  # 主营收入大于 1亿
                         and is_st == 0):
@@ -198,6 +238,27 @@ class SmallCapStrategy(bt.Strategy):
         candidates = sorted(candidates, key=lambda x: x[1])
         return [x[0] for x in candidates]
 
+    def check_stop_conditions(self, dt):
+        """统一处理止损逻辑"""
+        # 快速趋势止损（小市值单日下跌5%）
+        if self.check_trend_crash():
+            print(f"🚨 {dt.date()} 触发趋势止损")
+            self.sell_all()
+            self.clear_until = dt.date() + timedelta(days=7)
+            self.is_cleared = True
+            return True
+
+        # 动量止损
+        is_momentum_ok = self.check_momentum_rank()
+        print(f'SmallCapStrategy.check_momentum_rank result is_momentum_ok： {is_momentum_ok}')
+        if not is_momentum_ok:
+            print(f"⚠️ {dt.date()} 动量止损触发")
+            self.sell_all()
+            self.is_cleared = True
+            return True
+
+        self.is_cleared = False
+        return False
     def sell_all(self):
         print('💰 清仓')
         for data, pos in self.positions.items():

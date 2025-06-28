@@ -25,8 +25,8 @@ def run():
     # cerebro.broker.setcash(1000000)  # 初始资金
     cerebro.broker.setcash(100000)  # 初始资金
 
-    from_idx = datetime(2015, 1, 1)  # 记录行情数据的开始时间和结束时间
-    to_idx = datetime(2025, 5, 1)
+    from_idx = datetime(2025, 3, 1)  # 记录行情数据的开始时间和结束时间
+    to_idx = datetime(2025, 6, 26)
     print(from_idx, to_idx)
     # 加载所有股票与指数数据
     datafeeds = load_stock_data(from_idx, to_idx)

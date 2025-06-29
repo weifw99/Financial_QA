@@ -13,8 +13,8 @@ class SmallCapStrategy(bt.Strategy):
         min_profit=0,                  # 最小净利润
         min_revenue=1e8,              # 最小营业收入
         rebalance_weekday=1,         # 每周调仓日（1 = 周一数据）周二早上开盘买入
-        hold_count_high=5,           # 行情好时持股数（集中）
-        hold_count_low=5,           # 行情差时持股数（分散）
+        hold_count_high=3,           # 行情好时持股数（集中）
+        hold_count_low=3,           # 行情差时持股数（分散）
         hight_price=50,           # 个股最高限价
         momentum_days=15,            # 动量观察窗口
         trend_threshold=-0.05,       # 快速熔断阈值（小市值单日下跌5%）
@@ -33,6 +33,10 @@ class SmallCapStrategy(bt.Strategy):
         self.clear_until = None  # 清仓维持到的日期
         self.is_cleared = False  # 当前是否处于清仓状态
         self.is_rebalance = False  # 当前时间是否处于调仓状态
+
+        self.to_buy = []  # 下一阶段待买股票
+        self.to_sell = []  # 当前阶段要卖出股票
+        self.pending_rebalance = False  # 是否等待买入阶段
 
         # 设置调仓定时器
         self.add_timer(
@@ -98,32 +102,52 @@ class SmallCapStrategy(bt.Strategy):
             self.rebalance()
 
     def next(self):
-        """
-        主逻辑, 每次都会调用
-        """
         dt = self.data0.datetime.datetime(0)
-        print('📈 next 执行时间:', self.datetime.datetime(0), '账户净值:', self.broker.getvalue())
+        print('📈 next 执行时间:', dt, '账户净值:', self.broker.getvalue())
 
-        if self.is_rebalance: # 跳过调仓， 刚刚notify_timer调过，不需要在执行
+        if self.is_rebalance:
             self.is_rebalance = False
             return
-        # todo 止损模块应该每天都计算
-        # 动量止损
+
+        if self.pending_rebalance:
+            self.execute_buy()
+            self.pending_rebalance = False
+            return
+
+        # 日常止损判断
         is_momentum_ok = self.check_momentum_rank()
         is_check_trend = self.check_trend_crash()
-        # 快速趋势止损（小市值单日下跌5%） + 动量判断
-        print(f'SmallCapStrategy.next stop loss result, is_check_trend：{is_check_trend}, is_momentum_ok： {is_momentum_ok}')
+
+        print(
+            f'SmallCapStrategy.next stop loss result, is_check_trend：{is_check_trend}, is_momentum_ok： {is_momentum_ok}')
         if is_check_trend or not is_momentum_ok:
-            # self.sell_all()
             self.sell_all_not_etf()
             self.is_cleared = True
             return
 
+    def execute_buy(self):
+        print("📥 执行买入阶段")
+        available_cash = self.broker.getcash() * 0.95
+        cash_per_stock = available_cash / max(len(self.to_buy), 1)
+
+        for d in self.to_buy:
+            price = d.close[0]
+            if price is None or np.isnan(price) or price <= 0:
+                continue
+            size = int(cash_per_stock // price)
+            size = (size // 100) * 100
+            if size >= 100:
+                print(f"买入：{d._name}, size={size}")
+                self.buy(d, size=size)
+
+        self.to_buy = []
+        self.to_sell = []
+        self.print_positions()
+
     def rebalance(self):
         dt = self.data0.datetime.datetime(0)
-        self.is_rebalance = True  # 处于调仓状态
+        self.is_rebalance = True
 
-        # 若数据不足或缺指数，跳过
         if not self.validate_index_data():
             print("⚠️ 指数数据不足，跳过调仓")
             return
@@ -133,71 +157,30 @@ class SmallCapStrategy(bt.Strategy):
 
         is_momentum_ok = self.check_momentum_rank()
         is_check_trend = self.check_trend_crash()
-        # 快速趋势止损（小市值单日下跌5%） + 动量判断
-        print(f'SmallCapStrategy.rebalance stop loss result, is_check_trend：{is_check_trend}, is_momentum_ok： {is_momentum_ok}')
-        if is_check_trend or not is_momentum_ok:
 
+        if is_check_trend or not is_momentum_ok:
             self.clear_until = dt.date() + timedelta(days=7)
             self.is_cleared = True
-            # 判断是否 只持有 etf
-            if self.is_holding_etf():
-                pass
-            else:
+            if not self.is_holding_etf():
                 self.sell_all()
-
-                #
-                # # buy_etf
-                # # 待买入的新股票
-                # buy_etf = self.getdatabyname(self.p.null_index)
-                #
-                # # 分配可用现金（留5%冗余）
-                # cash_per_stock = self.broker.getcash() * 0.95
-                # price = buy_etf.close[0]
-                # size = int(cash_per_stock // price)
-                # size = (size // 100) * 100  # ✅ 向下取整为一手
-                # if size >= 100:
-                #     print(f"买入：{buy_etf._name}, size={size}")
-                #     self.buy(buy_etf, size=size)
-
             return
 
-
-        # 如果处于清仓观察期则跳过调仓
-        # if self.clear_until and dt.date() < self.clear_until:
-        #     return
-        # self.is_cleared = False
-
-        # 正常调仓
+        # 选股
         candidates = self.filter_stocks()
         hold_num = self.p.hold_count_high if is_momentum_ok else self.p.hold_count_low
-        to_hold = candidates[:hold_num]  # 取前N只小市值股
+        to_hold = set(candidates[:hold_num])
 
-        # 当前持仓股票
-        # 清仓：持有但不再目标池中的股票
+        # 记录要卖出的股票
         current_positions = {d for d, pos in self.positions.items() if pos.size > 0}
+        self.to_sell = list(current_positions - to_hold)
+        self.to_buy = list(to_hold - current_positions)
 
-        for d in current_positions - set(to_hold):
-            print(f"清仓：{d._name}")
+        # 先执行卖出操作
+        for d in self.to_sell:
+            print(f"准备清仓：{d._name}")
             self.close(d)
 
-        # 待买入的新股票
-        to_buy = [d for d in to_hold if d not in current_positions]
-
-        # 分配可用现金（留5%冗余）
-        available_cash = self.broker.getcash() * 0.95
-        cash_per_stock = available_cash / max(len(to_buy), 1)
-        for d in to_buy:
-            price = d.close[0]
-            if price is None or np.isnan(price) or price <= 0:
-                continue
-            size = int(cash_per_stock // price)
-            size = (size // 100) * 100  # ✅ 向下取整为一手
-            if size >= 100:
-                print(f"买入：{d._name}, size={size}")
-                self.buy(d, size=size)
-
-        print("📤 调仓后持仓情况：")
-        self.print_positions()
+        self.pending_rebalance = True  # 标记进入买入阶段
 
 
     def validate_index_data(self):

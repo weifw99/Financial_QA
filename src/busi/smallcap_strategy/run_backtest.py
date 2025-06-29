@@ -18,6 +18,7 @@ def load_config(path='config/config.yaml'):
 def run():
     config = load_config()
     cerebro = bt.Cerebro()
+    # cerebro = bt.Cerebro(cheat_on_open= True)
 
     # 设置滑点和佣金
     cerebro.broker.set_slippage_perc(perc=0.00015)  # 买卖滑点各 0.015%
@@ -27,6 +28,10 @@ def run():
 
     from_idx = datetime(2025, 3, 1)  # 记录行情数据的开始时间和结束时间
     to_idx = datetime(2025, 6, 26)
+
+    # from_idx = datetime(2014, 1, 1)  # 记录行情数据的开始时间和结束时间
+    # to_idx = datetime(2025, 6, 26)
+
     print(from_idx, to_idx)
     # 加载所有股票与指数数据
     datafeeds = load_stock_data(from_idx, to_idx)

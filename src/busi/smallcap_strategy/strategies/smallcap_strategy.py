@@ -13,8 +13,8 @@ class SmallCapStrategy(bt.Strategy):
         min_profit=0,
         min_revenue=1e8,
         rebalance_weekday=1,  # 周二调仓
-        hold_count_high=5,
-        hold_count_low=5,
+        hold_count_high=3,
+        hold_count_low=3,
         hight_price=50,
         momentum_days=20,
         trend_threshold=-0.05,
@@ -184,24 +184,62 @@ class SmallCapStrategy(bt.Strategy):
 
         return get_momentum(prices, method="log", days=days)
 
+    def get_volatility(self, name, days=10):
+        """
+        计算近 N 日对数收益率的年化波动率
+        """
+        try:
+            d = self.getdatabyname(name)
+            if len(d) < days + 1:
+                return 0
+            close = np.array(d.close.get(size=days + 1))
+            ret = np.diff(np.log(close))
+            return np.std(ret) * np.sqrt(252)
+        except:
+            return 0
+
     def check_trend_crash(self):
+        """
+        更稳健的趋势熔断判断：
+        - 连续3日中至少2天下跌超过-3%
+        - 或3日均跌幅超过-4%
+        - 且波动率不高（年化<2%）
+        """
         try:
             d = self.getdatabyname(self.p.smallcap_index)
         except Exception as e:
+            print(f"⚠️ 获取指数数据失败: {e}")
             return False
 
-        if len(d) < 2:
+        if len(d) < 4:
+            print("⚠️ 指数数据不足4天")
             return False
 
-        close_prices = d.close.get(size=1)
-        open_prices = d.open.get(size=1)
-
-        if np.any(np.isnan(close_prices)) or np.any(np.isnan(open_prices)) or open_prices[-1] == 0:
+        close = np.array(d.close.get(size=4))
+        open_ = np.array(d.open.get(size=4))
+        if np.any(np.isnan(close)) or np.any(np.isnan(open_)):
+            print("⚠️ 有缺失的价格数据")
             return False
 
-        r = close_prices[-1] / open_prices[-1] - 1
-        print(f'🚨 趋势止损判断：{r:.4f}')
-        return r < self.p.trend_threshold
+        # 日收益率
+        daily_return = close / open_ - 1
+
+        # 条件1：3日中2天跌幅 > -3%
+        crash_days = np.sum(daily_return < -0.03)
+
+        # 条件2：3日日均跌幅
+        avg_return = daily_return.mean()
+
+        # 条件3：指数波动率（近10日）
+        vol = self.get_volatility(self.p.smallcap_index, days=10)
+
+        print(f'📉 全局熔断判断：3日跌幅={daily_return}, avg={avg_return:.2%}, vol={vol:.2%}')
+
+        if (crash_days >= 2 or avg_return < -0.04) and vol < 0.2:
+            print("🚨 触发更稳健的趋势熔断机制")
+            return True
+
+        return False
 
     def check_momentum_rank(self):
         indices = [self.p.smallcap_index] + self.p.large_indices

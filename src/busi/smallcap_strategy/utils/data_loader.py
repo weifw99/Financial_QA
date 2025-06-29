@@ -1,6 +1,7 @@
 # utils/data_loader.py
 # 封装股票与指数的 CSV 数据加载，注入自定义字段：市值、利润、营收、ST
 import os
+from datetime import timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -67,6 +68,8 @@ def load_stock_data(from_idx, to_idx):
     pdf = pd.read_csv(f'{zh_data_dir}/sh.000001/daily.csv')
     pdf['date'] = pd.to_datetime(pdf['date'])
 
+    from_date = from_idx - timedelta(days=40)
+    pdf = pdf[pdf['date'] >= from_date]
     data = pd.DataFrame(index=pdf['date'].unique())
     data = data.sort_index()
 

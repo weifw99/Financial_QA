@@ -13,7 +13,10 @@ def calc_log_return(prices, days=20):
     """对数收益率动量"""
     if len(prices) < days + 1:
         return np.nan
-    return np.log(prices[-1] / prices[-(days + 1)])
+    prev_price = prices[-(days + 1)]
+    if prev_price == 0 or np.isnan(prev_price) or np.isnan(prices[-1]):
+        return -999  # 或者你设置的极端异常值
+    return np.log(prices[-1] / prev_price)
 
 
 def calc_regression_slope(prices, days=20):

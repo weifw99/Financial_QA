@@ -13,8 +13,8 @@ class SmallCapStrategy(bt.Strategy):
         min_profit=0,                  # 最小净利润
         min_revenue=1e8,              # 最小营业收入
         rebalance_weekday=1,         # 每周调仓日（1 = 周一数据）周二早上开盘买入
-        hold_count_high=3,           # 行情好时持股数（集中）
-        hold_count_low=3,           # 行情差时持股数（分散）
+        hold_count_high=5,           # 行情好时持股数（集中）
+        hold_count_low=5,           # 行情差时持股数（分散）
         hight_price=50,           # 个股最高限价
         momentum_days=15,            # 动量观察窗口
         trend_threshold=-0.05,       # 快速熔断阈值（小市值单日下跌5%）
@@ -33,10 +33,6 @@ class SmallCapStrategy(bt.Strategy):
         self.clear_until = None  # 清仓维持到的日期
         self.is_cleared = False  # 当前是否处于清仓状态
         self.is_rebalance = False  # 当前时间是否处于调仓状态
-
-        self.to_hold = []  # 下一轮要持有的标的
-        self.to_close = []  # 下一轮要卖出的标的
-        self.ready_to_buy = False  # 是否执行买入
 
         # 设置调仓定时器
         self.add_timer(

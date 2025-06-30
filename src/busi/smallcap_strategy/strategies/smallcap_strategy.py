@@ -9,20 +9,26 @@ from busi.smallcap_strategy.utils.momentum_utils import get_momentum
 
 class SmallCapStrategy(bt.Strategy):
     params = dict(
-        min_mv=10e8,
-        min_profit=0,
-        min_revenue=1e8,
-        rebalance_weekday=1,  # 周二调仓
-        hold_count_high=5,
-        hold_count_low=5,
-        hight_price=50,
-        momentum_days=20,
-        trend_threshold=-0.05,
+        min_mv=10e8,  # 最小市值 10亿
+        min_profit=0,  # 最小净利润
+        min_revenue=1e8,  # 最小营业收入
+        rebalance_weekday=1,  # 每周调仓日（1 = 周一数据）周二早上开盘买入
+        hold_count_high=5,  # 行情好时持股数（集中）
+        hold_count_low=5,  # 行情差时持股数（分散）
+        hight_price=50,  # 个股最高限价
+        momentum_days=15,  # 动量观察窗口
+        trend_threshold=-0.05,  # 快速熔断阈值（小市值单日下跌5%）
         stop_loss_pct=0.06,  # 个股止损线（跌幅超过6%）
         take_profit_pct=0.5,  # 个股止盈线（涨幅超过50%）
-        null_index='etf_SZ511880',
-        smallcap_index='csi932000',
-        large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'etf_SZ510880']
+        null_index='etf_SZ511880',   # 空仓期备选 etf
+        # 588000,科创50ETF
+        # smallcap_index='sh.000852',     # 中证 1000 sh000852 # 小市值指数名称  小市值的动量如何确定 第一种，用中证2000可以近似代替/第二种，用微盘指数可以近似代替
+        smallcap_index='csi932000',     # 中证 1000 sh000852 # 小市值指数名称  小市值的动量如何确定 第一种，用中证2000可以近似代替/第二种，用微盘指数可以近似代替
+        # smallcap_index='sz399101',     # 399101 中小综指399101
+        # large_indices=['HS300', '300etf', 'SH50', '50etf', 'DividendETF'],  # 大盘指数对比列表
+        # large_indices=['sh.000300', 'sh510880', 'sh.000016', 'sh000905']  # 大盘指数对比列表  沪深300/上证50/红利ETF 510880
+        large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050',  'etf_SZ510880', 'sh000905']  # 大盘指数对比列表  沪深300/上证50/红利ETF 510880
+        # large_indices=['sh.000300',  'etf_SZ510050',  'etf_SZ510880']  # 大盘指数对比列表  沪深300/上证50/红利ETF 510880
     )
 
     def __init__(self):
@@ -181,7 +187,8 @@ class SmallCapStrategy(bt.Strategy):
         if np.any(np.isnan(prices)) or prices[-1] == 0:
             return -999
 
-        return get_momentum(prices, method="log", days=days)
+        # return get_momentum(prices, method="log", days=days)
+        return get_momentum(prices, method="slope_r2", days=days)
 
     def get_volatility(self, name, days=10):
         """
@@ -254,8 +261,8 @@ class SmallCapStrategy(bt.Strategy):
                 if (mv > self.p.min_mv
                         and profit > 0
                         and 2 < close < self.p.hight_price
-                        and amount >= 4000000
-                        and turn >= 1
+                        # and amount >= 4000000
+                        # and turn >= 1
                         and roeAvg > 0
                         and profit_ttm > 0
                         and revenue > self.p.min_revenue

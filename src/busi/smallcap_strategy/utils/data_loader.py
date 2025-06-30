@@ -101,7 +101,7 @@ def load_stock_data(from_idx, to_idx):
         datas.append(pandas_data)
 
 
-    index_list =['csi932000', 'sz399101' ]
+    index_list =['csi932000', 'sz399101' , 'sh000905']
     # 获取指数数据
     zz_path = '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/index'
 
@@ -136,7 +136,14 @@ def load_stock_data(from_idx, to_idx):
         #     continue
 
         # 使用中证1000或则中证2000股票回测
-        if stock_file not in zz_code_list and stock_file not in temp_stock_list:
+        # if stock_file not in zz_code_list and stock_file not in temp_stock_list:
+        #     continue
+        # 过滤创业板/科创板/北交所股票
+        if ('.30' in stock_file
+                or '.68' in stock_file
+                or '.8' in stock_file
+                or '.4' in stock_file):
+            print(f'过滤创业板/科创板/北交所股票: {stock_file}')
             continue
 
         print(f'{i}/{stock_file}')
@@ -147,6 +154,12 @@ def load_stock_data(from_idx, to_idx):
         financial_path = f'{financial_data_dir}/{stock_file}/income.csv'
         if os.path.exists(file_path):
             df = pd.read_csv(file_path)
+
+            # 过滤上市时间太短的股票 （A 股一年交易时间243天），取上市一年多的股票
+            if len(df) < 250:
+                print(f'{stock_file} 上市交易时间太短，交易的天数: {len(df)}，忽略该股票')
+                continue
+
             df_a = pd.read_csv(file_path_a)[['date','close']]
             df_a.rename(columns={'close': 'close_1'}, inplace=True)
 

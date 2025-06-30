@@ -1,6 +1,6 @@
 import numpy as np
 from datetime import datetime, timedelta
-from utils.momentum_utils import get_momentum
+from .utils.momentum_utils import get_momentum
 
 
 class SmallCapSignalGenerator:

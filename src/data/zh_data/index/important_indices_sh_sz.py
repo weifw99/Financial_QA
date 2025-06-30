@@ -50,9 +50,9 @@ if __name__ == '__main__':
 
             time.sleep(random.randint(1,3))
 
-            print(query_code)
+            print('important_indices_sh_sz:', query_code)
             stock_zh_index_daily_em_df = ak.stock_zh_index_daily_em(symbol=query_code)
-            print(stock_zh_index_daily_em_df)
+            # print(stock_zh_index_daily_em_df)
             stock_zh_index_daily_em_df.to_csv(f"{bast_path}/{query_code}.csv", index=False)
 
 

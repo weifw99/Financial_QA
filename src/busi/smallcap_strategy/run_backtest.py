@@ -27,7 +27,7 @@ def run():
     cerebro.broker.setcash(100000)  # 初始资金
 
     from_idx = datetime(2025, 4, 1)  # 记录行情数据的开始时间和结束时间
-    to_idx = datetime(2025, 6, 26)
+    to_idx = datetime(2025, 6, 30)
 
     # from_idx = datetime(2014, 1, 1)  # 记录行情数据的开始时间和结束时间
     # to_idx = datetime(2025, 6, 26)
@@ -140,7 +140,7 @@ def run():
     # plt.style.use('seaborn')  # plt.style.use('dark_background')
     plt.style.use('ggplot')  # 或者 plt.style.use('bmh')
 
-    fig, (ax0, ax1) = plt.subplots(2, 1, gridspec_kw={'height_ratios': [3, 4]}, figsize=(30, 15))
+    fig, (ax0, ax1) = plt.subplots(2, 1, gridspec_kw={'height_ratios': [2, 4]}, figsize=(25, 10))
     cols_names = ['date', 'Annual\nreturn', 'Cumulative\nreturns', 'Annual\nvolatility',
                   'Sharpe\nratio', 'Calmar\nratio', 'Stability', 'Max\ndrawdown',
                   'Omega\nratio', 'Sortino\nratio', 'Skew', 'Kurtosis', 'Tail\nratio',

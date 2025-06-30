@@ -218,6 +218,29 @@ class EtfDataHandle:
         return etf_trading_day_pd
 
 
+    def get_down_data(self, code_list:list = [], refresh: bool = False):
+        """
+        拉取指定 code 的数据
+        :param code_list: code 格式： SH159776
+        :param refresh:
+        :return:
+        """
+
+        if (not refresh) and os.path.exists(DataCons.ETF_INFO_CAT):
+            return pd.read_csv(DataCons.ETF_INFO_CAT)
+
+        import random
+        # 随机打乱列表顺序
+        random.shuffle(code_list)
+        print('总得数据量', len(code_list))
+
+        for i, etf_code in enumerate(code_list):
+            print(f"正在获取第 {i} 个 etf: {etf_code}")
+            time.sleep(random.randint(1, 2))
+            temp_etf: list[pd.DataFrame] = self.download_etf_trading_day_data(symbol=str( etf_code ) )
+            if len(temp_etf) == 0:
+                continue
+            time.sleep(random.randint(1, 3))
 
 
 def main():

@@ -28,8 +28,8 @@ def load_recent_data():
     calendar_df = calendar_df[calendar_df['date'] >= from_date]
     data_index = pd.DataFrame(index=calendar_df['date'].sort_values().unique())
 
-    select_cols = ['date', 'open', 'high', 'low', 'close', 'volume']
-    add_cols = ['mv', 'profit', 'revenue', 'is_st', 'profit_ttm', 'roeAvg', 'openinterest']
+    select_cols = ['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn']
+    add_cols = ['amount', 'turn', 'mv', 'profit', 'revenue', 'is_st', 'profit_ttm', 'roeAvg', 'openinterest', ]
 
     def process_dataframe(df):
         df['date'] = pd.to_datetime(df['date'])
@@ -48,7 +48,8 @@ def load_recent_data():
             continue
         df = pd.read_csv(f)[select_cols]
         for col in add_cols:
-            df[col] = 0
+            if col not in df.columns:
+                df[col] = 0
         result[f'etf_{code}'] = process_dataframe(df)
 
     # 加载指数
@@ -57,9 +58,10 @@ def load_recent_data():
         f = f'{index_path}/{code}.csv'
         if not os.path.exists(f):
             continue
-        df = pd.read_csv(f)[select_cols]
+        df = pd.read_csv(f)[select_cols[:-1]]
         for col in add_cols:
-            df[col] = 0
+            if col not in df.columns:
+                df[col] = 0
         result[code] = process_dataframe(df)
 
     zz_code_data_paths = [
@@ -115,7 +117,7 @@ def load_recent_data():
         df['openinterest'] = 0
 
         try:
-            df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue',
+            df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn', 'mv', 'profit', 'revenue',
                      'is_st', 'profit_ttm', 'roeAvg', 'openinterest']]
             df = process_dataframe(df)
             result[stock_code] = df

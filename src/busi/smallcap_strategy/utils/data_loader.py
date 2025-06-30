@@ -12,7 +12,7 @@ class CustomPandasData(bt.feeds.PandasData):
     自定义数据类，包含：市值、市盈率、利润、营收、是否ST标记等基本面数据
     需要保证df中有以下字段：datetime, open, high, low, close, volume, mv, profit, revenue, is_st
     """
-    lines = ('mv', 'profit', 'revenue', 'is_st', 'profit_ttm', 'roeAvg',)
+    lines = ('turn', 'amount', 'mv', 'profit', 'revenue', 'is_st', 'profit_ttm', 'roeAvg',)
     params = (# 'datetime', 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue', 'is_st'
         # ('datetime', None),
         # ('open', 'open'),
@@ -29,6 +29,8 @@ class CustomPandasData(bt.feeds.PandasData):
         # ('timeframe', bt.TimeFrame.Days),
         # ('compression', 1),
         # ('openinterest', -1),
+        ('turn', -1),
+        ('amount', -1),
         ('mv', -1),
         ('profit', -1),
         ('revenue', -1),
@@ -73,8 +75,8 @@ def load_stock_data(from_idx, to_idx):
     data = pd.DataFrame(index=pdf['date'].unique())
     data = data.sort_index()
 
-    select_cols = ['date', 'open', 'high', 'low', 'close', 'volume', ]
-    add_cols = ['mv', 'profit', 'revenue', 'is_st', 'profit_ttm', 'roeAvg', 'openinterest', ]
+    select_cols = ['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn' ]
+    add_cols = ['amount', 'turn', 'mv', 'profit', 'revenue', 'is_st', 'profit_ttm', 'roeAvg', 'openinterest', ]
     # 加载 SZ510880 SH159300
     etf_list = ['SZ510880', 'SH159919', 'SZ510050', 'SZ588000', 'SZ511880']
     etf_path = '/Users/dabai/liepin/study/llm/Financial_QA/src/busi/etf_/data/etf_trading/daily'
@@ -83,7 +85,8 @@ def load_stock_data(from_idx, to_idx):
         # 选择需要的列
         etf_df = etf_df[select_cols]
         for col in add_cols:
-            etf_df[col] = 0
+            if col not in etf_df.columns:
+                etf_df[col] = 0
         etf_df['date'] = pd.to_datetime(etf_df['date'])
         etf_df.set_index('date', inplace=True)  # 设置 datetime 为索引
         etf_df = etf_df.sort_index()
@@ -106,9 +109,10 @@ def load_stock_data(from_idx, to_idx):
 
         zz_df = pd.read_csv(f'{zz_path}/{index_code}.csv')
         # 选择需要的列
-        zz_df = zz_df[select_cols]
+        zz_df = zz_df[select_cols[:-1]]
         for col in add_cols:
-            zz_df[col] = 0
+            if col not in zz_df.columns:
+                zz_df[col] = 0
         zz_df['date'] = pd.to_datetime(zz_df['date'])
         zz_df.set_index('date', inplace=True)  # 设置 datetime 为索引
         zz_df = zz_df.sort_index()
@@ -188,7 +192,7 @@ def load_stock_data(from_idx, to_idx):
                 df['date'] = pd.to_datetime(df['date'])
 
                 # 选择需要的列
-                df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue', 'is_st', 'profit_ttm', 'roeAvg', 'openinterest',]]
+                df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn', 'mv', 'profit', 'revenue', 'is_st', 'profit_ttm', 'roeAvg', 'openinterest',]]
 
                 df.set_index('date', inplace=True)  # 设置 datetime 为索引
                 df = df.sort_index()
@@ -204,7 +208,7 @@ def load_stock_data(from_idx, to_idx):
 
                 # data_ = df.sort_index()
                 data_.loc[:, ['volume', 'openinterest']] = data_.loc[:, ['volume', 'openinterest']].fillna(0)
-                data_.loc[:, ['open', 'high', 'low', 'close']] = data_.loc[:, ['open', 'high', 'low', 'close']].bfill()
+                data_.loc[:, ['open', 'high', 'low', 'close']] = data_.loc[:, ['open', 'high', 'low', 'close', ]].bfill()
                 data_.bfill(inplace=True)
                 data_.fillna(0, inplace=True)
                 rsub_cols = [ 'open', 'high', 'low', 'close', ]
@@ -231,7 +235,8 @@ def load_stock_data(from_idx, to_idx):
                 # 选择需要的列
                 df_sorted = df_sorted[select_cols]
                 for col in add_cols:
-                    df_sorted[col] = 0
+                    if col not in df_sorted.columns:
+                        df_sorted[col] = 0
 
                 df_sorted.set_index('date', inplace=True)  # 设置 datetime 为索引
                 df_sorted = df_sorted.sort_index()

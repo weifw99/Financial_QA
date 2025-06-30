@@ -45,6 +45,8 @@ class SmallCapSignalGenerator:
                     row['mv'] > self.config['min_mv']
                     and row['profit'] > 0
                     and 2 < row['close'] < self.config['hight_price']
+                    and row['amount'] > 4000000
+                    and row['turn'] >=1
                     and row['roeAvg'] > 0
                     and row['profit_ttm'] > 0
                     and row['revenue'] > self.config['min_revenue']

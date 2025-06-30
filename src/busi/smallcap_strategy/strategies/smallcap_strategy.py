@@ -246,12 +246,16 @@ class SmallCapStrategy(bt.Strategy):
                 revenue = d.revenue[0]
                 is_st = d.is_st[0]
                 close = d.close[0]
+                turn = d.turn[0]
+                amount = d.amount[0]
                 roeAvg = d.roeAvg[0]
                 profit_ttm = d.profit_ttm[0]
 
                 if (mv > self.p.min_mv
                         and profit > 0
                         and 2 < close < self.p.hight_price
+                        and amount >= 4000000
+                        and turn >= 1
                         and roeAvg > 0
                         and profit_ttm > 0
                         and revenue > self.p.min_revenue

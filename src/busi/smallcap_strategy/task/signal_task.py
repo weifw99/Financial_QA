@@ -1,17 +1,17 @@
 from datetime import datetime, timedelta
 
 from src.busi.smallcap_strategy.task.seed_message import format_signal_message, send_email, send_wechat_smsg
-from .signal_generator import SmallCapSignalGenerator
-from .data_loader import load_recent_data
+from src.busi.smallcap_strategy.task.signal_generator import SmallCapSignalGenerator
+from src.busi.smallcap_strategy.task.data_loader import load_recent_data
 
 config = dict(
-    smallcap_index='csi932000',
-    large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'etf_SZ510880'],
+    smallcap_index=[ 'csi932000','sz399101'],
+    large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'etf_SZ510880', 'sh000905'],
     min_mv=10e8,
     min_profit=0,
     min_revenue=1e8,
     hight_price=50,
-    momentum_days=20,
+    momentum_days=15,
     hold_count_high=10,
 )
 
@@ -40,6 +40,8 @@ def main():
 
     # 假设你已有 signal = {...}
     content = format_signal_message(signal, today, data_date)
+
+    print(content)
 
     # 发送
     # send_email("【小市值策略信号】", content, "your_friend@example.com")

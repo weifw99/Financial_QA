@@ -54,6 +54,8 @@ def load_recent_data():
 
     # 加载指数
     index_list = ['csi932000', 'sz399101']
+    index_list =['csi932000', 'sz399101' , 'sh000905', 'sh000852', 'sh000046', 'sz399005', 'sz399401']
+
     for code in index_list:
         f = f'{index_path}/{code}.csv'
         if not os.path.exists(f):
@@ -81,9 +83,16 @@ def load_recent_data():
         file_path_a = f'{zh_data_dir}/{stock_code}/daily_a.csv'
         income_path = f'{financial_data_dir}/{stock_code}/income.csv'
 
-        # 使用中证1000或则中证2000股票回测
-        if stock_code not in zz_code_list and stock_code not in temp_stock_list:
+        # 过滤创业板/科创板/北交所股票
+        if ('.30' in stock_code
+                or '.68' in stock_code
+                or '.8' in stock_code
+                or '.4' in stock_code):
+            print(f'过滤创业板/科创板/北交所股票: {stock_code}')
             continue
+        # 使用中证1000或则中证2000股票回测
+        # if stock_code not in zz_code_list and stock_code not in temp_stock_list:
+        #     continue
 
         if not os.path.exists(file_path) or not os.path.exists(file_path_a):
             continue

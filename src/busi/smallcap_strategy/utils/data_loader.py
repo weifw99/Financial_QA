@@ -101,7 +101,7 @@ def load_stock_data(from_idx, to_idx):
         datas.append(pandas_data)
 
 
-    index_list =['csi932000', 'sz399101' , 'sh000905']
+    index_list =['csi932000', 'sz399101' , 'sh000905', 'sh000852', 'sh000046', 'sz399005', 'sz399401']
     # 获取指数数据
     zz_path = '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/index'
 

@@ -20,15 +20,14 @@ class SmallCapStrategy(bt.Strategy):
         trend_threshold=-0.05,  # 快速熔断阈值（小市值单日下跌5%）
         stop_loss_pct=0.06,  # 个股止损线（跌幅超过6%）
         take_profit_pct=0.5,  # 个股止盈线（涨幅超过50%）
-        null_index='etf_SZ511880',   # 空仓期备选 etf
-        # 588000,科创50ETF
-        # smallcap_index='sh.000852',     # 中证 1000 sh000852 # 小市值指数名称  小市值的动量如何确定 第一种，用中证2000可以近似代替/第二种，用微盘指数可以近似代替
-        smallcap_index='csi932000',     # 中证 1000 sh000852 # 小市值指数名称  小市值的动量如何确定 第一种，用中证2000可以近似代替/第二种，用微盘指数可以近似代替
-        # smallcap_index='sz399101',     # 399101 中小综指399101
-        # large_indices=['HS300', '300etf', 'SH50', '50etf', 'DividendETF'],  # 大盘指数对比列表
-        # large_indices=['sh.000300', 'sh510880', 'sh.000016', 'sh000905']  # 大盘指数对比列表  沪深300/上证50/红利ETF 510880
-        large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050',  'etf_SZ510880', 'sh000905']  # 大盘指数对比列表  沪深300/上证50/红利ETF 510880
-        # large_indices=['sh.000300',  'etf_SZ510050',  'etf_SZ510880']  # 大盘指数对比列表  沪深300/上证50/红利ETF 510880
+        null_index='etf_SZ511880',  # 空仓期备选 etf
+        # smallcap_index=['csi932000', 'sz399101', 'sh000852'],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
+        # smallcap_index=[ 'sz399101', 'sh000852'],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
+        # smallcap_index=[ 'csi932000', 'sz399101', 'sh000852', 'sh000046', 'sz399005', 'sz399401'],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
+        # smallcap_index=[ 'csi932000', 'sh000046', 'sz399005', 'sz399401'],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
+        smallcap_index=[ 'csi932000','sz399101'],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
+        # smallcap_index=[ 'csi932000', 'sz399005', 'sz399401'],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
+        large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'etf_SZ510880', 'sh000905']
     )
 
     def __init__(self):
@@ -68,9 +67,9 @@ class SmallCapStrategy(bt.Strategy):
             return
 
         is_momentum_ok = self.check_momentum_rank(top_k=2)
-        is_check_trend = self.check_trend_crash()
-        print(
-            f'SmallCapStrategy.next stop loss result, is_check_trend：{is_check_trend}, is_momentum_ok： {is_momentum_ok}')
+        # is_check_trend = self.check_trend_crash()
+        is_check_trend = self.check_combo_trend_crash()
+        print(f'SmallCapStrategy.next stop loss result, is_check_trend：{is_check_trend}, is_momentum_ok： {is_momentum_ok}')
 
         if is_check_trend or not is_momentum_ok:
             self.sell_all()
@@ -120,10 +119,13 @@ class SmallCapStrategy(bt.Strategy):
             hold_num = self.p.hold_count_high
 
         to_hold = set(candidates[:hold_num])
+        print(f"{dt.date()} 待持仓：{to_hold}")
         current_hold = {d for d, pos in self.positions.items() if pos.size > 0}
 
         to_sell = current_hold - to_hold
         to_buy = to_hold - current_hold
+        print(f"{dt.date()} to_sell：{to_sell}")
+        print(f"{dt.date()} to_buy：{to_buy}")
 
         for d in to_sell:
             print(f"💸 清仓：{d._name}")
@@ -138,6 +140,7 @@ class SmallCapStrategy(bt.Strategy):
                 continue
             size = int(cash_per_stock // price)
             size = (size // 100) * 100
+            print(f"📥 准备买入：{d._name} size={size} cash_per_stock: {cash_per_stock}, price: {price}")
             if size >= 100:
                 print(f"📥 买入：{d._name} size={size}")
                 self.buy(d, size=size)
@@ -145,7 +148,8 @@ class SmallCapStrategy(bt.Strategy):
         self.print_positions()
 
     def check_stop_conditions(self, dt):
-        if self.check_trend_crash():
+        # if self.check_trend_crash():
+        if self.check_combo_trend_crash():
             print(f"🚨 {dt.date()} 触发趋势止损")
             self.sell_all()
             self.clear_until = dt.date() + timedelta(days=7)
@@ -163,7 +167,7 @@ class SmallCapStrategy(bt.Strategy):
         return False
 
     def validate_index_data(self):
-        names = [self.p.smallcap_index] + self.p.large_indices
+        names = self.p.smallcap_index + self.p.large_indices
         for name in names:
             d = self.getdatabyname(name)
             if len(d) < self.p.momentum_days + 1 or np.isnan(d.close[0]):
@@ -186,14 +190,56 @@ class SmallCapStrategy(bt.Strategy):
 
         if np.any(np.isnan(prices)) or prices[-1] == 0:
             return -999
+        momentum_log = get_momentum(prices, method='log', days=days)
+        momentum_slope = get_momentum(prices, method='slope_r2', days=days)
 
+        # 组合方式（例如加权平均）
+        combo_score = 0.5 * momentum_log + 0.5 * momentum_slope
+        return combo_score
         # return get_momentum(prices, method="log", days=days)
-        return get_momentum(prices, method="slope_r2", days=days)
+        # return get_momentum(prices, method="slope_r2", days=days)
+
+    def get_combined_smallcap_momentum(self):
+        scores = [self.get_index_return(name, self.p.momentum_days) for name in self.p.smallcap_index]
+        valid_scores = [s for s in scores if s > -999]
+        print(f'📊 小市值动量: {scores}')
+        return np.mean(valid_scores) if valid_scores else -999
+
+    def check_recent_recovery(self):
+        recovery_scores = []
+        for i in range(3):
+            day_scores = []
+            for name in self.p.smallcap_index:
+                d = self.getdatabyname(name)
+                if len(d) < self.p.momentum_days + i + 1:
+                    return False
+                prices = d.close.get(size=self.p.momentum_days + i + 1)
+                if np.any(np.isnan(prices)):
+                    return False
+                score = get_momentum(prices[-(self.p.momentum_days + 1 + i):-i or None], method="log",
+                                     days=self.p.momentum_days)
+                day_scores.append(score)
+            recovery_scores.append(np.mean(day_scores))
+        print(f'📊 最近三个动量: {recovery_scores}')
+        return recovery_scores[2] > recovery_scores[1] > recovery_scores[0]
+
+    def check_momentum_rank(self, top_k=2):
+        combo_score = self.get_combined_smallcap_momentum()
+        returns = {name: self.get_index_return(name, self.p.momentum_days) for name in self.p.large_indices}
+        returns['__smallcap_combo__'] = combo_score
+
+        sorted_returns = sorted(returns.items(), key=lambda x: x[1], reverse=True)
+        print(f'📊 动量排名: {sorted_returns}')
+
+        in_top_k = '__smallcap_combo__' in [x[0] for x in sorted_returns[:top_k]]
+        is_recovering = self.check_recent_recovery()
+
+        if not in_top_k and not is_recovering :
+            print(f"⚠️ 小市值组合动量跌出第一，未回升，且分数不高 -> 止损, in_top_k:{in_top_k}, is_recover:{is_recovering},  combo_score: {combo_score}")
+            return False
+        return True
 
     def get_volatility(self, name, days=10):
-        """
-        计算近 N 日对数收益率的年化波动率
-        """
         try:
             d = self.getdatabyname(name)
             if len(d) < days + 1:
@@ -206,7 +252,7 @@ class SmallCapStrategy(bt.Strategy):
 
     def check_trend_crash(self):
         try:
-            d = self.getdatabyname(self.p.smallcap_index)
+            d = self.getdatabyname(self.p.smallcap_index[0])
         except Exception as e:
             print(f"⚠️ 获取指数数据失败: {e}")
             return False
@@ -224,7 +270,7 @@ class SmallCapStrategy(bt.Strategy):
         daily_return = close / open_ - 1
         crash_days = np.sum(daily_return < -0.03)
         avg_return = daily_return.mean()
-        vol = self.get_volatility(self.p.smallcap_index, days=10)
+        vol = self.get_volatility(self.p.smallcap_index[0], days=10)
 
         print(f'📉 全局熔断判断：3日跌幅={daily_return}, avg={avg_return:.2%}, vol={vol:.2%}')
 
@@ -234,18 +280,54 @@ class SmallCapStrategy(bt.Strategy):
 
         return False
 
-    def check_momentum_rank(self, top_k=2):
-        indices = [self.p.smallcap_index] + self.p.large_indices
-        returns = {name: self.get_index_return(name, self.p.momentum_days) for name in indices}
-        sorted_returns = sorted(returns.items(), key=lambda x: x[1], reverse=True)
-        print(f'📊 动量排名: {sorted_returns}')
-        top_indices = [x[0] for x in sorted_returns[:top_k]]
-        return self.p.smallcap_index in top_indices
+
+    def check_combo_trend_crash(self):
+        """
+        多个小市值指数组合的趋势判断：
+        若过去3天内，平均跌幅超阈值，或波动率极低+连续下跌，触发止损。
+        """
+        indices = self.p.smallcap_index  # 多个小市值指数列表，如 ['csi932000', 'sz399101', 'custom_microcap']
+
+        close_mat = []
+        open_mat = []
+
+        for name in indices:
+            try:
+                d = self.getdatabyname(name)
+                if len(d) < 4:
+                    print(f"⚠️ 指数 {name} 数据不足4天")
+                    return False
+                close = np.array(d.close.get(size=4))
+                open_ = np.array(d.open.get(size=4))
+                if np.any(np.isnan(close)) or np.any(np.isnan(open_)):
+                    print(f"⚠️ 指数 {name} 存在缺失值")
+                    return False
+                close_mat.append(close)
+                open_mat.append(open_)
+            except Exception as e:
+                print(f"⚠️ 获取指数 {name} 数据失败: {e}")
+                return False
+
+        close_avg = np.mean(close_mat, axis=0)
+        open_avg = np.mean(open_mat, axis=0)
+        daily_return = close_avg / open_avg - 1
+
+        crash_days = np.sum(daily_return < -0.03)
+        avg_return = daily_return.mean()
+        vol = np.std(np.diff(np.log(close_avg))) * np.sqrt(252)
+
+        print(f'📉 组合趋势止损判断：3日组合涨跌={daily_return}, 平均={avg_return:.2%}, 波动率={vol:.2%}')
+
+        if (crash_days >= 2 or avg_return < -0.04) and vol < 0.2:
+            print("🚨 触发组合小市值指数的趋势熔断机制")
+            return True
+
+        return False
 
     def filter_stocks(self):
         candidates = []
         for d in self.datas:
-            if d._name in [self.p.smallcap_index] + self.p.large_indices:
+            if d._name in self.p.smallcap_index + self.p.large_indices:
                 continue
             try:
                 mv = d.mv[0]
@@ -258,15 +340,8 @@ class SmallCapStrategy(bt.Strategy):
                 roeAvg = d.roeAvg[0]
                 profit_ttm = d.profit_ttm[0]
 
-                if (mv > self.p.min_mv
-                        and profit > 0
-                        and 2 < close < self.p.hight_price
-                        # and amount >= 4000000
-                        # and turn >= 1
-                        and roeAvg > 0
-                        and profit_ttm > 0
-                        and revenue > self.p.min_revenue
-                        and is_st == 0):
+                if (mv > self.p.min_mv and profit > 0 and 2 < close < self.p.hight_price and
+                    roeAvg > 0 and profit_ttm > 0 and revenue > self.p.min_revenue and is_st == 0):
                     candidates.append((d, mv))
             except:
                 continue

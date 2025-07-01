@@ -144,6 +144,8 @@ class SmallCapStrategy(bt.Strategy):
             if size >= 100:
                 print(f"📥 买入：{d._name} size={size}")
                 self.buy(d, size=size)
+            else:
+                print(f"⚠️ 跳过买入：{d._name} size={size}")
 
         self.print_positions()
 
@@ -340,8 +342,14 @@ class SmallCapStrategy(bt.Strategy):
                 roeAvg = d.roeAvg[0]
                 profit_ttm = d.profit_ttm[0]
 
-                if (mv > self.p.min_mv and profit > 0 and 2 < close < self.p.hight_price and
-                    roeAvg > 0 and profit_ttm > 0 and revenue > self.p.min_revenue and is_st == 0):
+                if (mv > self.p.min_mv
+                        and profit > 0
+                        and 3 < close < self.p.hight_price
+                        and turn > 1
+                        and roeAvg > 0
+                        and profit_ttm > 0
+                        and revenue > self.p.min_revenue
+                        and is_st == 0):
                     candidates.append((d, mv))
             except:
                 continue

@@ -12,35 +12,126 @@ class CustomPandasData(bt.feeds.PandasData):
     自定义数据类，包含：市值、市盈率、利润、营收、是否ST标记等基本面数据
     需要保证df中有以下字段：datetime, open, high, low, close, volume, mv, profit, revenue, is_st
     """
-    lines = ('turn', 'amount', 'mv', 'profit', 'revenue', 'is_st', 'profit_ttm', 'roeAvg',)
-    params = (# 'datetime', 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue', 'is_st'
-        # ('datetime', None),
-        # ('open', 'open'),
-        # ('high', 'high'),
-        # ('low', 'low'),
-        # ('close', 'close'),
-        # ('volume', 'volume'),
 
-        # ('mv', 'mv'),
-        # ('profit', 'profit'),
-        # ('revenue', 'revenue'),
-        # ('is_st', 'is_st'),  # 0 or 1 表示是否ST
-        # ('dtformat', '%Y-%m-%d'),
-        # ('timeframe', bt.TimeFrame.Days),
-        # ('compression', 1),
-        # ('openinterest', -1),
-        ('turn', -1),
+    lines = ('amount', 'turn', 'mv', 'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_q', 'roeAvg_q',)
+    params = (# 'datetime', 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue', 'is_st'
+
         ('amount', -1),
+        ('turn', -1),
         ('mv', -1),
-        ('profit', -1),
-        ('revenue', -1),
-        ('is_st', -1),  # 0 or 1 表示是否ST
-        ('profit_ttm', -1),  #
-        ('roeAvg', -1),  #
+        ('is_st', -1),# 0 or 1 表示是否ST
+        ('profit_ttm_y', -1),
+        ('profit_y', -1),
+        ('revenue_y', -1),
+        ('roeAvg_y', -1),  #
+
+        ('profit_ttm_q', -1),
+        ('profit_q', -1),
+        ('revenue_q', -1),
+        ('roeAvg_q', -1),  #
+
         ('dtformat', '%Y-%m-%d'),
     )
 
+def process_financial_data(financial_df: pd.DataFrame):
+    """
+    输入原始财报数据，输出：
+    - 年度财报（添加 apply_year 字段）
+    - 季度财报（添加 apply_quarter 字段）
+    """
+    df = financial_df.copy()
+    df.rename(columns={'netProfit': 'profit', 'MBRevenue': 'revenue', }, inplace=True)
+    df['pubDate'] = pd.to_datetime(df['pubDate'])
+    df['statDate'] = pd.to_datetime(df['statDate'])
 
+    # 归属母公司股东的净利润TTM
+    # epsTTM	每股收益	归属母公司股东的净利润TTM/最新总股本
+    df['profit_ttm'] = df['totalShare'] * df['epsTTM']
+    # pubDate	公司发布财报的日期
+    # roeAvg	净资产收益率(平均)(%)	归属母公司股东净利润/[(期初归属母公司股东的权益+期末归属母公司股东的权益)/2]*100%
+    # statDate	财报统计的季度的最后一天, 比如2017-03-31, 2017-06-30
+    # netProfit	净利润(元)
+    # MBRevenue	主营营业收入(元)
+    # mv 市值
+    # 使用 pd.merge_asof 实现按时间向前填充匹配
+    # profit_ttm 归属母公司股东的净利润TTM
+
+    # 年度判断：12月31日的 statDate 为年报
+    is_annual = df['statDate'].dt.month == 12
+
+    # 拆分
+    annual_df = df[is_annual].copy()
+    quarterly_df = df[~is_annual].copy()
+
+    # 添加年度财报适用年
+    annual_df['apply_year'] = annual_df['statDate'].dt.year + 1
+
+    # 添加季度财报适用季度（季度末日期）
+    def get_next_quarter(stat_date):
+        y, m = stat_date.year, stat_date.month
+        if m <= 3:
+            return pd.Timestamp(f"{y}-06-30")
+        elif m <= 6:
+            return pd.Timestamp(f"{y}-09-30")
+        elif m <= 9:
+            return pd.Timestamp(f"{y}-12-31")
+        else:
+            return pd.Timestamp(f"{y+1}-03-31")
+
+    quarterly_df['apply_quarter'] = quarterly_df['statDate'].apply(get_next_quarter)
+
+    # 后缀字段名
+    suffix_q = {col: f"{col}_q" for col in df.columns if col not in ['code', 'apply_quarter', 'statDate', 'pubDate']}
+    suffix_y = {col: f"{col}_y" for col in df.columns if col not in ['code', 'apply_year', 'statDate', 'pubDate']}
+
+    # 重命名字段（便于后续合并时区分）
+    quarterly_df = quarterly_df.rename(columns=suffix_q)
+    annual_df = annual_df.rename(columns=suffix_y)
+
+    return quarterly_df, annual_df
+
+
+def merge_with_stock(stock_df, quarterly_df, annual_df):
+    """
+    stock_df 包含字段 ['code', 'trade_date']（datetime 类型）
+    合并年度与季度财报数据，生成完整对齐 DataFrame
+    """
+
+    df = stock_df.copy()
+    df['date'] = pd.to_datetime(df['date'])
+
+    # 获取季度末日期
+    def get_quarter_end(date):
+        y, m = date.year, date.month
+        if m <= 3:
+            return pd.Timestamp(f"{y}-03-31")
+        elif m <= 6:
+            return pd.Timestamp(f"{y}-06-30")
+        elif m <= 9:
+            return pd.Timestamp(f"{y}-09-30")
+        else:
+            return pd.Timestamp(f"{y}-12-31")
+
+    df['quarter_end'] = df['date'].apply(get_quarter_end)
+    df['year'] = df['date'].dt.year
+
+    # 1. 合并季度数据
+    df = df.merge(
+        quarterly_df,
+        how='left',
+        left_on=['code', 'quarter_end'],
+        right_on=['code', 'apply_quarter']
+    )
+
+    # 2. 合并年度数据
+    df = df.merge(
+        annual_df,
+        how='left',
+        left_on=['code', 'year'],
+        right_on=['code', 'apply_year']
+    )
+
+    return df
 
 def load_stock_data(from_idx, to_idx):
     """
@@ -76,7 +167,7 @@ def load_stock_data(from_idx, to_idx):
     data = data.sort_index()
 
     select_cols = ['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn' ]
-    add_cols = ['amount', 'turn', 'mv', 'profit', 'revenue', 'is_st', 'profit_ttm', 'roeAvg', 'openinterest', ]
+    add_cols = ['amount', 'turn', 'mv',  'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_q', 'roeAvg_q', 'openinterest', ]
     # 加载 SZ510880 SH159300
     etf_list = ['SZ510880', 'SH159919', 'SZ510050', 'SZ588000', 'SZ511880']
     etf_path = '/Users/dabai/liepin/study/llm/Financial_QA/src/busi/etf_/data/etf_trading/daily'
@@ -170,42 +261,27 @@ def load_stock_data(from_idx, to_idx):
             # 确保 date 列为 datetime 类型并排序
             df['date'] = pd.to_datetime(df['date'])
             df_sorted = df.sort_values('date')
+            df_sorted.rename(columns={'isST': 'is_st', }, inplace=True)
+
             if os.path.exists(financial_path):
 
                 financial_df = pd.read_csv(financial_path)
-                financial_df['date'] = financial_df['pubDate']
 
-                financial_df = financial_df[['date', 'netProfit', 'MBRevenue', 'totalShare', 'liqaShare', 'epsTTM', 'roeAvg', ]]
+                quarterly_df, annual_df = process_financial_data(financial_df)
 
-                # 确保 date 列为 datetime 类型并排序
-                financial_df['date'] = pd.to_datetime(financial_df['date'])
+                df_temp = merge_with_stock(df_sorted, quarterly_df, annual_df)
 
+                df2_sorted = df_temp.sort_values('date').ffill().dropna()
 
-                df2_sorted = financial_df.sort_values('date').ffill().dropna()
+                df = df2_sorted #  "['is_st', 'profit_ttm_q'] not in index"
 
-                # 归属母公司股东的净利润TTM
-                # epsTTM	每股收益	归属母公司股东的净利润TTM/最新总股本
-                df2_sorted['profit_ttm'] = df2_sorted['totalShare'] * df2_sorted['epsTTM']
-
-                # pubDate	公司发布财报的日期
-                # roeAvg	净资产收益率(平均)(%)	归属母公司股东净利润/[(期初归属母公司股东的权益+期末归属母公司股东的权益)/2]*100%
-                # statDate	财报统计的季度的最后一天, 比如2017-03-31, 2017-06-30
-                # netProfit	净利润(元)
-                # MBRevenue	主营营业收入(元)
-                # totalShare	总股本(股)
-                # 使用 pd.merge_asof 实现按时间向前填充匹配
-                df = pd.merge_asof(df_sorted, df2_sorted, on='date', direction='backward')
-
-                # df.rename(columns={'netProfit': 'profit', 'MBRevenue': 'revenue', 'isST': 'is_st', 'date': 'datetime'}, inplace=True)
-                df.rename(columns={'netProfit': 'profit', 'MBRevenue': 'revenue', 'isST': 'is_st', }, inplace=True)
-
-                df['mv'] = df['totalShare'] * df['close_1'] # 市值 = 总股本 * 收盘价（不复权）
+                df['mv'] = df['totalShare_y'] * df['close_1'] # 市值 = 总股本 * 收盘价（不复权）
 
                 df['openinterest'] = 0
                 df['date'] = pd.to_datetime(df['date'])
 
                 # 选择需要的列
-                df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn', 'mv', 'profit', 'revenue', 'is_st', 'profit_ttm', 'roeAvg', 'openinterest',]]
+                df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn', 'mv',  'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_q', 'roeAvg_q', 'openinterest',]]
 
                 df.set_index('date', inplace=True)  # 设置 datetime 为索引
                 df = df.sort_index()

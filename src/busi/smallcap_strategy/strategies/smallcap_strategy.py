@@ -330,20 +330,54 @@ class SmallCapStrategy(bt.Strategy):
             if d._name in self.p.smallcap_index + self.p.large_indices:
                 continue
             try:
-                mv = d.mv[0]
-                profit = d.profit[0]
-                revenue = d.revenue[0]
-                is_st = d.is_st[0]
-                close = d.close[0]
-                turn = d.turn[0]
-                amount = d.amount[0]
-                roeAvg = d.roeAvg[0]
-                profit_ttm = d.profit_ttm[0]
+                add_cols = ['amount', 'turn', 'mv', 'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y',
+                            'profit_ttm_q', 'profit_q', 'revenue_q', 'roeAvg_q', 'openinterest', ]
+                # pubDate	公司发布财报的日期
+                # roeAvg	净资产收益率(平均)(%)	归属母公司股东净利润/[(期初归属母公司股东的权益+期末归属母公司股东的权益)/2]*100%
+                # statDate	财报统计的季度的最后一天, 比如2017-03-31, 2017-06-30
+                # netProfit	净利润(元)
+                # MBRevenue	主营营业收入(元)  # 季度可能为 null
+                # mv 市值
+                # 使用 pd.merge_asof 实现按时间向前填充匹配
+                # profit_ttm 归属母公司股东的净利润TTM
 
-                if (mv > self.p.min_mv and profit > 0 and 2 < close < self.p.hight_price and
-                    roeAvg > 0 and profit_ttm > 0 and revenue > self.p.min_revenue and is_st == 0):
+                is_st = d.is_st[0]
+                turn = d.turn[0]
+                close = d.close[0]
+                amount = d.amount[0]
+
+                mv = d.mv[0]
+
+                # 年度数据
+                profit_y = d.revenue_y[0]
+                revenue_y = d.revenue_y[0]
+                roeAvg_y = d.roeAvg_y[0]
+                profit_ttm_y = d.profit_ttm_y[0]
+
+                # 季度数据
+                profit_q = d.revenue_q[0]
+                revenue_q = d.revenue_q[0] # 季度可能为 null
+                roeAvg_q = d.roeAvg_q[0]
+                profit_ttm_q = d.profit_ttm_q[0]
+
+                if (mv > self.p.min_mv
+                        and is_st == 0
+                        and 2 < close < self.p.hight_price
+                        # 年度数据
+                        and profit_y > 0
+                        and roeAvg_y > 0
+                        and profit_ttm_y > 0
+                        and revenue_y > self.p.min_revenue
+
+                        # 季度数据
+                        and profit_q > 0
+                        and roeAvg_q > 0
+                        and profit_ttm_q > 0
+                ):
+
                     candidates.append((d, mv))
             except:
+                print(f"⚠️ 获取股票数据失败: {d._name}")
                 continue
 
         candidates = sorted(candidates, key=lambda x: x[1])

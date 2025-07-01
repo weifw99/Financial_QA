@@ -79,7 +79,7 @@ def load_recent_data():
 
     temp_stock_list = ['sh.000300', 'sh.000016', 'sh.000852']
     for i, stock_code in enumerate(os.listdir(zh_data_dir)):
-        file_path = f'{zh_data_dir}/{stock_code}/daily.csv'
+        # file_path = f'{zh_data_dir}/{stock_code}/daily.csv'
         file_path_a = f'{zh_data_dir}/{stock_code}/daily_a.csv'
         income_path = f'{financial_data_dir}/{stock_code}/income.csv'
 
@@ -94,12 +94,13 @@ def load_recent_data():
         # if stock_code not in zz_code_list and stock_code not in temp_stock_list:
         #     continue
 
-        if not os.path.exists(file_path) or not os.path.exists(file_path_a):
+        if not os.path.exists(file_path_a):
             continue
 
-        df = pd.read_csv(file_path)
-        df_a = pd.read_csv(file_path_a)[['date', 'close']].rename(columns={'close': 'close_1'})
-        df = pd.merge(df, df_a, on='date', how='inner')
+        df = pd.read_csv(file_path_a)
+        df['close_1'] = df['close']
+        # df_a = pd.read_csv(file_path_a)[['date', 'close']].rename(columns={'close': 'close_1'})
+        # df = pd.merge(df, df_a, on='date', how='inner')
         df['factor'] = 1.0
         df['date'] = pd.to_datetime(df['date'])
         df = df[df['date'] >= from_date]

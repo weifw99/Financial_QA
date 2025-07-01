@@ -144,6 +144,8 @@ class SmallCapStrategy(bt.Strategy):
             if size >= 100:
                 print(f"📥 买入：{d._name} size={size}")
                 self.buy(d, size=size)
+            else:
+                print(f"⚠️ 跳过买入：{d._name} size={size}")
 
         self.print_positions()
 
@@ -330,8 +332,7 @@ class SmallCapStrategy(bt.Strategy):
             if d._name in self.p.smallcap_index + self.p.large_indices:
                 continue
             try:
-                add_cols = ['amount', 'turn', 'mv', 'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y',
-                            'profit_ttm_q', 'profit_q', 'revenue_q', 'roeAvg_q', 'openinterest', ]
+
                 # pubDate	公司发布财报的日期
                 # roeAvg	净资产收益率(平均)(%)	归属母公司股东净利润/[(期初归属母公司股东的权益+期末归属母公司股东的权益)/2]*100%
                 # statDate	财报统计的季度的最后一天, 比如2017-03-31, 2017-06-30

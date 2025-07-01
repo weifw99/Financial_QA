@@ -4,6 +4,8 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 
+from src.busi.smallcap_strategy.utils.data_loader import process_financial_data, merge_with_stock
+
 
 def load_recent_data():
     """
@@ -29,10 +31,10 @@ def load_recent_data():
     data_index = pd.DataFrame(index=calendar_df['date'].sort_values().unique())
 
     select_cols = ['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn']
-    add_cols = ['amount', 'turn', 'mv', 'profit', 'revenue', 'is_st', 'profit_ttm', 'roeAvg', 'openinterest', ]
+    add_cols = ['amount', 'turn', 'mv', 'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_q', 'roeAvg_q', 'openinterest', ]
 
     def process_dataframe(df):
-        df['date'] = pd.to_datetime(df['date'])
+        df.loc[:, 'date'] = pd.to_datetime(df['date'])
         df = df[df['date'] >= from_date]
         df.set_index('date', inplace=True)
         df = df.sort_index()
@@ -91,44 +93,50 @@ def load_recent_data():
             print(f'过滤创业板/科创板/北交所股票: {stock_code}')
             continue
         # 使用中证1000或则中证2000股票回测
-        # if stock_code not in zz_code_list and stock_code not in temp_stock_list:
-        #     continue
+        if stock_code not in zz_code_list and stock_code not in temp_stock_list:
+            print(f'过滤非中证1000和中证2000股票: {stock_code}')
+            continue
 
         if not os.path.exists(file_path_a):
             continue
 
         df = pd.read_csv(file_path_a)
+        df.rename(columns={'isST': 'is_st', }, inplace=True)
         df['close_1'] = df['close']
         # df_a = pd.read_csv(file_path_a)[['date', 'close']].rename(columns={'close': 'close_1'})
         # df = pd.merge(df, df_a, on='date', how='inner')
         df['factor'] = 1.0
         df['date'] = pd.to_datetime(df['date'])
-        df = df[df['date'] >= from_date]
+        # df = df[df['date'] >= from_date]
         df = df.sort_values('date')
 
-        if os.path.exists(income_path):
-            income_df = pd.read_csv(income_path)
-            income_df['date'] = pd.to_datetime(income_df['pubDate'])
-            income_df = income_df[['date', 'netProfit', 'MBRevenue', 'totalShare', 'epsTTM', 'roeAvg']]
-            income_df = income_df.sort_values('date').ffill()
-            income_df['profit_ttm'] = income_df['totalShare'] * income_df['epsTTM']
-            df = pd.merge_asof(df, income_df, on='date', direction='backward')
-        else:
-            df['netProfit'] = 0
-            df['MBRevenue'] = 0
-            df['totalShare'] = 0
-            df['roeAvg'] = 0
-            df['profit_ttm'] = 0
+        # 过滤上市时间太短的股票 （A 股一年交易时间243天），取上市一年多的股票
+        if len(df) < 252:
+            print(f'{stock_code} 上市交易时间太短，交易的天数: {len(df)}，忽略该股票')
+            continue
 
-        df['profit'] = df['netProfit']
-        df['revenue'] = df['MBRevenue']
-        df['mv'] = df['totalShare'] * df['close_1']
-        df['is_st'] = df.get('isST', 0)
-        df['openinterest'] = 0
+        if os.path.exists(income_path):
+
+            financial_df = pd.read_csv(income_path)
+            quarterly_df, annual_df = process_financial_data(financial_df)
+            df_temp = merge_with_stock(df, quarterly_df, annual_df)
+            df2_sorted = df_temp.sort_values('date').ffill().dropna()
+
+            df = df2_sorted
+
+            df['mv'] = df['totalShare_y'] * df['close_1']  # 市值 = 总股本 * 收盘价（不复权）
+
+            df['openinterest'] = 0
+            df['date'] = pd.to_datetime(df['date'])
+
+        else:
+            continue
 
         try:
-            df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn', 'mv', 'profit', 'revenue',
-                     'is_st', 'profit_ttm', 'roeAvg', 'openinterest']]
+            # 选择需要的列
+            df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn', 'mv', 'is_st', 'profit_ttm_y',
+                     'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_q', 'roeAvg_q',
+                     'openinterest', ]]
             df = process_dataframe(df)
             result[stock_code] = df
         except Exception as e:

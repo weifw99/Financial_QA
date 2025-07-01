@@ -25,7 +25,7 @@ class SmallCapStrategy(bt.Strategy):
         # smallcap_index=[ 'sz399101', 'sh000852'],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
         # smallcap_index=[ 'csi932000', 'sz399101', 'sh000852', 'sh000046', 'sz399005', 'sz399401'],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
         # smallcap_index=[ 'csi932000', 'sh000046', 'sz399005', 'sz399401'],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
-        smallcap_index=[ 'csi932000','sz399101'],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
+        smallcap_index=[ 'csi932000', 'sz399101', 'sz399005'],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
         # smallcap_index=[ 'csi932000', 'sz399005', 'sz399401'],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
         large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'etf_SZ510880', 'sh000905']
     )
@@ -34,8 +34,6 @@ class SmallCapStrategy(bt.Strategy):
         self.clear_until = None
         self.is_cleared = False
         self.do_rebalance_today = False
-        self.empty_days = 0
-        self.max_empty_days = 5
 
         self.add_timer(
             when=bt.Timer.SESSION_START,
@@ -52,14 +50,8 @@ class SmallCapStrategy(bt.Strategy):
 
     def next(self):
         dt = self.data0.datetime.datetime(0)
-        print('📈 next 执行时间:', self.datetime.datetime(0), '账户净值:', self.broker.getvalue())
+        print('📈 next 执行时间:', self.datetime.datetime(0), '账户净值:', self.broker.getvalue(), '持仓个数: ', len( {d for d, pos in self.positions.items() if pos.size > 0} ))
         self.check_individual_stop()
-
-        current_pos = sum([pos.size for _, pos in self.positions.items()])
-        if current_pos == 0:
-            self.empty_days += 1
-        else:
-            self.empty_days = 0
 
         if self.do_rebalance_today:
             self.do_rebalance_today = False
@@ -112,11 +104,6 @@ class SmallCapStrategy(bt.Strategy):
         candidates = self.filter_stocks()
         is_momentum_ok = self.check_momentum_rank(top_k=2)
         hold_num = self.p.hold_count_high if is_momentum_ok else self.p.hold_count_low
-
-        if self.empty_days >= self.max_empty_days:
-            print(f"📆 已空仓 {self.empty_days} 天，强制放宽调仓限制")
-            is_momentum_ok = True
-            hold_num = self.p.hold_count_high
 
         to_hold = set(candidates[:hold_num])
         print(f"{dt.date()} 待持仓：{to_hold}")
@@ -363,7 +350,9 @@ class SmallCapStrategy(bt.Strategy):
 
                 if (mv > self.p.min_mv
                         and is_st == 0
-                        and 2 < close < self.p.hight_price
+                        and turn > 1.5
+                        and amount > 4000000
+                        and 3 < close < self.p.hight_price
                         # 年度数据
                         and profit_y > 0
                         and roeAvg_y > 0
@@ -382,6 +371,7 @@ class SmallCapStrategy(bt.Strategy):
                 continue
 
         candidates = sorted(candidates, key=lambda x: x[1])
+        print("filter_stocks len：", len(candidates), f'{candidates[0][0]._name} mv min: ', candidates[0][1],  f'{candidates[-1][0]._name} mv max: ', candidates[-1][1])
         return [x[0] for x in candidates]
 
     def sell_all(self):

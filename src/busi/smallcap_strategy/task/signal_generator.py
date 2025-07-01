@@ -131,17 +131,29 @@ class SmallCapSignalGenerator:
         results = []
         for name, df in self.stock_data.items():
             row = df.iloc[-1]
+
             try:
                 if (
+                    # ['date', 'open', 'high', 'low', 'close',
+                        # 'volume', 'amount', 'turn', 'mv', 'is_st', 'profit_ttm_y',
+                        # 'profit_y', 'revenue_y', 'roeAvg_y',
+                        # 'profit_ttm_q', 'profit_q', 'revenue_q', 'roeAvg_q',
+                        # 'openinterest', ]
                     row['mv'] > self.config['min_mv']
-                    and row['profit'] > 0
-                    and 2 < row['close'] < self.config['hight_price']
-                    # and row['amount'] > 4000000
-                    and row['turn'] >1
-                    and row['roeAvg'] > 0
-                    and row['profit_ttm'] > 0
-                    and row['revenue'] > self.config['min_revenue']
                     and row['is_st'] == 0
+                    and 3 < row['close'] < self.config['hight_price']
+                    and row['amount'] > 4000000
+                    and row['turn'] > 1.5
+
+                    and row['profit_y'] > 0
+                    and row['roeAvg_y'] > 0
+                    and row['profit_ttm_y'] > 0
+                    and row['revenue_y'] > self.config['min_revenue']
+
+                    and row['profit_q'] > 0
+                    and row['roeAvg_q'] > 0
+                    and row['profit_ttm_q'] > 0
+
                 ):
                     results.append((name, row['mv']))
             except:

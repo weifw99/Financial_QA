@@ -228,6 +228,7 @@ def load_stock_data(from_idx, to_idx):
 
         # 使用中证1000或则中证2000股票回测
         # if stock_file not in zz_code_list and stock_file not in temp_stock_list:
+        #     print(f'过滤非中证1000和中证2000股票: {stock_file}')
         #     continue
         # 过滤创业板/科创板/北交所股票
         if ('.30' in stock_file
@@ -238,23 +239,24 @@ def load_stock_data(from_idx, to_idx):
             continue
 
         print(f'{i}/{stock_file}')
-        file_path = f'{zh_data_dir}/{stock_file}/daily.csv'
+        # file_path = f'{zh_data_dir}/{stock_file}/daily.csv'
         file_path_a = f'{zh_data_dir}/{stock_file}/daily_a.csv'
 
         # 获取财务盈利信息
         financial_path = f'{financial_data_dir}/{stock_file}/income.csv'
-        if os.path.exists(file_path):
-            df = pd.read_csv(file_path)
+        if os.path.exists(file_path_a):
+            df = pd.read_csv(file_path_a)
 
             # 过滤上市时间太短的股票 （A 股一年交易时间243天），取上市一年多的股票
-            if len(df) < 250:
+            if len(df) < 252:
                 print(f'{stock_file} 上市交易时间太短，交易的天数: {len(df)}，忽略该股票')
                 continue
 
-            df_a = pd.read_csv(file_path_a)[['date','close']]
-            df_a.rename(columns={'close': 'close_1'}, inplace=True)
+            # df_a = pd.read_csv(file_path_a)[['date','close']]
+            # df_a.rename(columns={'close': 'close_1'}, inplace=True)
 
-            df = pd.merge(df, df_a, on='date', how='inner')
+            # df = pd.merge(df, df_a, on='date', how='inner')
+            df['close_1'] = df['close']
 
             # 使用后复权价格，factor均设置为1， 回测使用该因子
             df['factor'] = 1.0
@@ -273,7 +275,7 @@ def load_stock_data(from_idx, to_idx):
 
                 df2_sorted = df_temp.sort_values('date').ffill().dropna()
 
-                df = df2_sorted #  "['is_st', 'profit_ttm_q'] not in index"
+                df = df2_sorted
 
                 df['mv'] = df['totalShare_y'] * df['close_1'] # 市值 = 总股本 * 收盘价（不复权）
 

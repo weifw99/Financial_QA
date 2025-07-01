@@ -118,8 +118,10 @@ class SmallCapSignalGenerator:
         combo_score = np.mean([ x[1] for x in ranks if x[0] in self.config['smallcap_index']] )
         ranks.append(('__smallcap_combo__', combo_score))
 
+        ranks_comp = ranks[len(self.config['smallcap_index'])-1:]
+        ranks_comp.sort(key=lambda x: x[1], reverse=True)
         ranks.sort(key=lambda x: x[1], reverse=True)
-        in_top_k = '__smallcap_combo__' in [x[0] for x in ranks[:top_k]]
+        in_top_k = '__smallcap_combo__' in [x[0] for x in ranks_comp[:top_k]]
         is_recovering = self.check_recent_recovery()
 
         if not in_top_k and not is_recovering:

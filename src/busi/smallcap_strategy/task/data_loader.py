@@ -93,9 +93,9 @@ def load_recent_data():
             print(f'过滤创业板/科创板/北交所股票: {stock_code}')
             continue
         # 使用中证1000或则中证2000股票回测
-        if stock_code not in zz_code_list and stock_code not in temp_stock_list:
-            print(f'过滤非中证1000和中证2000股票: {stock_code}')
-            continue
+        # if stock_code not in zz_code_list and stock_code not in temp_stock_list:
+        #     print(f'过滤非中证1000和中证2000股票: {stock_code}')
+        #     continue
 
         if not os.path.exists(file_path_a):
             continue

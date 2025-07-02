@@ -139,7 +139,7 @@ class SmallCapSignalGenerator:
                     # ['date', 'open', 'high', 'low', 'close',
                         # 'volume', 'amount', 'turn', 'mv', 'is_st', 'profit_ttm_y',
                         # 'profit_y', 'revenue_y', 'roeAvg_y',
-                        # 'profit_ttm_q', 'profit_q', 'revenue_q', 'roeAvg_q',
+                        # 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q',
                         # 'openinterest', ]
                     row['mv'] > self.config['min_mv']
                     and row['is_st'] == 0
@@ -152,9 +152,10 @@ class SmallCapSignalGenerator:
                     and row['profit_ttm_y'] > 0
                     and row['revenue_y'] > self.config['min_revenue']
 
-                    and row['profit_q'] > 0
-                    and row['roeAvg_q'] > 0
-                    and row['profit_ttm_q'] > 0
+                    # and row['profit_q'] > 0
+                    # and row['roeAvg_q'] > 0
+                    # and row['profit_ttm_q'] > 0
+                    # and row['revenue_single_q'] > self.config['min_revenue']
 
                 ):
                     results.append((name, row['mv']))

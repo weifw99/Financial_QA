@@ -25,7 +25,19 @@ class SmallCapStrategy(bt.Strategy):
         # smallcap_index=[ 'sz399101', 'sh000852'],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
         # smallcap_index=[ 'csi932000', 'sz399101', 'sh000852', 'sh000046', 'sz399005', 'sz399401'],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
         # smallcap_index=[ 'csi932000', 'sh000046', 'sz399005', 'sz399401'],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
-        smallcap_index=[ 'csi932000', 'sz399101', 'sz399005'],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
+        smallcap_index=[ 'csi932000', 'sz399101', 'sz399005' ],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
+        # 399101,中小综指
+        # 399008,中小300
+        # 399401,中小盘
+        # 399602,中小成长
+        # 399005,中小100
+        # 000046,上证中小
+        # 'csi932000',
+        # 'sz399101',
+        # 'sz399005',
+        # 'sh000046',
+        # 'sz399401'
+
         # smallcap_index=[ 'csi932000', 'sz399005', 'sz399401'],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
         large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'etf_SZ510880', 'sh000905']
     )
@@ -337,14 +349,14 @@ class SmallCapStrategy(bt.Strategy):
                 mv = d.mv[0]
 
                 # 年度数据
-                profit_y = d.revenue_y[0]
+                profit_y = d.profit_y[0]
                 revenue_y = d.revenue_y[0]
                 roeAvg_y = d.roeAvg_y[0]
                 profit_ttm_y = d.profit_ttm_y[0]
 
                 # 季度数据
-                profit_q = d.revenue_q[0]
-                revenue_q = d.revenue_q[0] # 季度可能为 null
+                profit_q = d.profit_q[0]
+                revenue_single_q = d.revenue_single_q[0] # 季度可能为 null
                 roeAvg_q = d.roeAvg_q[0]
                 profit_ttm_q = d.profit_ttm_q[0]
 
@@ -360,9 +372,10 @@ class SmallCapStrategy(bt.Strategy):
                         and revenue_y > self.p.min_revenue
 
                         # 季度数据
-                        and profit_q > 0
-                        and roeAvg_q > 0
-                        and profit_ttm_q > 0
+                        # and profit_q > 0
+                        # and roeAvg_q > 0
+                        # and profit_ttm_q > 0
+                        # and revenue_single_q > self.p.min_revenue
                 ):
 
                     candidates.append((d, mv))

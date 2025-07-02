@@ -4,6 +4,7 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import backtrader as bt
 
@@ -13,7 +14,7 @@ class CustomPandasData(bt.feeds.PandasData):
     需要保证df中有以下字段：datetime, open, high, low, close, volume, mv, profit, revenue, is_st
     """
 
-    lines = ('amount', 'turn', 'mv', 'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_q', 'roeAvg_q',)
+    lines = ('amount', 'turn', 'mv', 'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q',)
     params = (# 'datetime', 'open', 'high', 'low', 'close', 'volume', 'mv', 'profit', 'revenue', 'is_st'
 
         ('amount', -1),
@@ -27,20 +28,77 @@ class CustomPandasData(bt.feeds.PandasData):
 
         ('profit_ttm_q', -1),
         ('profit_q', -1),
-        ('revenue_q', -1),
+        ('revenue_single_q', -1),
         ('roeAvg_q', -1),  #
 
         ('dtformat', '%Y-%m-%d'),
     )
+import pandas as pd
+import numpy as np
 
+def calc_MBRevenue_single_via_rule(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    按照固定规则补充 MBRevenue_single：
+    - Q1（3月）：Q2值 / 2
+    - Q2（6月）：Q2值 / 2
+    - Q3（9月）：(Q4 - Q2) / 2
+    - Q4（12月）：(Q4 - Q2) / 2
+
+    要求 df 包含 ['statDate', 'MBRevenue']，每行是一个季度记录。
+    """
+
+    df = df.copy()
+    df['statDate'] = pd.to_datetime(df['statDate'])
+    df = df.sort_values('statDate').reset_index(drop=True)
+    df['year'] = df['statDate'].dt.year
+    df['month'] = df['statDate'].dt.month
+    df['MBRevenue'] = pd.to_numeric(df['MBRevenue'], errors='coerce')
+    df['MBRevenue_single'] = np.nan
+
+    for year, group in df.groupby('year'):
+        group = group.set_index('month')
+
+        try:
+            q2_val = group.at[6, 'MBRevenue']
+            q4_val = group.at[12, 'MBRevenue']
+
+            # Q1（3月）：若存在06-30，Q2值 / 2
+            if 3 in group.index:
+                idx = df[(df['year'] == year) & (df['month'] == 3)].index[0]
+                if pd.notna(q2_val):
+                    df.at[idx, 'MBRevenue_single'] = q2_val / 2
+
+            # Q2（6月）：Q2值 / 2
+            if 6 in group.index:
+                idx = df[(df['year'] == year) & (df['month'] == 6)].index[0]
+                if pd.notna(q2_val):
+                    df.at[idx, 'MBRevenue_single'] = q2_val / 2
+
+            # Q3/Q4：如果 Q2/Q4 都有值，则 Q3/Q4 = (Q4 - Q2) / 2
+            if pd.notna(q2_val) and pd.notna(q4_val):
+                delta = q4_val - q2_val
+
+                if 9 in group.index:
+                    idx = df[(df['year'] == year) & (df['month'] == 9)].index[0]
+                    df.at[idx, 'MBRevenue_single'] = delta / 2
+
+                if 12 in group.index:
+                    idx = df[(df['year'] == year) & (df['month'] == 12)].index[0]
+                    df.at[idx, 'MBRevenue_single'] = delta / 2
+
+        except KeyError:
+            continue  # 本年季度数据不全，跳过
+
+    return df.drop(columns=['year', 'month'])
 def process_financial_data(financial_df: pd.DataFrame):
     """
     输入原始财报数据，输出：
     - 年度财报（添加 apply_year 字段）
     - 季度财报（添加 apply_quarter 字段）
     """
-    df = financial_df.copy()
-    df.rename(columns={'netProfit': 'profit', 'MBRevenue': 'revenue', }, inplace=True)
+    df = calc_MBRevenue_single_via_rule( financial_df )
+    df.rename(columns={'netProfit': 'profit', 'MBRevenue': 'revenue','MBRevenue_single': 'revenue_single', }, inplace=True)
+    df['revenue'] = df['revenue'].ffill()
     df['pubDate'] = pd.to_datetime(df['pubDate'])
     df['statDate'] = pd.to_datetime(df['statDate'])
 
@@ -59,9 +117,8 @@ def process_financial_data(financial_df: pd.DataFrame):
     # 年度判断：12月31日的 statDate 为年报
     is_annual = df['statDate'].dt.month == 12
 
-    # 拆分
     annual_df = df[is_annual].copy()
-    quarterly_df = df[~is_annual].copy()
+    quarterly_df = df.copy()
 
     # 添加年度财报适用年
     annual_df['apply_year'] = annual_df['statDate'].dt.year + 1
@@ -167,7 +224,7 @@ def load_stock_data(from_idx, to_idx):
     data = data.sort_index()
 
     select_cols = ['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn' ]
-    add_cols = ['amount', 'turn', 'mv',  'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_q', 'roeAvg_q', 'openinterest', ]
+    add_cols = ['amount', 'turn', 'mv',  'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q', 'openinterest', ]
     # 加载 SZ510880 SH159300
     etf_list = ['SZ510880', 'SH159919', 'SZ510050', 'SZ588000', 'SZ511880']
     etf_path = '/Users/dabai/liepin/study/llm/Financial_QA/src/busi/etf_/data/etf_trading/daily'
@@ -192,7 +249,7 @@ def load_stock_data(from_idx, to_idx):
         datas.append(pandas_data)
 
 
-    index_list =['csi932000', 'sz399101' , 'sh000905', 'sh000852', 'sh000046', 'sz399005', 'sz399401']
+    index_list =['csi932000', 'sz399101' , 'sh000905', 'sh000852', 'sh000046', 'sz399005', 'sz399008', 'sz399401']
     # 获取指数数据
     zz_path = '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/index'
 
@@ -283,7 +340,7 @@ def load_stock_data(from_idx, to_idx):
                 df['date'] = pd.to_datetime(df['date'])
 
                 # 选择需要的列
-                df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn', 'mv',  'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_q', 'roeAvg_q', 'openinterest',]]
+                df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn', 'mv',  'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q', 'openinterest',]]
 
                 df.set_index('date', inplace=True)  # 设置 datetime 为索引
                 df = df.sort_index()

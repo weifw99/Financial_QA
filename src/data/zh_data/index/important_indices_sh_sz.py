@@ -32,12 +32,12 @@ if __name__ == '__main__':
     if not os.path.exists(bast_path):
         os.makedirs(bast_path)
 
-    for name_zs in zs_list:
+    for i, name_zs in enumerate(zs_list):
         stock_zh_index_spot_em_df = ak.stock_zh_index_spot_em(symbol=name_zs)
         print(stock_zh_index_spot_em_df['代码'].tolist())
         code_list = stock_zh_index_spot_em_df['代码'].tolist()
 
-        for code in code_list:
+        for j, code in enumerate(code_list):
             query_code =  code
             if code.startswith("000"):
                 query_code = 'sh' + query_code
@@ -50,7 +50,7 @@ if __name__ == '__main__':
 
             time.sleep(random.randint(1,3))
 
-            print('important_indices_sh_sz:', query_code)
+            print(f'important_indices_sh_sz execute {i}-{j}:', query_code)
             stock_zh_index_daily_em_df = ak.stock_zh_index_daily_em(symbol=query_code)
             # print(stock_zh_index_daily_em_df)
             stock_zh_index_daily_em_df.to_csv(f"{bast_path}/{query_code}.csv", index=False)

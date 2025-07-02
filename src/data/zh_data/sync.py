@@ -203,7 +203,8 @@ class DataSync:
                     yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
                     # if today in df['date'].values or yesterday in df['date'].values:
                     df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
-                    if today in df['date'].values or yesterday in df['date'].values:
+                    # if today in df['date'].values or yesterday in df['date'].values:
+                    if today in df['date'].values:
                         print(f"股票{code}已有最新数据，跳过增量同步")
                         continue
                     # 获取对应周期的数据

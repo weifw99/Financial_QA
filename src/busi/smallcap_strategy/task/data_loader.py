@@ -31,7 +31,7 @@ def load_recent_data():
     data_index = pd.DataFrame(index=calendar_df['date'].sort_values().unique())
 
     select_cols = ['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn']
-    add_cols = ['amount', 'turn', 'mv', 'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_q', 'roeAvg_q', 'openinterest', ]
+    add_cols = ['amount', 'turn', 'mv', 'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q', 'openinterest', ]
 
     def process_dataframe(df):
         df.loc[:, 'date'] = pd.to_datetime(df['date'])
@@ -135,7 +135,7 @@ def load_recent_data():
         try:
             # 选择需要的列
             df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn', 'mv', 'is_st', 'profit_ttm_y',
-                     'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_q', 'roeAvg_q',
+                     'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q',
                      'openinterest', ]]
             df = process_dataframe(df)
             result[stock_code] = df

@@ -25,13 +25,33 @@ class SmallCapStrategy(bt.Strategy):
         # smallcap_index=[ 'sz399101', 'sh000852'],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
         # smallcap_index=[ 'csi932000', 'sz399101', 'sh000852', 'sh000046', 'sz399005', 'sz399401'],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
         # smallcap_index=[ 'csi932000', 'sh000046', 'sz399005', 'sz399401'],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
-        smallcap_index=[ 'csi932000', 'sz399101', 'sz399005' ],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
+        # smallcap_index=[ 'csi932000', 'sz399101', 'sz399005' ],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
+        # smallcap_index=[ 'csi932000', 'sz399101', ],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
+        # smallcap_index=[ 'csi932000', 'sz399101', ],  # 0.138
+        # smallcap_index=['sz399101','sz399649','sz399663','sz399377','sh000046','sz399408','sz399401' ],  # -0.1
+        # smallcap_index=['sz399101','sz399649','sz399663','sz399377','sh000046','sz399408', ],  # -0.1
+        # smallcap_index=['sz399101','sz399649','sz399663','sz399377','sh000046', ],  # 0.4
+        # smallcap_index=['sz399101','sz399649','sz399663','sz399377', ],  # 0.06
+        # smallcap_index=['sz399101','sz399649','sz399663', ],  # 0.08
+        # smallcap_index=['sz399101','sz399649', ],  # 0.04  'sz399663'有用
+        # smallcap_index=['sz399101', ],  # 0.05
+        # smallcap_index=['csi932000', ],  # 0.13
+        # smallcap_index=['sz399663', ],  # 0.07
+        # smallcap_index=['sh000852', ],  # 0.1139
+        # smallcap_index=['sh000852','csi932000', 'sz399663' ],  # 0.08
+        # smallcap_index=['sh000852','csi932000', 'sz399663','sz399101', ],  #0.1287
+        # smallcap_index=['csi932000', 'sz399663', ],  # 0.1381
+        smallcap_index=['csi932000', 'sz399101', 'sz399005'], # 0.1381
+
         # 399101,中小综指
         # 399008,中小300
         # 399401,中小盘
         # 399602,中小成长
         # 399005,中小100
         # 000046,上证中小
+        # [ 'sz399649','sz399663','sz399377','sh000046','sz399408','sz399401' ]
+        # sz399649, 中小红利  sz399663,中小低波 sz399377,小盘价值 sh000046,上证中小 sz399408,小盘低波 sz399401,中小盘
+
         # 'csi932000',
         # 'sz399101',
         # 'sz399005',
@@ -193,9 +213,13 @@ class SmallCapStrategy(bt.Strategy):
             return -999
         momentum_log = get_momentum(prices, method='log', days=days)
         momentum_slope = get_momentum(prices, method='slope_r2', days=days)
-
         # 组合方式（例如加权平均）
-        combo_score = 0.5 * momentum_log + 0.5 * momentum_slope
+        # combo_score = 0.5 * momentum_log + 0.5 * momentum_slope
+
+        # 将 slope_r2 限制在合理范围（剪枝）
+        momentum_slope = np.clip(momentum_slope, -3, 3)
+        # 组合
+        combo_score = 0.3 * momentum_log + 0.7 * momentum_slope
         return combo_score
         # return get_momentum(prices, method="log", days=days)
         # return get_momentum(prices, method="slope_r2", days=days)

@@ -55,8 +55,8 @@ def load_recent_data():
         result[f'etf_{code}'] = process_dataframe(df)
 
     # 加载指数
-    index_list = ['csi932000', 'sz399101']
-    index_list =['csi932000', 'sz399101' , 'sh000905', 'sh000852', 'sh000046', 'sz399005', 'sz399401']
+    index_list = ['csi932000', 'sz399101', 'sh000905', 'sh000852', 'sh000046', 'sz399005', 'sz399008', 'sz399401',
+                  'sz399649', 'sz399663', 'sz399377', 'sh000046', 'sz399408', 'sz399401']
 
     for code in index_list:
         f = f'{index_path}/{code}.csv'
@@ -69,11 +69,10 @@ def load_recent_data():
         result[code] = process_dataframe(df)
 
     zz_code_data_paths = [
-        '/Users/dabai/liepin/study/llm/Financial_QA/src/test/中证1000-000852.csv',
-        '/Users/dabai/liepin/study/llm/Financial_QA/src/test/中证2000-932000.csv',
+        '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中小综指-399101.csv'
+        # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中证1000-000852.csv'
+        # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中证2000-932000.csv'
     ]
-    # zz_code_data_path = '/Users/dabai/liepin/study/llm/Financial_QA/src/test/中证1000-000852.csv'
-    # zz_code_data_path = '/Users/dabai/liepin/study/llm/Financial_QA/src/test/中证2000-932000.csv'
     zz_code_list = []
     for zz_code_data_path in zz_code_data_paths:
         zz_code_df = pd.read_csv(zz_code_data_path)
@@ -92,9 +91,9 @@ def load_recent_data():
                 or '.4' in stock_code):
             print(f'过滤创业板/科创板/北交所股票: {stock_code}')
             continue
-        # 使用中证1000或则中证2000股票回测
+        # 使用指数成分股股票回测
         # if stock_code not in zz_code_list and stock_code not in temp_stock_list:
-        #     print(f'过滤非中证1000和中证2000股票: {stock_code}')
+        #     print(f'过滤非指数成分股股票: {stock_code}')
         #     continue
 
         if not os.path.exists(file_path_a):

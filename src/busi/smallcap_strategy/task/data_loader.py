@@ -111,7 +111,7 @@ def load_recent_data():
         df = df.sort_values('date')
 
         # 过滤上市时间太短的股票 （A 股一年交易时间243天），取上市一年多的股票
-        if len(df) < 252:
+        if len(df) < 375:
             print(f'{stock_code} 上市交易时间太短，交易的天数: {len(df)}，忽略该股票')
             continue
 

@@ -130,7 +130,9 @@ def load_recent_data():
             df['date'] = pd.to_datetime(df['date'])
 
         else:
-            continue
+            for col in add_cols:
+                if col not in df.columns:
+                    df[col] = 0
 
         try:
             # 选择需要的列
@@ -138,6 +140,7 @@ def load_recent_data():
                      'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q',
                      'openinterest', ]]
             df = process_dataframe(df)
+            print(f'✅ 处理 {stock_code} 成功 {len(df)} 行数据')
             result[stock_code] = df
         except Exception as e:
             print(f'❌ 处理 {stock_code} 失败: {e}')

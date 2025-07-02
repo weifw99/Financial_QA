@@ -106,6 +106,7 @@ class SmallCapSignalGenerator:
         for name in self.config['smallcap_index'] + self.config['large_indices']:
             df = self.stock_data.get(name)
             if df is None or len(df) < self.config['momentum_days'] + 1:
+                print(f"⚠️ {name} 数据缺失或不足 {self.config['momentum_days'] + 1} 行")
                 continue
             prices = df['close'].values[-(self.config['momentum_days'] + 1):]
             score = get_momentum(prices, method='log', days=self.config['momentum_days'])

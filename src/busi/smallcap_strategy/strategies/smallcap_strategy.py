@@ -13,6 +13,11 @@ class SmallCapStrategy(bt.Strategy):
         min_profit=0,  # 最小净利润
         min_revenue=1e8,  # 最小营业收入
         rebalance_weekday=1,  # 每周调仓日（1 = 周一数据）周二早上开盘买入
+        # 1 0.21
+        # 2 0.12
+        # 3 0.06
+        # 4 0.14
+        # 5 0.08
         hold_count_high=5,  # 行情好时持股数（集中）
         hold_count_low=5,  # 行情差时持股数（分散）
         hight_price=50,  # 个股最高限价
@@ -429,4 +434,4 @@ class SmallCapStrategy(bt.Strategy):
                 cost = pos.size * buy_price
                 profit = market_value - cost
                 pnl_pct = 100 * profit / cost if cost else 0
-                print(f"{d._name:<12} 持仓: {pos.size:>6} 当前价: {current_price:.2f} 盈亏: {profit:.2f} ({pnl_pct:.2f}%)")
+                print(f"{d._name:<12} 持仓: {pos.size:>6} 购买价: {buy_price:.2f} 当前价: {current_price:.2f} 盈亏: {profit:.2f} ({pnl_pct:.2f}%)")

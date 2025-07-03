@@ -349,8 +349,96 @@ class SmallCapStrategy(bt.Strategy):
 
         return False
 
+
+    def compute_correlation_beta1(self, stock_data, index_data, window=20):
+        """
+        计算相关系数与回归斜率
+        参数：
+            stock_data: backtrader 的 lines 对象
+            index_data: backtrader 的 lines 对象
+            window: 回看窗口期
+        返回：
+            corr: 相关系数
+            beta: 回归斜率
+        """
+        import numpy as np
+        from sklearn.linear_model import LinearRegression
+        try:
+            if len(stock_data) < window + 1 or len(index_data) < window + 1:
+                return np.nan, np.nan
+
+            stock_close = np.array(stock_data.close.get(size=window + 1))
+            index_close = np.array(index_data.close.get(size=window + 1))
+
+            if np.any(np.isnan(stock_close)) or np.any(np.isnan(index_close)):
+                return np.nan, np.nan
+
+            stock_ret = np.diff(np.log(stock_close))
+            index_ret = np.diff(np.log(index_close))
+
+            # 相关系数
+            corr = np.corrcoef(stock_ret, index_ret)[0, 1]
+
+            # β 回归斜率
+            model = LinearRegression()
+            model.fit(index_ret.reshape(-1, 1), stock_ret)
+            beta = model.coef_[0]
+
+            return corr, beta
+        except Exception as e:
+            print(f"⚠️ 计算相关性失败: {e}")
+            return np.nan, np.nan
+
+    def compute_correlation_beta(self, stock_data, index_data, window=20):
+        """
+        计算相关系数与回归斜率（β）更稳健版本
+        """
+        import numpy as np
+        from sklearn.linear_model import LinearRegression
+        try:
+            if len(stock_data) < window + 1 or len(index_data) < window + 1:
+                return np.nan, np.nan
+
+            stock_close = np.array(stock_data.close.get(size=window + 1))
+            index_close = np.array(index_data.close.get(size=window + 1))
+
+            if np.any(stock_close <= 0):
+                print(f"⚠️ 股票收盘价含非正数: {stock_data._name}, {stock_close}")
+            # 去除 <= 0 的收盘价
+            if np.any(stock_close <= 0) or np.any(index_close <= 0):
+                return np.nan, np.nan
+
+            # 计算对数收益率
+            stock_ret = np.diff(np.log(stock_close))
+            index_ret = np.diff(np.log(index_close))
+
+            # 筛除任何 NaN / inf
+            mask = (~np.isnan(stock_ret) & ~np.isnan(index_ret) &
+                    ~np.isinf(stock_ret) & ~np.isinf(index_ret))
+            stock_ret = stock_ret[mask]
+            index_ret = index_ret[mask]
+
+            if len(stock_ret) < 5:
+                return np.nan, np.nan
+
+            # 相关系数
+            corr = np.corrcoef(stock_ret, index_ret)[0, 1]
+
+            # 回归斜率 β
+            model = LinearRegression()
+            model.fit(index_ret.reshape(-1, 1), stock_ret)
+            beta = model.coef_[0]
+
+            return corr, beta
+        except Exception as e:
+            print(f"⚠️ 计算相关性失败: {e}")
+            return np.nan, np.nan
     def filter_stocks(self):
         candidates = []
+
+        # 加在原有财务条件通过后：
+        index_data = self.getdatabyname(self.p.smallcap_index[1])  # 默认第一个指数为基准
+
         for d in self.datas:
             if d._name in self.p.smallcap_index + self.p.large_indices:
                 continue
@@ -402,13 +490,41 @@ class SmallCapStrategy(bt.Strategy):
                         # and revenue_single_q > self.p.min_revenue
                 ):
 
+                    corr, beta = self.compute_correlation_beta(d, index_data, window=5)
+                    if np.isnan(corr) or np.isnan(beta):
+                        continue
+
+                    print(f"{d._name} corr={corr:.2f}, beta={beta:.2f}")
+
+                    # 设置门槛条件
+                    # if corr < 0.3 and beta < 0.5:  #  选取 corr > 0.3 and beta > 0.35:
+                    #     continue
+                    # if corr < 0.3:
+                    #     continue
+                    if corr < 0.3:
+                        continue
+                    # 选取 window=5 csi932000 corr < 0.3: 0.151 # 截止日期 2025-07-05
+                    # 选取 window=5 csi932000 corr < 0.3 or (beta < 0.35 or beta > 2) 0.137
+                    # 选取 window=5 csi932000 corr < 0.3 and (beta < 0.35 or beta > 2) 0.14
+                    # 选取 window=5 csi932000 beta < 0.35 or beta > 2: 0.133
+                    # 选取 window=5 csi932000  beta < 0.35 0.122
+
+                    # 选取 window=5 sz399005 corr < 0.3: 0.126
+                    # 选取 window=5 sz399005 corr < 0.3 or (beta < 0.35 or beta > 2) 0.155
+                    # 选取 window=5 sz399005 corr < 0.3 and (beta < 0.35 or beta > 2)
+                    # 选取 window=5 sz399005 beta < 0.35 or beta > 2:
+                    # 选取 window=5 sz399005  beta < 0.35
+
                     candidates.append((d, mv))
             except:
                 print(f"⚠️ 获取股票数据失败: {d._name}")
                 continue
 
         candidates = sorted(candidates, key=lambda x: x[1])
-        print("filter_stocks len：", len(candidates), f'{candidates[0][0]._name} mv min: ', candidates[0][1],  f'{candidates[-1][0]._name} mv max: ', candidates[-1][1])
+        if len(candidates) >0:
+            print("filter_stocks len：", len(candidates), f'{candidates[0][0]._name} mv min: ', candidates[0][1],  f'{candidates[-1][0]._name} mv max: ', candidates[-1][1])
+        else:
+            print("filter_stocks len：", len(candidates))
         return [x[0] for x in candidates]
 
     def sell_all(self):

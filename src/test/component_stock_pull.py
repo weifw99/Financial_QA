@@ -69,18 +69,29 @@ def load_index_stock_cons(index_code):
 
 
 if __name__ == '__main__':
+    import akshare as ak
+
+    # 获取微盘股 BK1158 的成分股
+    bk1158_stock_list = ak.stock_board_industry_cons_ths(symbol="BK1158")
+    print(bk1158_stock_list.head())
+    import akshare as ak
+
+    # 获取 BK1158 的日线行情（微盘股指数）
+    stock_board_industry_index_df = ak.stock_board_industry_index_ths(symbol="BK1158")
+    print(stock_board_industry_index_df.head())
 
     base_path = "/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index"
 
     zz_index_dict = {
-        '000852': '中证1000',
-        '932000': '中证2000',
+        'BK1158': '微盘股',
+        # '000852': '中证1000',
+        # '932000': '中证2000',
     }
     for code, name in zz_index_dict.items():
         load_index_stock_cons(code).to_csv(f"{ base_path }/{ name}-{code}.csv", index=False)
 
     sina_index_dict = {
-        '399101': '中小综指',
+        # '399101': '中小综指',
     }
     for code, name in sina_index_dict.items():
         fetch_index_components_sina(code).to_csv(f"{ base_path }/{ name}-{code}.csv", index=False)

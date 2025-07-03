@@ -506,19 +506,19 @@ class SmallCapStrategy(bt.Strategy):
                     #     continue
                     # if corr < 0.3:
                     #     continue
-                    if corr < 0.3:
+                    if (beta < 0.35 ):
                         continue
-                    # 选取 window=5 csi932000 corr < 0.3: 0.151 # 截止日期 2025-07-05
+                    # 选取 window=5 csi932000 corr < 0.3: 0.151 # 截止日期 2025-06-24
                     # 选取 window=5 csi932000 corr < 0.3 or (beta < 0.35 or beta > 2) 0.137
                     # 选取 window=5 csi932000 corr < 0.3 and (beta < 0.35 or beta > 2) 0.14
                     # 选取 window=5 csi932000 beta < 0.35 or beta > 2: 0.133
                     # 选取 window=5 csi932000  beta < 0.35 0.122
 
-                    # 选取 window=5 sz399005 corr < 0.3: 0.126
-                    # 选取 window=5 sz399005 corr < 0.3 or (beta < 0.35 or beta > 2) 0.155
-                    # 选取 window=5 sz399005 corr < 0.3 and (beta < 0.35 or beta > 2)
-                    # 选取 window=5 sz399005 beta < 0.35 or beta > 2:
-                    # 选取 window=5 sz399005  beta < 0.35
+                    # 选取 window=5 sz399005 corr < 0.3: 0.1616
+                    # 选取 window=5 sz399005 corr < 0.3 or (beta < 0.35 or beta > 2) 0.1722
+                    # 选取 window=5 sz399005 corr < 0.3 and (beta < 0.35 or beta > 2) 0.1616
+                    # 选取 window=5 sz399005 beta < 0.35 or beta > 2: 0.1722
+                    # 选取 window=5 sz399005  beta < 0.35  0.1616
 
                     candidates.append((d, mv))
             except:

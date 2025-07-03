@@ -66,6 +66,30 @@ def load_index_stock_cons(index_code):
     return index_stock_cons_csindex_df
 
 
+def load_index_stock_cons_dfcf(index_code = 'BK1158'):
+    '''            if code.startswith("000"):
+                query_code = 'sh' + query_code
+            elif code.startswith("399"):
+                query_code = 'sz' + query_code
+    '''
+
+
+    def get_exchange_prefix(code):
+        code = str(code)
+        if code.startswith('60') or code.startswith('688'):
+            return 'sh'
+        elif (code.startswith('00') or code.startswith('002')
+              or code.startswith('300') or code.startswith('301')):
+            return 'sz'
+        else:
+            return 'unknown'
+
+    df = ak.stock_board_industry_cons_em(symbol=index_code)
+    df['type'] = df['代码'].astype(str).apply(
+        lambda c: f"{get_exchange_prefix(c)}.{c}" if get_exchange_prefix(c) != 'unknown' else None)
+    return df
+
+
 
 
 if __name__ == '__main__':
@@ -83,5 +107,11 @@ if __name__ == '__main__':
         '399101': '中小综指',
     }
     for code, name in sina_index_dict.items():
-        fetch_index_components_sina(code).to_csv(f"{ base_path }/{ name}-{code}.csv", index=False)
+        fetch_index_components_sina(code).to_csv(f"{base_path}/{name}-{code}.csv", index=False)
+
+    dfcf_index_dict = {
+        'BK1158': '微盘股',
+    }
+    for code, name in dfcf_index_dict.items():
+        load_index_stock_cons_dfcf(code).to_csv(f"{base_path}/{name}-{code}.csv", index=False)
 

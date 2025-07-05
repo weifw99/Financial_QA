@@ -584,12 +584,38 @@ class MarketDataAPI:
         # 保存结果
         return grouped
 
-    def query_zz1000_stocks(self, start_date: str, end_date: str ) -> pd.DataFrame:
+    def query_zz1000_stocks(self, start_date: str, end_date: str) -> pd.DataFrame:
         import akshare as ak
 
         # 获取中证1000（000852）成分股
         df = ak.index_stock_cons(symbol="000852")
         index_stock_cons_csindex_df = ak.index_stock_cons_csindex(symbol="000852")
+        print(len(index_stock_cons_csindex_df))
+
+        index_stock_cons_csindex_df['type'] = index_stock_cons_csindex_df['交易所'].apply(
+            lambda x: 'SZ' if x == '深圳证券交易所' else 'SH') + index_stock_cons_csindex_df['成分券代码']
+
+        index_stock_cons_csindex_df = index_stock_cons_csindex_df[['type', '成分券代码']]
+        index_stock_cons_csindex_df.columns = ['type', 'code']
+        '''
+        品种代码  品种名称        纳入日期
+        002093  国脉科技  2025-06-16
+        '''
+        df.columns = ['code', 'code_name', 'start_time']
+        df['end_time'] = end_date
+
+        df = pd.merge(df, index_stock_cons_csindex_df, left_on='code', right_on='code', how='left')
+        df1 = df[['type', 'start_time', 'end_time']]
+        df1.columns = ['code', 'start_time', 'end_time']
+
+        return df1
+
+    def query_zz2000_stocks(self, start_date: str, end_date: str ) -> pd.DataFrame:
+        import akshare as ak
+
+        # 获取中证1000（000852）成分股
+        df = ak.index_stock_cons(symbol="932000")
+        index_stock_cons_csindex_df = ak.index_stock_cons_csindex(symbol="932000")
         print(len(index_stock_cons_csindex_df))
 
         index_stock_cons_csindex_df['type'] = index_stock_cons_csindex_df['交易所'].apply(
@@ -644,6 +670,8 @@ class MarketDataAPI:
                 df = self.query_zz500_stocks(start_date='2010-01-01', end_date=current_date_str)
             elif index_type == 'zz1000':
                 df = self.query_zz1000_stocks(start_date='2010-01-01', end_date=current_date_str)
+            elif index_type == 'zz2000':
+                df = self.query_zz2000_stocks(start_date='2010-01-01', end_date=current_date_str)
             else:
                 raise ValueError(f"不支持的指数类型: {index_type}")
 

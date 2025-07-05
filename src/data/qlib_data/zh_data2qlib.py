@@ -48,6 +48,8 @@ class ZhData2Qlib:
             save_path = os.path.join(qlib_path, stock_file.upper().replace('.', '') + '.csv')
             df = pd.read_csv(file_path)
             # 使用后复权价格，factor均设置为1， 回测使用该因子
+            #open,high,low,close,volume,amount,turn
+            df = df[['date',  'open', 'high', 'low', 'close','volume', 'amount']]
             df['factor'] = 1.0
             df.to_csv(save_path, index=False)
             
@@ -76,7 +78,7 @@ if __name__ == '__main__':
     # python scripts/dump_bin.py dump_all --csv_path ~/dev/stock_price_data_wind --qlib_dir ~/dev/qlib_data/cn_data_wind
     zh_data2qlib = ZhData2Qlib(zh_data_dir=zh_data_dir, qlib_data_dir=qlib_csv_dir, type='daily')
     zh_data2qlib.convert_to_qlib()
-    include_fields = "open,high,low,close,volume,amount,turn,pctChg,factor"
+    include_fields = "open,high,low,close,volume,amount,factor"
     DumpDataAll(csv_path=qlib_csv_dir + 'daily',
                 qlib_dir=qlib_data_dir,
                 freq="day",
@@ -85,6 +87,9 @@ if __name__ == '__main__':
                 file_suffix=".csv",
                 symbol_field_name="symbol",
                 include_fields=include_fields,).dump()
+    '''
+    
+    '''
 
     '''
     zh_data2qlib = ZhData2Qlib(zh_data_dir=zh_data_dir, qlib_data_dir=qlib_csv_dir, type='min15')
@@ -107,8 +112,20 @@ if __name__ == '__main__':
         '/raw/index/sz50_constituents.csv': '/instruments/csi50.txt',
         '/raw/index/zz500_constituents.csv': '/instruments/csi500.txt',
         '/raw/index/hs300_constituents.csv': '/instruments/csi300.txt',
+        '/raw/index/zz1000_constituents.csv': '/instruments/zz1000.txt',
+        '/raw/index/zz2000_constituents.csv': '/instruments/zz2000.txt',
     }
+    all_stock_path = '/Users/dabai/liepin/study/llm/Financial_QA/data/qlib_data/cn_data/instruments/all.txt'
+    all_stock_df = pd.read_csv(all_stock_path, sep='\t')
+    all_stock_df.columns = ['code','start_time','end_time']
 
     for k, v in ins_map.items():
-        data = pd.read_csv(base_data_path + k, sep=',')
+        if not os.path.exists(base_data_path + k):
+            continue
+        data = pd.read_csv(base_data_path + k, sep=',')[['code']]
+
+        data = pd.merge(all_stock_df, data, on='code', how='inner')
+
+        # 过滤不存在的股票
+
         data.to_csv(qlib_data_dir + v, sep='\t', index=False, header=False)

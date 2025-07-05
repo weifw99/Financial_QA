@@ -112,7 +112,7 @@ class DataSync:
         print(f"SYNC_CONFIG: {SYNC_CONFIG}")
         
         # 获取成分股，并保存
-        index_types = ['sz50', 'hs300', 'zz500', 'zz1000']
+        index_types = ['sz50', 'hs300', 'zz500', 'zz1000','zz2000']
         # index_types = [ 'zz500']
         # index_types = []
         for index_type in index_types:

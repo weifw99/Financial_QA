@@ -106,10 +106,14 @@ def dfcf_index_data_BK1158():
                                                     "最低": "low",
                                                     "成交量": "volume",
                                                     "成交额": "amount",
+                                                    "换手率": "turn",
+                                                    "涨跌幅": "pctChg",
                                                     }, inplace=True )
-    return stock_board_industry_spot_em_df[['date','open','close','high','low','volume','amount']]
+    stock_board_industry_spot_em_df["factor"] = 1
+    stock_board_industry_spot_em_df["is_ST"] = 0
+    return stock_board_industry_spot_em_df[['date','open','close','high','low','volume','amount','turn','pctChg',"is_ST"]]
 
-
+# open,high,low,close,volume,amount,turn,pctChg,factor
 if __name__ == '__main__':
 
     '''
@@ -128,6 +132,12 @@ if __name__ == '__main__':
     BK1158_df = dfcf_index_data_BK1158()
     BK1158_df.to_csv(f"{bast_path}/BK1158.csv", index=False)
 
+    code_path = f"/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/market/BK1158"
+    if not os.path.exists(code_path):
+        os.mkdir(code_path)
+    BK1158_df.to_csv(f"{code_path}/daily.csv", index=False)
+    BK1158_df.to_csv(f"{code_path}/daily_a.csv", index=False)
+
     # 000开头是上证、
 
     # 000开头是上证、
@@ -143,12 +153,16 @@ if __name__ == '__main__':
 
         for j, code in enumerate(code_list):
             query_code =  code
+            query_code1 =  code
             if code.startswith("000"):
                 query_code = 'sh' + query_code
+                query_code1 = 'sh.' + query_code1
             elif code.startswith("399"):
                 query_code = 'sz' + query_code
+                query_code1 = 'sz.' + query_code1
             elif code.startswith("93"):
                 query_code = 'csi' + query_code
+                query_code1 = 'csi' + query_code1
             else:
                 continue
 
@@ -158,6 +172,14 @@ if __name__ == '__main__':
             stock_zh_index_daily_em_df = ak.stock_zh_index_daily_em(symbol=query_code)
             # print(stock_zh_index_daily_em_df)
             stock_zh_index_daily_em_df.to_csv(f"{bast_path}/{query_code}.csv", index=False)
+
+            code_path = f"/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/market/{query_code1}"
+            if not os.path.exists(code_path):
+                os.mkdir(code_path)
+
+            if not os.path.exists(f"{code_path}/daily.csv"):
+                stock_zh_index_daily_em_df.to_csv(f"{code_path}/daily.csv", index=False)
+                stock_zh_index_daily_em_df.to_csv(f"{code_path}/daily_a.csv", index=False)
 
 
     # 中证 2000 指数

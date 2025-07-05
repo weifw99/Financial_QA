@@ -1,3 +1,4 @@
+import os.path
 import random
 import time
 
@@ -89,29 +90,59 @@ def load_index_stock_cons_dfcf(index_code = 'BK1158'):
         lambda c: f"{get_exchange_prefix(c)}.{c}" if get_exchange_prefix(c) != 'unknown' else None)
     return df
 
-
+def get_exchange_prefix(code):
+    code = str(code)
+    if code.startswith('60') or code.startswith('688'):
+        return 'sh'
+    elif (code.startswith('00') or code.startswith('002')
+          or code.startswith('300') or code.startswith('301')):
+        return 'sz'
+    else:
+        return 'unknown'
 
 
 if __name__ == '__main__':
 
     base_path = "/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index"
+    base_market_path = "/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/market"
 
     zz_index_dict = {
         '000852': '中证1000',
         '932000': '中证2000',
     }
     for code, name in zz_index_dict.items():
-        load_index_stock_cons(code).to_csv(f"{ base_path }/{ name}-{code}.csv", index=False)
+        df = load_index_stock_cons(code)
+        df.to_csv(f"{ base_path }/{ name}-{code}.csv", index=False)
+        if code in ['000852']:
+            continue
+        # code_path = f"{base_market_path}/csi{code}"
+        # if not os.path.exists(code_path):
+        #     os.mkdir(code_path)
+        # df.to_csv(f"{code_path}/daily.csv", index=False)
+        # df.to_csv(f"{code_path}/daily_a.csv", index=False)
+
 
     sina_index_dict = {
         '399101': '中小综指',
     }
     for code, name in sina_index_dict.items():
-        fetch_index_components_sina(code).to_csv(f"{base_path}/{name}-{code}.csv", index=False)
+        df = load_index_stock_cons(code)
+        df.to_csv(f"{base_path}/{name}-{code}.csv", index=False)
+        # code_path = f"{base_market_path}/{get_exchange_prefix( code)}{code}"
+        # if not os.path.exists(code_path):
+        #     os.mkdir(code_path)
+        # df.to_csv(f"{code_path}/daily.csv", index=False)
+        # df.to_csv(f"{code_path}/daily_a.csv", index=False)
 
     dfcf_index_dict = {
         'BK1158': '微盘股',
     }
     for code, name in dfcf_index_dict.items():
-        load_index_stock_cons_dfcf(code).to_csv(f"{base_path}/{name}-{code}.csv", index=False)
+        df = load_index_stock_cons(code)
+        df.to_csv(f"{base_path}/{name}-{code}.csv", index=False)
+        # code_path = f"{base_market_path}/{code}"
+        # if not os.path.exists(code_path):
+        #     os.mkdir(code_path)
+        # df.to_csv(f"{code_path}/daily.csv", index=False)
+        # df.to_csv(f"{code_path}/daily_a.csv", index=False)
 

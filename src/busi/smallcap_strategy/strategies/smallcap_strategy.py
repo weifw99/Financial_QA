@@ -46,7 +46,12 @@ class SmallCapStrategy(bt.Strategy):
         # smallcap_index=['sh000852','csi932000', 'sz399663' ],  # 0.08
         # smallcap_index=['sh000852','csi932000', 'sz399663','sz399101', ],  #0.1287
         # smallcap_index=['csi932000', 'sz399663', ],  # 0.1381
-        smallcap_index=['csi932000', 'sz399101', 'sz399005'], # 0.1381
+        # smallcap_index=['csi932000', 'sz399101', 'sz399005'], # 0.1381
+        # smallcap_index=['BK1158'], # 到 7 月 4 号， 0.2376
+        # smallcap_index=['csi932000', 'sz399101', 'BK1158'], # 到 7 月 4 号， 0.2376  （全部股票）
+        # smallcap_index=['csi932000', 'sz399101', ], # 到 7 月 4 号， 0.2032 （全部股票）
+        # smallcap_index=['csi932000', 'sz399101', 'sz399005'], # 到 7 月 4 号， 0.2032 （全部股票）
+        smallcap_index=['csi932000', 'sz399101', 'BK1158'], # 到 7 月 4 号， 0.2376 (zz1000/zz2000/微盘股)
 
         # 399101,中小综指
         # 399008,中小300
@@ -219,12 +224,12 @@ class SmallCapStrategy(bt.Strategy):
         momentum_log = get_momentum(prices, method='log', days=days)
         momentum_slope = get_momentum(prices, method='slope_r2', days=days)
         # 组合方式（例如加权平均）
-        # combo_score = 0.5 * momentum_log + 0.5 * momentum_slope
+        combo_score = 0.5 * momentum_log + 0.5 * momentum_slope
 
         # 将 slope_r2 限制在合理范围（剪枝）
-        momentum_slope = np.clip(momentum_slope, -3, 3)
+        # momentum_slope = np.clip(momentum_slope, -3, 3)
         # 组合
-        combo_score = 0.3 * momentum_log + 0.7 * momentum_slope
+        # combo_score = 0.3 * momentum_log + 0.7 * momentum_slope
         return combo_score
         # return get_momentum(prices, method="log", days=days)
         # return get_momentum(prices, method="slope_r2", days=days)
@@ -442,7 +447,7 @@ class SmallCapStrategy(bt.Strategy):
         candidates = []
 
         # 加在原有财务条件通过后：
-        index_data = self.getdatabyname(self.p.smallcap_index[1])  # 默认第一个指数为基准
+        # index_data = self.getdatabyname(self.p.smallcap_index[1])  # 默认第一个指数为基准
 
         for d in self.datas:
             if d._name in self.p.smallcap_index + self.p.large_indices:
@@ -491,23 +496,23 @@ class SmallCapStrategy(bt.Strategy):
                         # 季度数据
                         # and profit_q > 0
                         # and roeAvg_q > 0
-                        # and profit_ttm_q > 0
+                        and profit_ttm_q > 0
                         # and revenue_single_q > self.p.min_revenue
                 ):
 
-                    corr, beta = self.compute_correlation_beta(d, index_data, window=5)
-                    if np.isnan(corr) or np.isnan(beta):
-                        continue
-
-                    print(f"{d._name} corr={corr:.2f}, beta={beta:.2f}")
+                    # corr, beta = self.compute_correlation_beta(d, index_data, window=5)
+                    # if np.isnan(corr) or np.isnan(beta):
+                    #     continue
+                    #
+                    # print(f"{d._name} corr={corr:.2f}, beta={beta:.2f}")
 
                     # 设置门槛条件
                     # if corr < 0.3 and beta < 0.5:  #  选取 corr > 0.3 and beta > 0.35:
                     #     continue
                     # if corr < 0.3:
                     #     continue
-                    if (beta < 0.35 ):
-                        continue
+                    # if (beta < 0.35 ):
+                    #     continue
                     # 选取 window=5 csi932000 corr < 0.3: 0.151 # 截止日期 2025-06-24
                     # 选取 window=5 csi932000 corr < 0.3 or (beta < 0.35 or beta > 2) 0.137
                     # 选取 window=5 csi932000 corr < 0.3 and (beta < 0.35 or beta > 2) 0.14

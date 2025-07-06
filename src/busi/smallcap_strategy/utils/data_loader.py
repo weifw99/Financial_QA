@@ -198,9 +198,10 @@ def load_stock_data(from_idx, to_idx):
     :return: list of data feeds
     """
     zz_code_data_paths = [
-        # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中小综指-399101.csv',
-        # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中证1000-000852.csv',
+        '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中小综指-399101.csv',
+        '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中证1000-000852.csv',
         '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中证2000-932000.csv',
+        '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/微盘股-BK1158.csv',
     ]
     zz_code_list = []
     for zz_code_data_path in zz_code_data_paths:
@@ -222,7 +223,7 @@ def load_stock_data(from_idx, to_idx):
     data = pd.DataFrame(index=pdf['date'].unique())
     data = data.sort_index()
 
-    select_cols = ['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn' ]
+    select_cols = ['date', 'open', 'high', 'low', 'close', 'volume', 'amount', ]
     add_cols = ['amount', 'turn', 'mv',  'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q', 'openinterest', ]
     # 加载 SZ510880 SH159300
     etf_list = ['SZ510880', 'SH159919', 'SZ510050', 'SZ588000', 'SZ511880']
@@ -274,7 +275,7 @@ def load_stock_data(from_idx, to_idx):
                                        name=index_code)
         datas.append(pandas_data)
 
-    temp_stock_list = ['sh.000300',  'sh.000016', 'sh.000852' ]
+    temp_stock_list = ['sh.000300',  'sh.000016', 'sh.000852', 'BK1158', ]
     for i, stock_file in enumerate(os.listdir(zh_data_dir)):
         # if i > 500:
         #     break
@@ -311,7 +312,7 @@ def load_stock_data(from_idx, to_idx):
             df = pd.read_csv(file_path_a)
 
             # 过滤上市时间太短的股票 （A 股一年交易时间243天），取上市一年多的股票
-            if len(df) < 375:
+            if len(df) < 275:
                 print(f'{stock_file} 上市交易时间太短，交易的天数: {len(df)}，忽略该股票')
                 continue
 

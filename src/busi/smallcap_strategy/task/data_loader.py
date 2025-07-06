@@ -99,6 +99,7 @@ def load_recent_data():
         if not os.path.exists(file_path_a):
             continue
 
+        print(file_path_a)
         df = pd.read_csv(file_path_a)
         df.rename(columns={'isST': 'is_st', }, inplace=True)
         df['close_1'] = df['close']

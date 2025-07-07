@@ -10,8 +10,8 @@ from busi.bond_.backtest.double_low import Doublelow2
 
 if __name__ == '__main__':
 
-    from_idx = datetime(2022, 1, 1)  # 记录行情数据的开始时间和结束时间
-    to_idx = datetime(2025, 1, 1)
+    from_idx = datetime(2025, 4, 1)  # 记录行情数据的开始时间和结束时间
+    to_idx = datetime(2025, 7, 7)
     print(from_idx, to_idx)
     #启动回测
 

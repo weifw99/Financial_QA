@@ -16,8 +16,8 @@ from scipy.stats import linregress
 
 import sys
 
-from busi.bond_.util.baostock_connection import BaostockConnectionManager
-from busi.bond_.constant import DataCons
+from src.busi.bond_.util.baostock_connection import BaostockConnectionManager
+from src.busi.bond_.constant import DataCons
 import baostock as bs
 
             

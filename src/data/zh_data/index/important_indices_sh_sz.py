@@ -177,7 +177,10 @@ if __name__ == '__main__':
             if not os.path.exists(code_path):
                 os.mkdir(code_path)
 
-            if not os.path.exists(f"{code_path}/daily.csv"):
+            if len(stock_zh_index_daily_em_df)>0:
+                # if not os.path.exists(f"{code_path}/daily.csv"):
+                #     stock_zh_index_daily_em_df.to_csv(f"{code_path}/daily.csv", index=False)
+                #     stock_zh_index_daily_em_df.to_csv(f"{code_path}/daily_a.csv", index=False)
                 stock_zh_index_daily_em_df.to_csv(f"{code_path}/daily.csv", index=False)
                 stock_zh_index_daily_em_df.to_csv(f"{code_path}/daily_a.csv", index=False)
 

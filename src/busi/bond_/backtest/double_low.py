@@ -76,7 +76,10 @@ class Doublelow2(bt.Strategy):
                       len(d) > 0
                       # and d.momentum_5[0] <= 0
                       and d.public_date[0] >= 1.5 and d.public_date[0] <= 5
+                      # and d.close>= 90 and d.close <= 180
+                      and d.close <= 100
                       and d.volume > 1
+                      and d.amount > 10000000
                       ]
 
 
@@ -85,7 +88,7 @@ class Doublelow2(bt.Strategy):
         self.ranks = self.ranks[0:self.p.num_volume]  # 取前num_volume名
         if len(self.ranks) != 0:
             for i, d in enumerate(self.ranks):
-                print(f'选股第{i + 1}名,{d._name},momtum5值: {d.momentum_5[0]},双低值: {d.double_low2[0]},')
+                print(f'选股第{i + 1}名,{d._name},momtum5值: {d.momentum_5[0]},双低值: {d.double_low2[0]}, 上市年限: {d.public_date[0]}, 价格: {d.close[0]},  成交量: {d.volume[0]}')
         else:  # 无债选入
             return
 
@@ -111,7 +114,10 @@ class Doublelow2(bt.Strategy):
             # 按次日开盘价计算下单量，下单量是100的整数倍
             size = int(
                 abs((self.broker.getvalue([d]) - targetvalue) / d.open[0] // 100 * 100))
-            validday = d.datetime.datetime(1)  # 该股下一实际交易日
+            if len(d.datetime.array) > d.datetime.idx + 1:
+                validday = d.datetime.datetime(1)  # 该股下一实际交易日
+            else:
+                continue
             if self.broker.getvalue([d]) > targetvalue:  # 持仓过多，要卖
                 # 次日跌停价近似值
                 lowerprice = d.close[0] * 0.9 + 0.03

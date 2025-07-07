@@ -126,7 +126,7 @@ if __name__ == '__main__':
         '399101': '中小综指',
     }
     for code, name in sina_index_dict.items():
-        df = load_index_stock_cons(code)
+        df = fetch_index_components_sina(code)
         df.to_csv(f"{base_path}/{name}-{code}.csv", index=False)
         # code_path = f"{base_market_path}/{get_exchange_prefix( code)}{code}"
         # if not os.path.exists(code_path):
@@ -138,7 +138,7 @@ if __name__ == '__main__':
         'BK1158': '微盘股',
     }
     for code, name in dfcf_index_dict.items():
-        df = load_index_stock_cons(code)
+        df = load_index_stock_cons_dfcf(code)
         df.to_csv(f"{base_path}/{name}-{code}.csv", index=False)
         # code_path = f"{base_market_path}/{code}"
         # if not os.path.exists(code_path):

@@ -587,15 +587,15 @@ class SmallCapStrategy(bt.Strategy):
 
         # 按原始逻辑返回结果
         if diff >= 500:
-            return 3
-        elif 200 <= diff < 500:
-            return 3
-        elif -200 <= diff < 200:
-            return 4
-        elif -500 <= diff < -200:
             return 5
-        else:
+        elif 200 <= diff < 500:
+            return 5
+        elif -200 <= diff < 200:
             return 6
+        elif -500 <= diff < -200:
+            return 8
+        else:
+            return 10
 
     def print_positions(self):
         total_value = self.broker.getvalue()

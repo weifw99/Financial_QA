@@ -124,6 +124,7 @@ if __name__ == '__main__':
 
     sina_index_dict = {
         '399101': '中小综指',
+        '399005': '中小板指数-中小100',
     }
     for code, name in sina_index_dict.items():
         df = fetch_index_components_sina(code)

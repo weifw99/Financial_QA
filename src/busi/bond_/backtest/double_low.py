@@ -79,7 +79,7 @@ class Doublelow2(bt.Strategy):
                       # and d.close>= 90 and d.close <= 180
                       and d.close <= 100
                       and d.volume > 1
-                      and d.amount > 10000000
+                      and d.volume*d.close > 10000000
                       ]
 
 

@@ -53,6 +53,13 @@ class SmallCapStrategy(bt.Strategy):
         # smallcap_index=['csi932000', 'sz399101', 'sz399005'], # 到 7 月 4 号， 0.2032 （全部股票）
         smallcap_index=['csi932000', 'sz399101', 'BK1158'], # 到 7 月 4 号， 0.2376 (zz1000/zz2000/微盘股)
         # smallcap_index=['sz399005', 'BK1158'], # 到 7 月 4 号，0.2376 全部
+        # smallcap_index=['sz399005', 'BK1158'], # 到 7 月 4 号，0.1727 sz399005
+        # smallcap_index=['sz399005', 'sz399101'], # 到 7 月 4 号，0.129 sz399005
+        # smallcap_index=['sz399005', 'csi932000'], # 到 7 月 4 号，0.1616 sz399005
+        # smallcap_index=['csi932000', 'sz399101', 'BK1158'], # 到 7 月 4 号， 0.1727 sz399005
+        # smallcap_index=['sz399101', 'sh000852', 'sh000046', 'sz399005', 'sz399401'], # 到 7 月 4 号， 0.1657 sz399005
+        # smallcap_index=[   'sh000852','sz399004','sh000905', 'sh000991'], # 到 7 月 4 号， 0.1727 sz399005
+        # smallcap_index=[  'sz399004', 'sz399005', 'sz399006',], # 到 7 月 4 号， 0.1727 sz399005
 
         # 399101,中小综指
         # 399008,中小300

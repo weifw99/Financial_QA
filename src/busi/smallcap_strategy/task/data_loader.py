@@ -55,9 +55,10 @@ def load_recent_data():
         result[f'etf_{code}'] = process_dataframe(df)
 
     # 加载指数
-    index_list = ['csi932000', 'sz399101', 'sh000905', 'sh000852', 'sh000046', 'sz399005', 'sz399008', 'sz399401',
-                  'sz399649', 'sz399663', 'sz399377', 'sh000046', 'sz399408', 'sz399401']
-
+    index_list =['csi932000', 'sz399101' , 'sh000905', 'sh000852', 'sh000046', 'sz399005', 'sz399008', 'sz399401',
+                 'sz399649','sz399663','sz399377','sh000046','sz399408','sz399401','sh000991' ,
+                 'sh000852', 'sz399004', 'sh000905', 'sz399006',
+                 'sz399693']
     for code in index_list:
         f = f'{index_path}/{code}.csv'
         if not os.path.exists(f):
@@ -69,9 +70,11 @@ def load_recent_data():
         result[code] = process_dataframe(df)
 
     zz_code_data_paths = [
-        '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中小综指-399101.csv',
+        '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中小板指数-中小100-399005.csv',
+        # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中小综指-399101.csv',
         # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中证1000-000852.csv',
         # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中证2000-932000.csv',
+        # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/微盘股-BK1158.csv',
     ]
     zz_code_list = []
     for zz_code_data_path in zz_code_data_paths:

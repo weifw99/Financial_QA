@@ -52,6 +52,7 @@ class SmallCapStrategy(bt.Strategy):
         # smallcap_index=['csi932000', 'sz399101', ], # 到 7 月 4 号， 0.2032 （全部股票）
         # smallcap_index=['csi932000', 'sz399101', 'sz399005'], # 到 7 月 4 号， 0.2032 （全部股票）
         smallcap_index=['csi932000', 'sz399101', 'BK1158'], # 到 7 月 4 号， 0.2376 (zz1000/zz2000/微盘股)
+        # smallcap_index=['sz399005', 'BK1158'], # 到 7 月 4 号，0.2376 全部
 
         # 399101,中小综指
         # 399008,中小300
@@ -142,6 +143,9 @@ class SmallCapStrategy(bt.Strategy):
 
         if self.check_stop_conditions(dt):
             return
+
+        # hold_num = self.adjust_stock_num_bt()
+        # print(f"✅ 本轮建议持股数量为: {hold_num}")
 
         candidates = self.filter_stocks()
         is_momentum_ok = self.check_momentum_rank(top_k=2)
@@ -446,6 +450,7 @@ class SmallCapStrategy(bt.Strategy):
     def filter_stocks(self):
         candidates = []
 
+
         # 加在原有财务条件通过后：
         # index_data = self.getdatabyname(self.p.smallcap_index[1])  # 默认第一个指数为基准
 
@@ -542,6 +547,55 @@ class SmallCapStrategy(bt.Strategy):
         for data, pos in self.positions.items():
             if pos.size > 0:
                 self.close(data)
+
+    def adjust_stock_num_bt(self):
+        """
+        基于中小综指的 MA 差值，动态调整持股数。
+        原始逻辑保持一致：
+            - diff >= 500 → 3
+            - 200 <= diff < 500 → 3
+            - -200 <= diff < 200 → 4
+            - -500 <= diff < -200 → 5
+            - diff < -500 → 6
+        """
+        index_name = 'sz399101'  # 或者根据 self.p.smallcap_index[0]
+        ma_para = 10
+
+        try:
+            d = self.getdatabyname(index_name)
+        except Exception as e:
+            print(f"⚠️ 无法获取指数数据 {index_name}: {e}")
+            return 4
+
+        if len(d) < ma_para + 1:
+            print(f"⚠️ 指数数据不足，返回默认值")
+            return 4
+
+        # 计算 MA 均值
+        try:
+            closes = d.close.get(size=ma_para)
+            if len(closes) < ma_para or np.any(np.isnan(closes)):
+                return 4
+            ma = np.mean(closes)
+            close_today = d.close[0]
+            diff = close_today - ma
+        except Exception as e:
+            print(f"⚠️ 计算 MA 差值失败: {e}")
+            return 4
+
+        print(f"📊 指数当前价: {close_today:.2f}, MA({ma_para}): {ma:.2f}, 差值: {diff:.2f}")
+
+        # 按原始逻辑返回结果
+        if diff >= 500:
+            return 5
+        elif 200 <= diff < 500:
+            return 5
+        elif -200 <= diff < 200:
+            return 6
+        elif -500 <= diff < -200:
+            return 8
+        else:
+            return 10
 
     def print_positions(self):
         total_value = self.broker.getvalue()

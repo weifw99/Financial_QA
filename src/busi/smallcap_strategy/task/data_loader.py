@@ -84,7 +84,8 @@ def load_recent_data():
         zz_code_df = pd.read_csv(zz_code_data_path)
         zz_code_list += zz_code_df['type'].tolist()
 
-    temp_stock_list = ['sh.000300', 'sh.000016', 'sh.000852']
+    temp_stock_list = ['sh.000300',  'sh.000016', 'sh.000852', 'BK1158', ]
+
     for i, stock_code in enumerate(os.listdir(zh_data_dir)):
         # file_path = f'{zh_data_dir}/{stock_code}/daily.csv'
         file_path_a = f'{zh_data_dir}/{stock_code}/daily_a.csv'

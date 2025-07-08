@@ -148,7 +148,7 @@ def process_financial_data(financial_df: pd.DataFrame):
     return quarterly_df, annual_df
 
 
-def merge_with_stock(stock_df, quarterly_df, annual_df):
+def merge_with_stock(stock_df: pd.DataFrame, quarterly_df: pd.DataFrame, annual_df: pd.DataFrame, df_shares: pd.DataFrame):
     """
     stock_df 包含字段 ['code', 'trade_date']（datetime 类型）
     合并年度与季度财报数据，生成完整对齐 DataFrame
@@ -188,7 +188,29 @@ def merge_with_stock(stock_df, quarterly_df, annual_df):
         right_on=['code', 'apply_year']
     )
 
-    return df
+    # 假设 df_stock 是股票行情数据，有 'date' 列
+    # 假设 df_shares 是总股本数据，有 'date' 和 'totalShare' 列
+
+    if df_shares is not None:
+        # 确保日期列是 datetime 类型
+        df['date'] = pd.to_datetime(df['date'])
+        df_shares['date'] = pd.to_datetime(df_shares['date'])
+
+        # 按日期排序（merge_asof 要求先排序）
+        df = df.sort_values('date')
+        df_shares = df_shares.sort_values('date')
+
+        # 向前填充最近的总股数（不晚于该交易日）
+        df_merged = pd.merge_asof(
+            df,
+            df_shares,
+            on='date',
+            direction='backward'  # 向前查找最近的股本数据
+        )
+
+        return df_merged
+    else:
+        return df
 
 def load_stock_data(from_idx, to_idx):
     """
@@ -206,6 +228,9 @@ def load_stock_data(from_idx, to_idx):
     ]
     zz_code_list = []
     for zz_code_data_path in zz_code_data_paths:
+        if not os.path.exists(zz_code_data_path):
+            print(f'{zz_code_data_path} 不存在')
+            continue
         zz_code_df = pd.read_csv(zz_code_data_path)
         zz_code_list += zz_code_df['type'].tolist()
 
@@ -311,6 +336,7 @@ def load_stock_data(from_idx, to_idx):
 
         # 获取财务盈利信息
         financial_path = f'{financial_data_dir}/{stock_file}/income.csv'
+        income_gbjg_path = f'{financial_data_dir}/{stock_file}/income_gbjg.csv'
         if os.path.exists(file_path_a):
             df = pd.read_csv(file_path_a)
 
@@ -334,17 +360,25 @@ def load_stock_data(from_idx, to_idx):
 
             if os.path.exists(financial_path):
 
+
                 financial_df = pd.read_csv(financial_path)
+                if os.path.exists(income_gbjg_path):
+                    income_gbjg_df = pd.read_csv(income_gbjg_path)[['变更日期','总股本']]
+                    income_gbjg_df.rename(columns={'变更日期': 'date', '总股本': 'totalShare_new'}, inplace=True)
+                else:
+                    income_gbjg_df = None
 
                 quarterly_df, annual_df = process_financial_data(financial_df)
 
-                df_temp = merge_with_stock(df_sorted, quarterly_df, annual_df)
+                df_temp = merge_with_stock(df_sorted, quarterly_df, annual_df, income_gbjg_df)
+                if 'totalShare_new' not in df_temp.columns:
+                    df_temp['totalShare_new'] = df_temp['totalShare_y']
 
                 df2_sorted = df_temp.sort_values('date').ffill().dropna()
 
                 df = df2_sorted
 
-                df['mv'] = df['totalShare_y'] * df['close_1'] # 市值 = 总股本 * 收盘价（不复权）
+                df['mv'] = df['totalShare_new'] * df['close_1'] # 市值 = 总股本 * 收盘价（不复权）
 
                 df['openinterest'] = 0
                 df['date'] = pd.to_datetime(df['date'])

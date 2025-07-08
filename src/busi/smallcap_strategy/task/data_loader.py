@@ -78,6 +78,9 @@ def load_recent_data():
     ]
     zz_code_list = []
     for zz_code_data_path in zz_code_data_paths:
+        if not os.path.exists(zz_code_data_path):
+            print(f'{zz_code_data_path} 不存在')
+            continue
         zz_code_df = pd.read_csv(zz_code_data_path)
         zz_code_list += zz_code_df['type'].tolist()
 
@@ -86,6 +89,8 @@ def load_recent_data():
         # file_path = f'{zh_data_dir}/{stock_code}/daily.csv'
         file_path_a = f'{zh_data_dir}/{stock_code}/daily_a.csv'
         income_path = f'{financial_data_dir}/{stock_code}/income.csv'
+        income_gbjg_path = f'{financial_data_dir}/{stock_code}/income_gbjg.csv'
+
 
         # 过滤创业板/科创板/北交所股票
         if ('.30' in stock_code
@@ -121,13 +126,21 @@ def load_recent_data():
         if os.path.exists(income_path):
 
             financial_df = pd.read_csv(income_path)
+            if os.path.exists(income_gbjg_path):
+                income_gbjg_df = pd.read_csv(income_gbjg_path)[['变更日期', '总股本']]
+                income_gbjg_df.rename(columns={'变更日期': 'date', '总股本': 'totalShare_new'}, inplace=True)
+            else:
+                income_gbjg_df = None
+
             quarterly_df, annual_df = process_financial_data(financial_df)
-            df_temp = merge_with_stock(df, quarterly_df, annual_df)
+            df_temp = merge_with_stock(df, quarterly_df, annual_df, income_gbjg_df)
+            if 'totalShare_new' not in df_temp.columns:
+                df_temp['totalShare_new'] = df_temp['totalShare_y']
             df2_sorted = df_temp.sort_values('date').ffill().dropna()
 
             df = df2_sorted
 
-            df['mv'] = df['totalShare_y'] * df['close_1']  # 市值 = 总股本 * 收盘价（不复权）
+            df['mv'] = df['totalShare_new'] * df['close_1']  # 市值 = 总股本 * 收盘价（不复权）
 
             df['openinterest'] = 0
             df['date'] = pd.to_datetime(df['date'])

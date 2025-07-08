@@ -177,26 +177,6 @@ class SmallCapSignalGenerator:
         trend_crash = self.check_combo_trend_crash()
         momentum_ok, momentum_rank = self.check_momentum_rank(top_k=2)
 
-        if trend_crash:
-            return {
-                'trend_crash': True,
-                'momentum_ok': momentum_ok,
-                'momentum_rank': momentum_rank,
-                'buy': [],
-                'current_hold': list(current_hold or []),
-                'sell': list(current_hold or []),
-            }
-
-        if not momentum_ok:
-            return {
-                'trend_crash': False,
-                'momentum_ok': False,
-                'momentum_rank': momentum_rank,
-                'buy': [],
-                'current_hold': list(current_hold or []),
-                'sell': list(current_hold or []),
-            }
-
         candidates = self.filter_candidates()
 
         # ➕ 添加收盘价字段
@@ -209,6 +189,27 @@ class SmallCapSignalGenerator:
                 close_price = df['close'].iloc[-1]  # 最新收盘价
             in_hold = 1 if current_hold and name in current_hold else 0
             to_buy.append((name, mv, in_hold, close_price))
+
+        if trend_crash:
+            return {
+                'trend_crash': True,
+                'momentum_ok': momentum_ok,
+                'momentum_rank': momentum_rank,
+                'buy': to_buy,
+                'current_hold': list(current_hold or []),
+                'sell': list(current_hold or []),
+            }
+
+        if not momentum_ok:
+            return {
+                'trend_crash': False,
+                'momentum_ok': False,
+                'momentum_rank': momentum_rank,
+                'buy': to_buy,
+                'current_hold': list(current_hold or []),
+                'sell': list(current_hold or []),
+            }
+
 
         return {
             'trend_crash': False,

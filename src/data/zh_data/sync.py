@@ -7,6 +7,7 @@
 """
 
 import os
+import random
 import time
 from datetime import datetime, timedelta
 from typing import List, Optional
@@ -15,14 +16,18 @@ import multiprocessing as mp
 from functools import partial
 
 import pandas as pd
+import akshare as ak
 
-from .market import MarketDataAPI
-from .financial import FinancialDataAPI
-from .news import NewsDataAPI
-from .connection import ConnectionManager
+from src.data.zh_data.market import MarketDataAPI
+from src.data.zh_data.financial import FinancialDataAPI
+from src.data.zh_data.news import NewsDataAPI
+from src.data.zh_data.connection import ConnectionManager
 
 from src.data.zh_data.configs.config import SYNC_CONFIG
 from . import BASE_DIR, DATA_DIR, RAW_DATA_DIR, PROCESSED_DATA_DIR
+from src.data.zh_data.utils import convert_code
+
+
 # 删除validate_stock_code函数
 
 class DataSync:
@@ -67,6 +72,7 @@ class DataSync:
         async def process_stocks():
             for i, code in enumerate(stock_codes):
                 print(f"index: {i}, dealing stock: {code}, dealing date: {datetime.now().strftime('%Y-%m-%d:%H:%M:%S')}")
+                """  """
                 if 'market' in SYNC_CONFIG['data_types']:
                     
                     # 添加数据获取逻辑，获取复权因子信息数据， 保存到csv文件，接口使用 
@@ -96,6 +102,10 @@ class DataSync:
                     else:
                         print(f"financial index: {i}, stock: {code}, incremental sync, dealing date: {datetime.now().strftime('%Y-%m-%d:%H:%M:%S')}")
                         await sync._sync_single_financial_incremental(code)
+                    print(f"financial index: {i}, stock: {code}, sync, 总股本数据: {datetime.now().strftime('%Y-%m-%d:%H:%M:%S')}")
+                    # 获取总股本数据
+                    await sync._stock_zh_a_gbjg_em( code)
+                time.sleep(random.randint(1, 3))
 
                 # 检查股票文件
         
@@ -288,6 +298,25 @@ class DataSync:
             print(f"错误详情: {str(e.__class__.__name__)}: {str(e)}")
             print(f"发生错误的位置: {e.__traceback__.tb_frame.f_code.co_filename}:{e.__traceback__.tb_lineno}")
 
+
+    async def _stock_zh_a_gbjg_em(self, code: str):
+        """同步单只股票的数据
+
+        Args:
+            code: 股票代码
+        """
+        try:
+
+            # 获取总股本数据
+            stock_zh_a_gbjg_em_df = ak.stock_zh_a_gbjg_em(symbol=convert_code(code))
+            # print(stock_zh_a_gbjg_em_df)
+            if not stock_zh_a_gbjg_em_df.empty:
+                self._save_data(stock_zh_a_gbjg_em_df, self.financial_dir, code, 'income_gbjg')
+
+        except Exception as e:
+            print(f"同步股票总股本{code}数据失败: {e}")
+            print(f"错误详情: {str(e.__class__.__name__)}: {str(e)}")
+            print(f"发生错误的位置: {e.__traceback__.tb_frame.f_code.co_filename}:{e.__traceback__.tb_lineno}")
 
     def _save_data(self, df: pd.DataFrame, base_dir: str, code: str,
                    data_type: str, mode: str = 'w') -> None:

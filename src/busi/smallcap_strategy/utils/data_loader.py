@@ -221,10 +221,10 @@ def load_stock_data(from_idx, to_idx):
     """
     zz_code_data_paths = [
         '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中小板指数-中小100-399005.csv',
-        # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中小综指-399101.csv',
-        # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中证1000-000852.csv',
-        # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中证2000-932000.csv',
-        # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/微盘股-BK1158.csv',
+        '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中小综指-399101.csv',
+        '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中证1000-000852.csv',
+        '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中证2000-932000.csv',
+        '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/微盘股-BK1158.csv',
     ]
     zz_code_list = []
     for zz_code_data_path in zz_code_data_paths:
@@ -313,9 +313,9 @@ def load_stock_data(from_idx, to_idx):
         #     continue
 
         # 使用指数成分股股票回测
-        # if stock_file not in zz_code_list and stock_file not in temp_stock_list:
-        #     print(f'过滤非指数成分股股票: {stock_file}')
-        #     continue # 0.1945 sz399101成分股,
+        if stock_file not in zz_code_list and stock_file not in temp_stock_list:
+            print(f'过滤非指数成分股股票: {stock_file}')
+            continue # 0.1945 sz399101成分股,
             # 指数的成分股数据 0.10   中证1000-000852，中证2000-932000
             # 指数的成分股数据 0.158  中小综指-399101,中证1000-000852，中证2000-932000
             # 指数的成分股数据 0.1945  中小综指-399101,中证1000-000852

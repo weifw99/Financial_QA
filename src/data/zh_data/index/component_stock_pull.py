@@ -57,6 +57,7 @@ def fetch_index_components_sina(indexid='399101', max_pages=100):
     df = pd.DataFrame(all_data, columns=['品种代码', '品种名称', '纳入日期', '证券标识'])
     # 使用正则在字母和数字之间加点
     df['type'] = df['证券标识'].str.replace(r'([a-zA-Z]+)(\d+)', r'\1.\2', regex=True)
+    df = df.drop_duplicates()
     return df
 
 

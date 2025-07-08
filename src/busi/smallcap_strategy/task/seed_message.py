@@ -56,11 +56,13 @@ def format_signal_message(signal, exe_date, data_date):
 
     # 建议买入表格（包含是否已持有 + 收盘价）
     if signal['buy']:
-        buy_md = "| 股票代码 | 市值 (亿) | 当前已持仓 | 最新收盘价 |\n| :-- | --: | :--: | --: |\n"
+        i = 1
+        buy_md = "| 编号 | 股票代码 | 市值 (亿) | 当前已持仓 | 最新收盘价 |\n| :-- | :-- | --: | :--: | --: |\n"
         for stock, mv, held, close_price in signal['buy']:
             held_str = "✅ 是" if held else "❌ 否"
             price_str = f"{close_price:.2f}" if close_price is not None else "N/A"
-            buy_md += f"| {stock} | {mv / 1e8:.2f} | {held_str} | {price_str} |\n"
+            buy_md += f"| {i} | {stock} | {mv / 1e8:.2f} | {held_str} | {price_str} |\n"
+            i += 1
     else:
         buy_md = "无"
 

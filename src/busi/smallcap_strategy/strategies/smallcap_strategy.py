@@ -9,7 +9,7 @@ from busi.smallcap_strategy.utils.momentum_utils import get_momentum
 
 class SmallCapStrategy(bt.Strategy):
     params = dict(
-        min_mv=13e8,  # 最小市值 10亿，0.2376； 13/14亿 0.2464
+        min_mv=10e8,  # 最小市值 10亿，0.2376； 13/14亿 0.2464
         min_profit=0,  # 最小净利润
         min_revenue=1e8,  # 最小营业收入
         rebalance_weekday=1,  # 每周调仓日（1 = 周一数据）周二早上开盘买入
@@ -484,6 +484,7 @@ class SmallCapStrategy(bt.Strategy):
                 amount = d.amount[0]
 
                 mv = d.mv[0]
+                lt_mv = d.lt_mv[0]
 
                 # 年度数据
                 profit_y = d.profit_y[0]
@@ -497,7 +498,7 @@ class SmallCapStrategy(bt.Strategy):
                 roeAvg_q = d.roeAvg_q[0]
                 profit_ttm_q = d.profit_ttm_q[0]
 
-                if (mv > self.p.min_mv
+                if (lt_mv > self.p.min_mv
                         and is_st == 0
                         and turn > 1.5
                         and amount > 4000000
@@ -540,7 +541,19 @@ class SmallCapStrategy(bt.Strategy):
                     # 选取 window=5 sz399005 beta < 0.35 or beta > 2: 0.1722
                     # 选取 window=5 sz399005  beta < 0.35  0.1616
 
-                    candidates.append((d, mv))
+                    # short_momentum_days = 7
+                    # min_short_momentum = 0.01  # 最小涨幅1%
+                    #
+                    # prices = d.close.get(size=short_momentum_days + 1)
+                    # if prices is not None and len(prices) == short_momentum_days + 1:
+                    #     momentum = (prices[-1] - prices[0]) / prices[0]
+                    #     if momentum < min_short_momentum:
+                    #         print(f"⚠️ 短期动量过滤（选股时过滤“静止股”），股票跳过: {d._name}, 最近5日涨幅: {momentum:.2%}，最近5日价格: {prices}")
+                    #         continue  # 静止股票跳过
+
+
+                    # candidates.append((d, mv))
+                    candidates.append((d, lt_mv))
             except:
                 print(f"⚠️ 获取股票数据失败: {d._name}")
                 continue

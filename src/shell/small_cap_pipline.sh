@@ -42,6 +42,12 @@ python -m src.data.zh_data.index.component_stock_pull
 log "开始执行 重要指数数据任务 src.data.zh_data.index.important_indices_sh_sz ..."
 python -m src.data.zh_data.index.important_indices_sh_sz
 
+log "开始执行 行业数据任务 src.data.zh_data.industry.industry_fundflow_task ..."
+python -m src.data.zh_data.industry.industry_fundflow_task
+
+log "开始执行 行业数据任务 src.data.zh_data.industry.stock_industry_task ..."
+python -m src.data.zh_data.industry.stock_industry_task
+
 log "开始执行 etf数据同步任务 src.busi.etf_.etf_data..."
 python -m src.busi.etf_.etf_data
 

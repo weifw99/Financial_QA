@@ -10,7 +10,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         min_mv=10e8,  # 最小市值 10亿，0.2376； 13/14亿 0.2464
         min_profit=0,  # 最小净利润
         min_revenue=1e8,  # 最小营业收入
-        rebalance_weekday=1,  # 每周调仓日（0 = 周一数据）周二早上开盘买入
+        rebalance_weekday=0,  # 每周调仓日（0 = 周一数据）周二早上开盘买入
         # 1 0.21
         # 2 0.12
         # 3 0.06
@@ -529,8 +529,8 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                 roeAvg_q = d.roeAvg_q[0]
                 profit_ttm_q = d.profit_ttm_q[0]
 
-                if (mv > self.p.min_mv
-                        and lt_share_rate > 0.6
+                if (lt_mv > self.p.min_mv
+                        and lt_share_rate > 0.8
                         and is_st == 0
                         and turn > 1.5
                         and amount > 4000000
@@ -582,8 +582,8 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                     #         print(f"⚠️ 短期动量过滤（选股时过滤“静止股”），股票跳过: {d._name}, 最近5日涨幅: {momentum:.2%}，最近5日价格: {prices}")
                     #         continue  # 静止股票跳过
 
-                    candidates.append((d, mv))
-                    # candidates.append((d, lt_mv))
+                    # candidates.append((d, mv))
+                    candidates.append((d, lt_mv))
             except:
                 print(f"⚠️ 获取股票数据失败: {d._name}")
                 continue

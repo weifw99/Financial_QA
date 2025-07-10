@@ -9,7 +9,7 @@ from busi.smallcap_strategy.utils.momentum_utils import get_momentum
 
 class SmallCapStrategy(bt.Strategy):
     params = dict(
-        min_mv=13e8,  # 最小市值 10亿，0.2376； 13/14亿 0.2464
+        min_mv=10e8,  # 最小市值 10亿，0.2376； 13/14亿 0.2464
         min_profit=0,  # 最小净利润
         min_revenue=1e8,  # 最小营业收入
         rebalance_weekday=1,  # 每周调仓日（1 = 周一数据）周二早上开盘买入
@@ -53,6 +53,7 @@ class SmallCapStrategy(bt.Strategy):
         # smallcap_index=['csi932000', 'sz399101', 'sz399005'], # 到 7 月 4 号， 0.2032 （全部股票）
         # smallcap_index=['csi932000', 'sz399101', 'BK1158'], # 到 7 月 4 号， 0.2376 (zz1000/zz2000/微盘股)
         # smallcap_index=['csi932000', 'sz399101'], # 到 7 月 4 号， 0.2028 中小综指-399101成分股 20亿限制
+        # smallcap_index=['csi932000', 'sz399101', 'BK1158'], # 到 7 月 4 号， 0.2028 中小综指-399101成分股 20亿限制
         smallcap_index=['csi932000', 'sz399101', 'BK1158'], # 到 7 月 4 号， 0.2028 中小综指-399101成分股 20亿限制
         # smallcap_index=['sz399005', 'BK1158'], # 到 7 月 4 号，0.2376 全部
         # smallcap_index=['sz399005', 'BK1158'], # 到 7 月 4 号，0.1727 sz399005
@@ -499,7 +500,7 @@ class SmallCapStrategy(bt.Strategy):
                 roeAvg_q = d.roeAvg_q[0]
                 profit_ttm_q = d.profit_ttm_q[0]
 
-                if (mv > self.p.min_mv
+                if (lt_mv > self.p.min_mv
                         and lt_share_rate > 0.8
                         and is_st == 0
                         and turn > 1.5
@@ -554,8 +555,8 @@ class SmallCapStrategy(bt.Strategy):
                     #         continue  # 静止股票跳过
 
 
-                    candidates.append((d, mv))
-                    # candidates.append((d, lt_mv))
+                    # candidates.append((d, mv))
+                    candidates.append((d, lt_mv))
             except:
                 print(f"⚠️ 获取股票数据失败: {d._name}")
                 continue

@@ -1,63 +1,21 @@
-# run_backtest.py - 主回测运行脚本，加载配置、数据，执行策略，记录结果
 from datetime import datetime
-
 import backtrader as bt
 import pandas as pd
 import quantstats
 import yaml
-import mlflow
-import os
 
-from busi.smallcap_strategy.strategies.rebalance_tuesday_strategy import RebalanceTuesdayStrategy
-from utils.data_loader import load_stock_data
-from strategies.smallcap_strategy import SmallCapStrategy
 
 def load_config(path='config/config.yaml'):
     """从 YAML 配置文件加载策略参数"""
     with open(path, 'r') as f:
         return yaml.safe_load(f)
 
-def run():
-    config = load_config()
-    cerebro = bt.Cerebro()
-    # cerebro = bt.Cerebro(cheat_on_open= True)
-    # cerebro = bt.Cerebro(cheat_on_open=True)
 
-    # 设置滑点和佣金
-    cerebro.broker.set_slippage_perc(perc=0.00015)  # 买卖滑点各 0.015%
-    cerebro.broker.setcommission(commission=0.00025)  # 万 2.5 的佣金
-    # cerebro.broker.setcash(1000000)  # 初始资金
-    cerebro.broker.setcash(100000)  # 初始资金
-
-    from_idx = datetime(2025, 4, 1)  # 记录行情数据的开始时间和结束时间
-    to_idx = datetime(2025, 7, 4)
-
-    # from_idx = datetime(2014, 1, 1)  # 记录行情数据的开始时间和结束时间
-    # to_idx = datetime(2025, 6, 26)
-
-    print(from_idx, to_idx)
-    # 加载所有股票与指数数据
-    datafeeds = load_stock_data(from_idx, to_idx)
-    for feed in datafeeds:
-        cerebro.adddata(feed)
-    print('load data DONE.', len(datafeeds))
-
-    # 添加策略及其参数
-    # cerebro.addstrategy(SmallCapStrategy, **config['strategy'])
-    cerebro.addstrategy(SmallCapStrategy)
-    # cerebro.addstrategy(RebalanceTuesdayStrategy)
-    print('add strategy DONE.')
-
-    # 添加 PyFolio分析组件
-    cerebro.addanalyzer(bt.analyzers.PyFolio, _name='PyFolio')
-    cerebro.addanalyzer(bt.analyzers.TimeReturn, _name='_TimeReturn')
-    # 计算夏普率
-    cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='mysharpe')
-
-    print('add analyzers DONE.')
+def cerebro_show(cerebro):
 
     start_portfolio_value = cerebro.broker.getvalue()
     print(f'初始本金: {start_portfolio_value:.2f}')
+
 
     # ✅ 真正执行策略
 
@@ -193,8 +151,3 @@ def run():
 
     fig.tight_layout()  # 规整排版
     plt.show()
-
-
-
-if __name__ == '__main__':
-    run()

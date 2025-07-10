@@ -14,13 +14,14 @@ class CustomPandasData(bt.feeds.PandasData):
     需要保证df中有以下字段：datetime, open, high, low, close, volume, mv, profit, revenue, is_st
     """
 
-    lines = ('amount', 'turn', 'mv', 'lt_mv', 'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q',)
-    params = (# 'datetime', 'open', 'high', 'low', 'close', 'volume', 'mv', 'lt_mv', 'profit', 'revenue', 'is_st'
+    lines = ('amount', 'turn', 'mv', 'lt_mv', 'lt_share_rate',  'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q',)
+    params = (# 'datetime', 'open', 'high', 'low', 'close', 'volume', 'mv', 'lt_mv', 'lt_share_rate',  'profit', 'revenue', 'is_st'
 
         ('amount', -1),
         ('turn', -1),
         ('mv', -1),
         ('lt_mv', -1),
+        ('lt_share_rate', -1),
         ('is_st', -1),# 0 or 1 表示是否ST
         ('profit_ttm_y', -1),
         ('profit_y', -1),
@@ -221,11 +222,11 @@ def load_stock_data(from_idx, to_idx):
     :return: list of data feeds
     """
     zz_code_data_paths = [
-        # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中小板指数-中小100-399005.csv',
+        '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中小板指数-中小100-399005.csv',
         '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中小综指-399101.csv',
-        # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中证1000-000852.csv',
-        # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中证2000-932000.csv',
-        # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/微盘股-BK1158.csv',
+        '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中证1000-000852.csv',
+        '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中证2000-932000.csv',
+        '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/微盘股-BK1158.csv',
     ]
     zz_code_list = []
     for zz_code_data_path in zz_code_data_paths:
@@ -251,7 +252,7 @@ def load_stock_data(from_idx, to_idx):
     data = data.sort_index()
 
     select_cols = ['date', 'open', 'high', 'low', 'close', 'volume', 'amount', ]
-    add_cols = ['amount', 'turn', 'mv', 'lt_mv',  'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q', 'openinterest', ]
+    add_cols = ['amount', 'turn', 'mv', 'lt_mv', 'lt_share_rate',   'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q', 'openinterest', ]
     # 加载 SZ510880 SH159300
     etf_list = ['SZ510880', 'SH159919', 'SZ510050', 'SZ588000', 'SZ511880']
     etf_path = '/Users/dabai/liepin/study/llm/Financial_QA/src/busi/etf_/data/etf_trading/daily'
@@ -384,12 +385,13 @@ def load_stock_data(from_idx, to_idx):
 
                 df['mv'] = df['totalShare_new'] * df['close_1'] # 市值 = 总股本 * 收盘价（不复权）
                 df['lt_mv'] = df['liqaShare_a'] * df['close_1'] # 市值 = 已上市流通A股 * 收盘价（不复权）
+                df['lt_share_rate'] = df['liqaShare_a'] / df['totalShare_new'] #  流通A股占比
 
                 df['openinterest'] = 0
                 df['date'] = pd.to_datetime(df['date'])
 
                 # 选择需要的列
-                df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn', 'mv', 'lt_mv',  'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q', 'openinterest',]]
+                df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn', 'mv', 'lt_mv', 'lt_share_rate',   'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q', 'openinterest',]]
 
                 df.set_index('date', inplace=True)  # 设置 datetime 为索引
                 df = df.sort_index()
@@ -397,7 +399,7 @@ def load_stock_data(from_idx, to_idx):
                 data_ = pd.merge(data, df, left_index=True, right_index=True, how='left')
                 data_ = data_.sort_index()  # ✅ 强制升序
                 # 检查并填充关键列
-                # required_cols = ['datetime', 'open', 'high', 'low', 'close', 'volume', 'mv', 'lt_mv', 'profit', 'revenue', 'is_st']
+                # required_cols = ['datetime', 'open', 'high', 'low', 'close', 'volume', 'mv', 'lt_mv', 'lt_share_rate',  'profit', 'revenue', 'is_st']
                 # for col in required_cols:
                 #     if col not in df.columns:
                 #         raise ValueError(f"缺失字段：{col} in {stock_file}")

@@ -7,6 +7,8 @@ import quantstats
 import yaml
 import mlflow
 import os
+
+from busi.smallcap_strategy.strategies.rebalance_tuesday_strategy import RebalanceTuesdayStrategy
 from utils.data_loader import load_stock_data
 from strategies.smallcap_strategy import SmallCapStrategy
 
@@ -19,6 +21,7 @@ def run():
     config = load_config()
     cerebro = bt.Cerebro()
     # cerebro = bt.Cerebro(cheat_on_open= True)
+    # cerebro = bt.Cerebro(cheat_on_open=True)
 
     # 设置滑点和佣金
     cerebro.broker.set_slippage_perc(perc=0.00015)  # 买卖滑点各 0.015%
@@ -27,7 +30,7 @@ def run():
     cerebro.broker.setcash(100000)  # 初始资金
 
     from_idx = datetime(2025, 4, 1)  # 记录行情数据的开始时间和结束时间
-    to_idx = datetime(2025, 7, 4)
+    to_idx = datetime(2025, 7, 8)
 
     # from_idx = datetime(2014, 1, 1)  # 记录行情数据的开始时间和结束时间
     # to_idx = datetime(2025, 6, 26)
@@ -42,6 +45,7 @@ def run():
     # 添加策略及其参数
     # cerebro.addstrategy(SmallCapStrategy, **config['strategy'])
     cerebro.addstrategy(SmallCapStrategy)
+    # cerebro.addstrategy(RebalanceTuesdayStrategy)
     print('add strategy DONE.')
 
     # 添加 PyFolio分析组件

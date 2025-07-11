@@ -1,3 +1,5 @@
+import os
+
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -8,6 +10,18 @@ def load_industry_fundflow(filepath):
     df['日期'] = pd.to_datetime(df['日期'])
     df.sort_values(by=['日期', '主力净流入-净额'], ascending=[True, False], inplace=True)
     return df
+
+
+def load_industry_price(filepaths):
+
+    pd_list = []
+    for filepath in os.listdir(filepaths):
+        df_price = pd.read_csv(os.path.join(filepaths, filepath), encoding='utf-8')
+        pd_list.append( df_price )
+        df_price['日期'] = pd.to_datetime(df_price['日期'])
+
+    return pd.concat(pd_list, ignore_index=True)
+
 
 def strategy_A_avg_net_inflow(df, top_n=10, ma_window=5):
     # 🅰️ 策略 A：行业主力净流入 3 日均值 TopN
@@ -109,7 +123,78 @@ def strategy_D_plot_industry_trend(df, industries, start_date=None, end_date=Non
     plt.tight_layout()
     plt.show()
 
+def strategy_E_combined_score(df_fundflow, df_price, top_k=3, window=5, momentum_days=5):
+    """
+    综合策略 E：
+    - 历史 Top 出现次数（稳定性） -> 权重 1.0
+    - 今日主力资金流入排名（爆发性） -> 权重 1.5
+    - 行业价格动量（趋势性） -> 权重 1.0
+
+    参数：
+        df_fundflow: 包含 ['日期', '行业名称', '主力净流入-净额']
+        df_price: 包含 ['日期', '行业名称', '收盘价']
+        top_k: 选取前 k 个行业
+        window: 历史滑窗天数
+        momentum_days: 动量窗口
+
+        •	top_k 与 window 应配合调节：window 越大，top_k 通常设小一些（避免冗余入选）。
+        •	momentum_days 若设置过小，容易受单日波动影响（建议不小于 3）。
+        •	若使用资金流作为主权重，可将 主力净流入 与 动量 做归一加权平均再排序。
+
+    返回：
+        DataFrame，包含每一日的 top_k 行业
+    """
+    df_fundflow = df_fundflow.copy()
+    df_fundflow = df_fundflow.sort_values(['日期', '主力净流入-净额'], ascending=[True, False])
+    date_list = sorted(df_fundflow['日期'].unique())
+    results = []
+
+    # 计算价格动量（涨幅）作为趋势分
+    df_price = df_price.sort_values(['行业名称', '日期'])
+    df_price['涨幅'] = df_price.groupby('行业名称')['收盘'].pct_change(momentum_days)
+    momentum_map = df_price.set_index(['日期', '行业名称'])['涨幅'].to_dict()
+
+    for i in range(window, len(date_list)):
+        win_dates = date_list[i - window:i]
+        today = date_list[i]
+
+        # 历史 Top 频率打分
+        recent_df = df_fundflow[df_fundflow['日期'].isin(win_dates)]
+        top_counts = recent_df.groupby('行业名称').head(top_k).groupby('行业名称').size()
+        top_score = top_counts.to_dict()
+
+        # 今日主力资金 Top 打分
+        today_df = df_fundflow[df_fundflow['日期'] == today].head(top_k)
+        today_score = {name: 1.5 for name in today_df['行业名称']}
+
+        # 价格动量打分
+        trend_score = {}
+        for name in df_fundflow['行业名称'].unique():
+            score = momentum_map.get((today, name), 0)
+            trend_score[name] = score
+
+        # 统一加权
+        final_score = {}
+        for name in set(list(top_score) + list(today_score) + list(trend_score)):
+            final_score[name] = (
+                1.0 * top_score.get(name, 0) +
+                1.5 * today_score.get(name, 0) +
+                1.0 * trend_score.get(name, 0)
+            )
+
+        top_industries = sorted(final_score.items(), key=lambda x: -x[1])[:top_k]
+        results.append({
+            '日期': today,
+            'Top行业': [x[0] for x in top_industries],
+            '打分': [round(x[1], 3) for x in top_industries]
+        })
+
+    return pd.DataFrame(results)
 if __name__ == '__main__':
+    base_price_path = "/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/industry/industry_price"
+
+    # 加载数据
+    price_df = load_industry_price(base_price_path)
     base_path = "/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/industry"
 
     # 加载数据
@@ -123,8 +208,12 @@ if __name__ == '__main__':
     # 执行 D（示例：选择前几名）
     strategy_D_plot_industry_trend(df, industries=['软件开发', '证券', '光伏设备'], start_date='2025-06-01')
 
+    res_e = strategy_E_combined_score(df, price_df, top_k=5, window=7, momentum_days=7)
+
+
     res_a.to_csv('result_strategy_A.csv', index=False)
     res_b.to_csv('result_strategy_B.csv', index=False)
     res_c.to_csv('result_strategy_C.csv', index=False)
+    res_e.to_csv('result_strategy_E.csv', index=False)
 
 

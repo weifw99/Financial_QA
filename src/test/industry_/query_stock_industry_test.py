@@ -45,6 +45,7 @@ def save_all_stock_industry_map():
 
 
 if __name__ == '__main__':
+    '''
     # 登陆系统
     lg = bs.login()
     # 显示登陆返回信息
@@ -69,7 +70,17 @@ if __name__ == '__main__':
 
     # 登出系统
     bs.logout()
+    '''
+    import akshare as ak
 
+    # 获取东方财富行业指数的历史 K 线数据
+    # 示例：获取“煤炭行业”（板块代码 BK0421）的历史行情
+    df = ak.stock_board_industry_hist_em(symbol="BK0421", start_date="20100101", end_date="20990701")
+
+    # 字段说明：
+    # 日期,开盘,收盘,最高,最低,成交量,成交额,振幅,涨跌幅,涨跌额,换手率
+
+    print(df.head())
 
 
 

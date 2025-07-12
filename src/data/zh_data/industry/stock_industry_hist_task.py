@@ -54,4 +54,4 @@ def save_all_industry_history(start_date="20200101", end_date=None, save_dir=Non
 
 
 if __name__ == "__main__":
-    save_all_industry_history(start_date="20220101")
+    save_all_industry_history(start_date="20210101")

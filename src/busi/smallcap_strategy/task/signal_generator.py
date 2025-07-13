@@ -142,9 +142,11 @@ class SmallCapSignalGenerator:
                         # 'profit_y', 'revenue_y', 'roeAvg_y',
                         # 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q',
                         # 'openinterest', ]
-                    row['mv'] > self.config['min_mv']
+                    # row['mv'] > self.config['min_mv']
+                    row['lt_mv'] > self.config['min_mv']
+                    and row['lt_share_rate'] >= 0.8
                     and row['is_st'] == 0
-                    and 3 < row['close'] < self.config['hight_price']
+                    and 2 < row['close'] < self.config['hight_price']
                     and row['amount'] > 4000000
                     and row['turn'] > 1.5
 
@@ -159,7 +161,8 @@ class SmallCapSignalGenerator:
                     # and row['revenue_single_q'] > self.config['min_revenue']
 
                 ):
-                    results.append((name, row['mv']))
+                    results.append((name, row['lt_mv']))
+                    # results.append((name, row['mv']))
             except:
                 continue
         results.sort(key=lambda x: x[1])

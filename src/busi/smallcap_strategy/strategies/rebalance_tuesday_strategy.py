@@ -534,7 +534,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                         and is_st == 0
                         and turn > 1.5
                         and amount > 4000000
-                        and 3 < close < self.p.hight_price
+                        and 2 < close < self.p.hight_price
                         # 年度数据
                         and profit_y > 0
                         and roeAvg_y > 0
@@ -544,7 +544,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                         # 季度数据
                         # and profit_q > 0
                         # and roeAvg_q > 0
-                        and profit_ttm_q > 0
+                        # and profit_ttm_q > 0
                         # and revenue_single_q > self.p.min_revenue
                 ):
                     # corr, beta = self.compute_correlation_beta(d, index_data, window=5)

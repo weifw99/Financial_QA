@@ -31,7 +31,8 @@ def load_recent_data():
     data_index = pd.DataFrame(index=calendar_df['date'].sort_values().unique())
 
     select_cols = ['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn']
-    add_cols = ['amount', 'turn', 'mv', 'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q', 'openinterest', ]
+    add_cols = ['amount', 'turn', 'mv', 'lt_mv', 'lt_share_rate', 'is_st', 'profit_ttm_y', 'profit_y',
+                'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q', 'openinterest', ]
 
     def process_dataframe(df):
         df.loc[:, 'date'] = pd.to_datetime(df['date'])
@@ -73,7 +74,7 @@ def load_recent_data():
         # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中小板指数-中小100-399005.csv',
         '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中小综指-399101.csv',
         # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中证1000-000852.csv',
-        # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中证2000-932000.csv',
+        '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中证2000-932000.csv',
         # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/微盘股-BK1158.csv',
     ]
     zz_code_list = []
@@ -128,8 +129,9 @@ def load_recent_data():
 
             financial_df = pd.read_csv(income_path)
             if os.path.exists(income_gbjg_path):
-                income_gbjg_df = pd.read_csv(income_gbjg_path)[['变更日期', '总股本']]
-                income_gbjg_df.rename(columns={'变更日期': 'date', '总股本': 'totalShare_new'}, inplace=True)
+                income_gbjg_df = pd.read_csv(income_gbjg_path)[['变更日期', '总股本', '已上市流通A股']]
+                income_gbjg_df.rename( columns={'变更日期': 'date', '总股本': 'totalShare_new', '已上市流通A股': 'liqaShare_a'}, inplace=True)
+
             else:
                 income_gbjg_df = None
 
@@ -137,11 +139,15 @@ def load_recent_data():
             df_temp = merge_with_stock(df, quarterly_df, annual_df, income_gbjg_df)
             if 'totalShare_new' not in df_temp.columns:
                 df_temp['totalShare_new'] = df_temp['totalShare_y']
+            if 'liqaShare_a' not in df_temp.columns:
+                df_temp['liqaShare_a'] = df_temp['liqaShare_q']
             df2_sorted = df_temp.sort_values('date').ffill().dropna()
 
             df = df2_sorted
 
             df['mv'] = df['totalShare_new'] * df['close_1']  # 市值 = 总股本 * 收盘价（不复权）
+            df['lt_mv'] = df['liqaShare_a'] * df['close_1']  # 市值 = 已上市流通A股 * 收盘价（不复权）
+            df['lt_share_rate'] = df['liqaShare_a'] / df['totalShare_new']  # 流通A股占比
 
             df['openinterest'] = 0
             df['date'] = pd.to_datetime(df['date'])
@@ -153,9 +159,10 @@ def load_recent_data():
 
         try:
             # 选择需要的列
-            df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn', 'mv', 'is_st', 'profit_ttm_y',
-                     'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q',
-                     'openinterest', ]]
+            df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn', 'mv', 'lt_mv', 'lt_share_rate',
+                     'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q',
+                     'revenue_single_q', 'roeAvg_q', 'openinterest', ]]
+
             df = process_dataframe(df)
             print(f'✅ 处理 {stock_code} 成功 {len(df)} 行数据')
             result[stock_code] = df

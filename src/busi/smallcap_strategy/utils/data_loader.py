@@ -214,6 +214,40 @@ def merge_with_stock(stock_df: pd.DataFrame, quarterly_df: pd.DataFrame, annual_
     else:
         return df
 
+
+def merge_stock_with_industry(stock_df: pd.DataFrame, industry_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    将股票交易数据与行业分类数据进行左关联（保留原始 code，并创建匹配用的 code）
+
+    参数：
+        stock_df: 股票交易数据，包含 code（格式如 sh.000001）
+        industry_dir: 行业数据 CSV 文件所在目录，文件结构为 code,name,industry_code,industry_name
+
+    返回：
+        合并后的 DataFrame（附加字段：industry_code, industry_name）
+    """
+
+    # 提取股票原始 code，并转为 6 位匹配值
+    stock_df = stock_df.copy()
+    stock_df['stock_code_raw'] = stock_df['code']  # 原始如 sh.000002
+
+    stock_df['stock_code_raw'] = stock_df['stock_code_raw'].apply(lambda x: str(x)[-6:])  # 提取 000002 用于匹配
+
+    industry_df.rename(columns={'code': 'code_indu'}, inplace=True)
+    # 4. 合并行业数据（左连接）
+    merged_df = pd.merge(
+        stock_df,
+        industry_df[['code_indu', 'industry_code', 'industry_name']],
+        how='left',
+        left_on='stock_code_raw',
+        right_on='code_indu'
+    )
+
+    merged_df.fillna(0, inplace=True)
+
+    return merged_df
+
+
 def load_stock_data(from_idx, to_idx):
     """
     批量加载 data_dir 下的所有 CSV 文件，返回数据列表
@@ -241,6 +275,20 @@ def load_stock_data(from_idx, to_idx):
     base_data_path = '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data'
     zh_data_dir = Path(base_data_path) / 'market'
     financial_data_dir = Path(base_data_path).parent / 'zh_data/financial'
+    board_industry_dir = Path(base_data_path).parent / 'zh_data/industry/board_industry'
+
+
+    # 1. 找到行业目录中最新的CSV文件
+    files = [f for f in os.listdir(board_industry_dir) if f.endswith('.csv')]
+    if not files:
+        raise FileNotFoundError(f"⚠️ 行业目录中没有找到CSV文件: {board_industry_dir}")
+    files.sort(key=lambda f: os.path.getmtime(os.path.join(board_industry_dir, f)), reverse=True)
+    latest_file = os.path.join(board_industry_dir, files[0])
+    print(f"📄 使用行业文件: {latest_file}")
+
+    # 2. 读取行业数据
+    industry_df = pd.read_csv(latest_file, dtype={'code': str})
+    industry_df = industry_df[['code', 'name', 'industry_code', 'industry_name']]
 
     # 获取所有时间数据， 使用000001.csv
     pdf = pd.read_csv(f'{zh_data_dir}/sh.000001/daily.csv')
@@ -252,7 +300,7 @@ def load_stock_data(from_idx, to_idx):
     data = data.sort_index()
 
     select_cols = ['date', 'open', 'high', 'low', 'close', 'volume', 'amount', ]
-    add_cols = ['amount', 'turn', 'mv', 'lt_mv', 'lt_share_rate',   'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q', 'openinterest', ]
+    add_cols = ['industry_name', 'amount', 'turn', 'mv', 'lt_mv', 'lt_share_rate',   'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q', 'openinterest', ]
     # 加载 SZ510880 SH159300
     etf_list = ['SZ510880', 'SH159919', 'SZ510050', 'SZ588000', 'SZ511880']
     etf_path = '/Users/dabai/liepin/study/llm/Financial_QA/src/busi/etf_/data/etf_trading/daily'
@@ -341,6 +389,11 @@ def load_stock_data(from_idx, to_idx):
         income_gbjg_path = f'{financial_data_dir}/{stock_file}/income_gbjg.csv'
         if os.path.exists(file_path_a):
             df = pd.read_csv(file_path_a)
+            if 'code' not in df.columns:
+                print(f'{stock_file} 缺少列: {col}')
+                df['code'] = stock_file
+
+            # df = merge_stock_with_industry(df, industry_df)
 
             # 过滤上市时间太短的股票 （A 股一年交易时间243天），取上市一年多的股票
             if len(df) < 275:
@@ -361,7 +414,6 @@ def load_stock_data(from_idx, to_idx):
             df_sorted.rename(columns={'isST': 'is_st', }, inplace=True)
 
             if os.path.exists(financial_path):
-
 
                 financial_df = pd.read_csv(financial_path)
                 if os.path.exists(income_gbjg_path):

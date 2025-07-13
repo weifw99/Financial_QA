@@ -30,7 +30,7 @@ def strategy_A_avg_net_inflow(df, top_n=10, ma_window=5):
 
     for name, group in df.groupby('行业名称'):
         group = group.set_index('日期').sort_index()
-        group[f'{ma_window}日均净流入'] = group['主力净流入-净额'].rolling(window=ma_window).mean()
+        group[f'{ma_window}日均净流入'] = group['主力净流入-净额'].rolling(window=ma_window, min_periods=1).mean()
         group['行业名称'] = name
         result.append(group.reset_index())
 
@@ -200,7 +200,7 @@ if __name__ == '__main__':
     # 加载数据
     df = load_industry_fundflow(f'{base_path}/industry_flow.csv')
     # 执行 A
-    res_a = strategy_A_avg_net_inflow(df, top_n=5, ma_window=5)
+    res_a = strategy_A_avg_net_inflow(df, top_n=5, ma_window=7)
     # 执行 B
     res_b = strategy_B_recent_topk(df)
     # 执行 C

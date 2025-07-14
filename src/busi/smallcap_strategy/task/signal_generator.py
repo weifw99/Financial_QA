@@ -1,6 +1,7 @@
 import numpy as np
 from datetime import datetime, timedelta
 from .utils.momentum_utils import get_momentum
+from ..utils.filter_stocks_by_forecast import filter_stocks_by_forecast
 
 
 class SmallCapSignalGenerator:
@@ -182,6 +183,9 @@ class SmallCapSignalGenerator:
 
         candidates = self.filter_candidates()
 
+        filter_names = filter_stocks_by_forecast([name for name, mv in candidates])
+        print(f"🔍 筛选股票：{filter_names}")
+
         # ➕ 添加收盘价字段
         to_buy = []
         for name, mv in candidates:
@@ -191,7 +195,7 @@ class SmallCapSignalGenerator:
             else:
                 close_price = df['close'].iloc[-1]  # 最新收盘价
             in_hold = 1 if current_hold and name in current_hold else 0
-            to_buy.append((name, mv, in_hold, close_price))
+            to_buy.append((name, mv, in_hold, close_price,  name in filter_names))
 
         if trend_crash:
             return {

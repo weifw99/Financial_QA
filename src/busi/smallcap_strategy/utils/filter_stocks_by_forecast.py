@@ -25,18 +25,18 @@ def load_earnings_forecast(dates: list) -> pd.DataFrame:
         file_path = os.path.join(base_path, f'yjyg_{date}.csv')
 
         # 优先尝试从本地加载
-        if os.path.exists(file_path):
-            print(f'📂 读取本地文件: {file_path}')
-            df = pd.read_csv(file_path, dtype={'股票代码': str})
-        else:
-            try:
-                print(f'🌐 请求接口数据: {date}')
-                df = ak.stock_yjyg_em(date=date)
-                df.to_csv(file_path, index=False, encoding='utf-8-sig')
-                print(f'✅ 已保存到本地: {file_path}')
-            except Exception as e:
-                print(f'⚠️ 获取接口数据失败: {date}, 错误: {e}')
-                continue
+        # if os.path.exists(file_path):
+        #     print(f'📂 读取本地文件: {file_path}')
+        #     df = pd.read_csv(file_path, dtype={'股票代码': str})
+        # else:
+        try:
+            print(f'🌐 请求接口数据: {date}')
+            df = ak.stock_yjyg_em(date=date)
+            df.to_csv(file_path, index=False, encoding='utf-8-sig')
+            print(f'✅ 已保存到本地: {file_path}')
+        except Exception as e:
+            print(f'⚠️ 获取接口数据失败: {date}, 错误: {e}')
+            continue
 
         # 标准化列和格式
         df = df.rename(columns={

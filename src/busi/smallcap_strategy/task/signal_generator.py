@@ -158,7 +158,7 @@ class SmallCapSignalGenerator:
 
                     # and row['profit_q'] > 0
                     # and row['roeAvg_q'] > 0
-                    # and row['profit_ttm_q'] > 0
+                    and row['profit_ttm_q'] > 0
                     # and row['revenue_single_q'] > self.config['min_revenue']
 
                 ):

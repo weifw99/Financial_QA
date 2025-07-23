@@ -234,7 +234,8 @@ class Getdata():
         if not zero_prices.empty:
             print(f"警告：发现{len(zero_prices)}条收盘价为0的记录")
             print(f"零价格记录：\n{zero_prices[['symbol', 'date', 'close']]}")
-            
+
+        data['symbol'] = data['symbol'].apply(lambda x: x.replace('SH', '').replace('SZ', '').replace('WZ', ''))
         # 按日期和股票代码排序
         data = data.sort_values(['date', 'symbol'])
         
@@ -242,10 +243,10 @@ class Getdata():
         data['date'] = pd.to_datetime(data['date'])
         
         # 设置多级索引
-        data.set_index(['date', 'symbol'], inplace=True)
+        data.set_index(['date', ], inplace=True)
         
         # 选择需要的列
-        data = data[['open', 'high', 'low', 'close', 'volume', 'openinterest']]
+        data = data[['symbol', 'open', 'high', 'low', 'close', 'volume', 'openinterest']]
         
         return data
 

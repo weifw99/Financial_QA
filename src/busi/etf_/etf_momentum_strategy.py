@@ -89,7 +89,21 @@ class MomentumStrategy1(bt.Strategy):
         ('top_n', 5),  # 选择前N个ETF
         ('min_momentum', -0.1),  # 最小动量阈值，调整为负值以允许负动量
         ('max_position', 0.2),  # 最大持仓比例
-        ('momentum_params', None),  # 动量计算参数
+        ('momentum_params', {'linear_window': 20,
+                             'simple_window': 20,
+                             'log_simple_window': 20,
+                             'log_r2_window': 20,
+                             'line_log_r2_window': 20,
+                             'long_window': 90,
+                             'short_window': 20,
+                             'slope_positive_filter': True,
+                             'weight_long': 0.7,
+                             'weight_short': 0.3,
+                             'smooth_long': 20,
+                             'smooth_short': 5,
+                             'min_long_return': 0.02,
+                             'min_short_return': 0.01
+                             }),  # 动量计算参数
     )
 
     def __init__(self):

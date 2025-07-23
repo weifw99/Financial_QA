@@ -10,8 +10,8 @@ from busi.etf_.etf_momentum_strategy import MomentumStrategy, MomentumStrategy1
 
 if __name__ == '__main__':
 
-    from_idx = datetime(2020, 1, 1)  # 记录行情数据的开始时间和结束时间
-    to_idx = datetime(2025, 1, 1)
+    from_idx = datetime(2025, 1, 1)  # 记录行情数据的开始时间和结束时间
+    to_idx = datetime(2025, 7, 1)
     print(from_idx, to_idx)
     #启动回测
 
@@ -30,7 +30,7 @@ if __name__ == '__main__':
     out=[]
     for stk_code in etf_codes:
         data_date = pd.DataFrame(index=data_1.index.unique())
-        df = data_1[data_1['symbol'] == stk_code]
+        df = data_1[data_1['symbol'] == str(stk_code)]
         df = df.sort_index()
         data_ = pd.merge(data_date, df, left_index=True, right_index=True, how='left')
         data_.loc[:, ['volume', 'openinterest']] = data_.loc[:, ['volume', 'openinterest']].fillna(0)

@@ -1,3 +1,5 @@
+import math
+
 import backtrader as bt
 import os
 import pandas as pd
@@ -8,77 +10,7 @@ import numpy as np
 
 from busi.etf_.util_moment import momentum_linear, momentum_simple, momentum_dual, log_momentum_r2, log_momentum_simple, \
     line_log_momentum_r2
-
-
-class MomentumStrategy(bt.Strategy):
-    params = (
-        ('momentum_params', None),  # 动量计算参数
-        ('top_n', 5),  # 选择前N个ETF
-        ('rebalance_days', 20),  # 再平衡周期
-    )
-
-    def __init__(self):
-        self.counter = 0
-        self.etf_data = {}
-        self.positions = {}
-
-    def next(self):
-        self.counter += 1
-        if self.counter % self.p.rebalance_days != 0:
-            return
-
-        # 计算每个ETF的动量
-        momentum_scores = {}
-        for data in self.datas:
-            symbol = data._name.split('_')[1]
-            momentum_score = self.calculate_momentum(data)
-            if momentum_score is not None:
-                momentum_scores[symbol] = momentum_score
-
-        # 选择动量最高的N个ETF
-        top_etfs = sorted(momentum_scores.items(), key=lambda x: x[1], reverse=True)[:self.p.top_n]
-        top_etfs = [etf[0] for etf in top_etfs]
-
-        # 调整持仓
-        for data in self.datas:
-            symbol = data._name.split('_')[1]
-            if symbol in top_etfs:
-                if symbol not in self.positions or self.positions[symbol] == 0:
-                    # 买入
-                    size = int(self.broker.getcash() / (len(top_etfs) * data.close[0]))
-                    self.buy(data=data, size=size)
-                    self.positions[symbol] = size
-            else:
-                if symbol in self.positions and self.positions[symbol] > 0:
-                    # 卖出
-                    self.sell(data=data, size=self.positions[symbol])
-                    self.positions[symbol] = 0
-
-    def calculate_momentum(self, data):
-        """根据参数计算动量"""
-        if not self.p.momentum_params:
-            return None
-
-        # 获取动量计算参数
-        params = self.p.momentum_params
-
-        # 根据参数选择动量计算方式
-        if 'linear_window' in params:
-            return data.momentum_linear[0]
-        elif 'simple_window' in params:
-            return data.momentum_simple[0]
-        elif 'log_simple_window' in params:
-            return data.momentum_log_simple[0]
-        elif 'log_r2_window' in params:
-            return data.momentum_log_r2[0]
-        elif 'line_log_r2_window' in params:
-            return data.momentum_line_log_r2[0]
-        elif 'long_window' in params and 'short_window' in params:
-            if 'slope_positive_filter' in params:
-                return data.momentum_dual_v2[0]
-            else:
-                return data.momentum_dual[0]
-        return None
+from busi.smallcap_strategy.utils.momentum_utils import get_momentum
 
 
 class MomentumStrategy1(bt.Strategy):
@@ -89,20 +21,19 @@ class MomentumStrategy1(bt.Strategy):
         ('top_n', 5),  # 选择前N个ETF
         ('min_momentum', -0.1),  # 最小动量阈值，调整为负值以允许负动量
         ('max_position', 0.2),  # 最大持仓比例
-        ('momentum_params', {'linear_window': 20,
-                             'simple_window': 20,
-                             'log_simple_window': 20,
-                             'log_r2_window': 20,
-                             'line_log_r2_window': 20,
-                             'long_window': 90,
-                             'short_window': 20,
-                             'slope_positive_filter': True,
-                             'weight_long': 0.7,
-                             'weight_short': 0.3,
-                             'smooth_long': 20,
-                             'smooth_short': 5,
-                             'min_long_return': 0.02,
-                             'min_short_return': 0.01
+        ('momentum_params', {
+
+                             # 'simple_window': 20, # 负
+
+
+                             # 'log_simple_window': 20, # 负
+            # 'linear_window': 10, # 0.8
+
+                             'log_r2_window': 15, # 0.8
+                             # 'line_log_r2_window': 20, # 负
+                             # 'long_window': 20,
+                             # 'short_window': 10,
+                             # 'slope_positive_filter': True,
                              }),  # 动量计算参数
     )
 
@@ -235,54 +166,108 @@ class MomentumStrategy1(bt.Strategy):
         if not self.p.momentum_params:
             self.log(f"警告：未设置动量参数")
             return None
-            
+
         # 获取动量计算参数
         params = self.p.momentum_params
         self.log(f"当前动量参数: {params}")
-        
-        # 检查数据长度
-        window = params.get('linear_window', 20)
-        if len(data) < window:
-            self.log(f"数据长度不足: {len(data)} < {window}")
-            return None
-            
-        # 检查数据有效性
-        if data.close[0] == 0 or data.close[-window] == 0:
-            self.log(f"价格数据无效: 当前价格={data.close[0]}, {window}天前价格={data.close[-window]}")
-            return None
-            
-        # 根据参数选择动量计算方式
-        if 'linear_window' in params:
-            momentum = data.momentum_linear[0]
-            self.log(f"线性动量计算: 窗口={window}, 当前价格={data.close[0]:.2f}, {window}天前价格={data.close[-window]:.2f}")
-            self.log(f"线性动量: {momentum}")
-            return momentum
-        elif 'simple_window' in params:
-            momentum = data.momentum_simple[0]
-            self.log(f"简单动量: {momentum}")
-            return momentum
+
+        close = data.close
+        t = len(close) - 1  # 当前索引，不一定用得上
+
+        # 简单动量: 当前收盘价 - N 日前收盘价
+        if 'simple_window' in params:
+            window = params['simple_window']
+            if len(close) > window:
+                momentum = close[0] - close[-window]
+                self.log(f"[简单动量] 当前={close[0]:.2f}, {window}日前={close[-window]:.2f}, 动量={momentum:.4f}")
+                return momentum
+
+        # 对数动量: log(当前/过去N日)
         elif 'log_simple_window' in params:
-            momentum = data.momentum_log_simple[0]
-            self.log(f"对数简单动量: {momentum}")
-            return momentum
+            window = params['log_simple_window']
+            if len(close) > window and close[0] > 0 and close[-window] > 0:
+                momentum = math.log(close[0] / close[-window])
+                self.log(f"[对数动量] 当前={close[0]:.2f}, {window}日前={close[-window]:.2f}, 动量={momentum:.4f}")
+                return momentum
+
+        # 线性回归 slope 动量
+        elif 'linear_window' in params:
+            window = params['linear_window']
+            if len(close) > window:
+                y = [close[-i] for i in reversed(range(window))]
+                x = list(range(window))
+                x_mean = sum(x) / window
+                y_mean = sum(y) / window
+                numerator = sum((xi - x_mean) * (yi - y_mean) for xi, yi in zip(x, y))
+                denominator = sum((xi - x_mean) ** 2 for xi in x)
+                slope = numerator / denominator if denominator != 0 else 0.0
+                self.log(f"[线性动量] slope={slope:.6f}, 窗口={window}")
+                return slope
+
+        # 对数回归 R² 动量
         elif 'log_r2_window' in params:
-            momentum = data.momentum_log_r2[0]
-            self.log(f"对数R2动量: {momentum}")
-            return momentum
+            window = params['log_r2_window']
+            if len(close) > window and all(c > 0 for c in close.get(size=window)):
+                y = [math.log(close[-i]) for i in reversed(range(window))]
+                x = list(range(window))
+                x_mean = sum(x) / window
+                y_mean = sum(y) / window
+                ss_total = sum((yi - y_mean) ** 2 for yi in y)
+                ss_reg = sum((xi - x_mean) * (yi - y_mean) for xi, yi in zip(x, y))
+                slope = ss_reg / sum((xi - x_mean) ** 2 for xi in x)
+                y_hat = [slope * (xi - x_mean) + y_mean for xi in x]
+                ss_res = sum((yi - yhi) ** 2 for yi, yhi in zip(y, y_hat))
+                r2 = 1 - ss_res / ss_total if ss_total != 0 else 0.0
+                self.log(f"[对数R²动量] R²={r2:.6f}, 窗口={window}")
+                return r2
+
+        # 线性对数R² + slope 混合评分
         elif 'line_log_r2_window' in params:
-            momentum = data.momentum_line_log_r2[0]
-            self.log(f"线性对数R2动量: {momentum}")
-            return momentum
-        elif 'long_window' in params and 'short_window' in params:
-            if 'slope_positive_filter' in params:
-                momentum = data.momentum_dual_v2[0]
-                self.log(f"双动量V2: {momentum}")
-                return momentum
-            else:
-                momentum = data.momentum_dual[0]
-                self.log(f"双动量: {momentum}")
-                return momentum
-        self.log(f"警告：未找到匹配的动量计算方式")
+            window = params['line_log_r2_window']
+            if len(close) > window and all(c > 0 for c in close.get(size=window)):
+                y = [math.log(close[-i]) for i in reversed(range(window))]
+                x = list(range(window))
+                x_mean = sum(x) / window
+                y_mean = sum(y) / window
+                ss_total = sum((yi - y_mean) ** 2 for yi in y)
+                ss_reg = sum((xi - x_mean) * (yi - y_mean) for xi, yi in zip(x, y))
+                slope = ss_reg / sum((xi - x_mean) ** 2 for xi in x)
+                y_hat = [slope * (xi - x_mean) + y_mean for xi in x]
+                ss_res = sum((yi - yhi) ** 2 for yi, yhi in zip(y, y_hat))
+                r2 = 1 - ss_res / ss_total if ss_total != 0 else 0.0
+                score = slope * r2
+                self.log(f"[线性log R²动量] slope={slope:.6f}, R²={r2:.6f}, score={score:.6f}")
+                return score
+
+        # 双动量：短期动量 - 长期动量
+        elif 'short_window' in params and 'long_window' in params:
+            sw = params['short_window']
+            lw = params['long_window']
+            if len(close) > lw:
+                short_mom = close[0] - close[-sw]
+                long_mom = close[0] - close[-lw]
+                dual_mom = short_mom - long_mom
+
+                if 'slope_positive_filter' in params:
+                    # 可选：添加线性slope过滤
+                    slope_window = sw
+                    y = [close[-i] for i in reversed(range(slope_window))]
+                    x = list(range(slope_window))
+                    x_mean = sum(x) / slope_window
+                    y_mean = sum(y) / slope_window
+                    numerator = sum((xi - x_mean) * (yi - y_mean) for xi, yi in zip(x, y))
+                    denominator = sum((xi - x_mean) ** 2 for xi in x)
+                    slope = numerator / denominator if denominator != 0 else 0.0
+                    if slope <= 0:
+                        self.log(f"[双动量V2] slope<=0，过滤，值为0")
+                        return 0.0
+                    self.log(f"[双动量V2] short={short_mom:.4f}, long={long_mom:.4f}, 结果={dual_mom:.4f}")
+                else:
+                    self.log(f"[双动量] short={short_mom:.4f}, long={long_mom:.4f}, 结果={dual_mom:.4f}")
+
+                return dual_mom
+
+        self.log(f"⚠️ 未找到匹配的动量计算方式（当前 params: {params}）")
         return None
 
 

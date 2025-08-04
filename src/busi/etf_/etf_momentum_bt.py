@@ -6,12 +6,12 @@ from datetime import datetime
 
 import quantstats
 from busi.etf_.bt_data import Getdata, Dailydataextend
-from busi.etf_.etf_momentum_strategy import MomentumStrategy, MomentumStrategy1
+from busi.etf_.etf_momentum_strategy import  MomentumStrategy1
 
 if __name__ == '__main__':
 
     from_idx = datetime(2025, 1, 1)  # 记录行情数据的开始时间和结束时间
-    to_idx = datetime(2025, 7, 1)
+    to_idx = datetime(2025, 7, 28)
     print(from_idx, to_idx)
     #启动回测
 
@@ -20,7 +20,7 @@ if __name__ == '__main__':
     # print(data_1,data_1.columns)
 
     pool_file = 'data/etf_strategy/etf_pool_120.csv'
-    pool_file = 'data/etf_strategy/etf_pool.csv'
+    # pool_file = 'data/etf_strategy/etf_pool.csv'
     df = pd.read_csv(pool_file)
     etf_codes = df['代码'].tolist()
     #获取数据源

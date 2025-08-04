@@ -530,7 +530,8 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                 profit_ttm_q = d.profit_ttm_q[0]
 
                 if (lt_mv > self.p.min_mv
-                        and lt_share_rate > 0.8
+                        and lt_share_rate >= 0.8
+                        and mv > self.p.min_mv
                         and is_st == 0
                         and turn > 1.5
                         and amount > 4000000

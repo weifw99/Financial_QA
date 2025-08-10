@@ -18,21 +18,21 @@ class MomentumStrategy1(bt.Strategy):
     动量策略V1
     """
     params = (
-        ('top_n', 5),  # 选择前N个ETF
+        ('top_n', 1),  # 选择前N个ETF
         ('min_momentum', -0.1),  # 最小动量阈值，调整为负值以允许负动量
         ('max_position', 0.2),  # 最大持仓比例
         ('momentum_params', {
 
-                             # 'simple_window': 20, # 负
+                             # 'simple_window': 5, # 负
 
 
-                             # 'log_simple_window': 20, # 负
-            # 'linear_window': 10, # 0.8
+                             # 'log_simple_window': 5, # 负
+            # 'linear_window': 5, # 0.8
 
-                             'log_r2_window': 15, # 0.8
-                             # 'line_log_r2_window': 20, # 负
-                             # 'long_window': 20,
-                             # 'short_window': 10,
+                             'log_r2_window': 5, # 0.8
+                             # 'line_log_r2_window': 5, # 负
+                             # 'long_window': 10,
+                             # 'short_window': 5,
                              # 'slope_positive_filter': True,
                              }),  # 动量计算参数
     )
@@ -56,15 +56,15 @@ class MomentumStrategy1(bt.Strategy):
         # 获取当前日期
         current_date = self.datas[0].datetime.date(0)
         current_weekday = current_date.weekday()  # 0-6，0是周一，4是周五
-        
+        self.buy_etfs()
         # 如果是周一，进行买入操作
-        if current_weekday == 0:
-            self.log("=== 周一买入信号 ===")
-            self.buy_etfs()
+        # if current_weekday == 0:
+        #     self.log("=== 周一买入信号 ===")
+        #     self.buy_etfs()
         # 如果是周五，进行平仓操作
-        elif current_weekday == 4:
-            self.log("=== 周五平仓信号 ===")
-            self.close_all_positions()
+        # elif current_weekday == 4:
+        #     self.log("=== 周五平仓信号 ===")
+        #     self.close_all_positions()
             
         self.last_weekday = current_weekday
 
@@ -99,7 +99,7 @@ class MomentumStrategy1(bt.Strategy):
         if total_momentum > 0:
             target_weights = {name: min(score/total_momentum, self.p.max_position) 
                             for name, score in top_etfs}
-            self.log(f"总动量分数: {total_momentum:.4f}")
+            self.log(f"总动量分数: {total_momentum:.4f}，target_weights：{target_weights}")
         else:
             target_weights = {}
             self.log("警告：所有ETF的动量分数都为0或无效")
@@ -141,6 +141,7 @@ class MomentumStrategy1(bt.Strategy):
         self.log("平仓完成")
 
     def notify_order(self, order):
+        self.log(f"订单通知: {order.data._name}, 状态: {order.getstatusname()}")
         """订单状态通知"""
         if order.status in [order.Submitted, order.Accepted]:
             return

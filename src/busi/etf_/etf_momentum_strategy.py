@@ -68,6 +68,9 @@ class MomentumStrategy1(bt.Strategy):
             
         self.last_weekday = current_weekday
 
+        self.log("next，持仓如下：")
+        self.print_positions()
+
     def buy_etfs(self):
         """买入动量最高的ETF"""
         # 计算所有ETF的动量分数
@@ -270,6 +273,23 @@ class MomentumStrategy1(bt.Strategy):
 
         self.log(f"⚠️ 未找到匹配的动量计算方式（当前 params: {params}）")
         return None
+
+    def print_positions(self):
+        total_value = self.broker.getvalue()
+        cash_value = self.broker.getcash()
+        print(f"\n📊 当前账户总市值: {total_value:,.2f}, cash_value: {cash_value}")
+        for d in self.datas:
+            pos = self.getposition(d)
+            if pos.size > 0:
+                buy_price = pos.price
+                current_price = d.close[0]
+                market_value = pos.size * current_price
+                cost = pos.size * buy_price
+                profit = market_value - cost
+                pnl_pct = 100 * profit / cost if cost else 0
+                print(f"{d._name:<12} 持仓: {pos.size:>6} 购买价: {buy_price:.2f} 当前价: {current_price:.2f} 盈亏: {profit:.2f} ({pnl_pct:.2f}%)")
+
+
 
 
 def load_data_from_csv(code, fromdate, todate):

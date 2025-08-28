@@ -15,8 +15,7 @@ class CustomPandasData(bt.feeds.PandasData):
     """
 
     lines = ('amount', 'turn', 'mv', 'lt_mv', 'lt_share_rate',  'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q', 'price_limit')
-    params = (# 'datetime', 'open', 'high', 'low', 'close', 'volume', 'mv', 'lt_mv', 'lt_share_rate',  'profit', 'revenue', 'is_st'
-
+    params = (
         ('amount', -1),
         ('turn', -1),
         ('mv', -1),

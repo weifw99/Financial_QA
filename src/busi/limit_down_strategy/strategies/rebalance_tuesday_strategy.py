@@ -668,3 +668,222 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                 print(f"{d._name:<12} 持仓: {pos.size:>6} 购买价: {buy_price:.2f} 当前价: {current_price:.2f} 盈亏: {profit:.2f} ({pnl_pct:.2f}%)")
 
 
+
+class DailyCloseStrategy(bt.Strategy):
+    """每天收盘时根据策略信号交易（以收盘价成交）"""
+    params = (
+        ('sma_period', 20),  # 示例：使用20日均线作为信号
+    )
+
+    def __init__(self):
+        # 计算20日均线（示例信号，可替换为任意策略）
+        self.sma = bt.indicators.MovingAverageSimple(self.data.close, period=self.p.sma_period)
+        # 记录当天是否已交易（避免一天内重复下单）
+        self.traded_today = False
+
+    def next(self):
+        # 重置每日交易标志（新的一天的bar触发时）
+        self.traded_today = False
+
+        # 获取当前日期（调试用）
+        current_date = self.data.datetime.date(0)
+
+        # 策略逻辑示例：价格站上20日均线则买入，跌破则卖出
+        # 1. 无持仓且价格 > 20日均线 → 买入
+        if not self.position and self.data.close[0] > self.sma[0] and not self.traded_today:
+            # 以当天收盘价买入（exectype=bt.Order.Close）
+            self.buy(
+                size=100,
+                exectype=bt.Order.Close  # 关键：指定以收盘价成交
+            )
+            self.traded_today = True
+            self.log(f"买入：价格 {self.data.close[0]}, 日期 {current_date}")
+
+        # 2. 有持仓且价格 < 20日均线 → 卖出
+        elif self.position and self.data.close[0] < self.sma[0] and not self.traded_today:
+            # 以当天收盘价卖出
+            self.sell(
+                size=100,
+                exectype=bt.Order.Close
+            )
+            self.traded_today = True
+            self.log(f"卖出：价格 {self.data.close[0]}, 日期 {current_date}")
+
+    def log(self, txt, dt=None):
+        """日志输出"""
+        dt = dt or self.data.datetime.date(0)
+        print(f"{dt.isoformat()} {txt}")
+
+
+
+class TestStrategy(bt.Strategy):
+    params = (
+        ('maperiod', 15),
+    )
+
+    def log(self, txt, dt=None):
+        dt = dt or self.datas[0].datetime.date(0)
+        print('%s, %s' % (dt.isoformat(), txt))
+
+    def __init__(self):
+        self.dataclose = self.datas[0].close
+        self.order = None
+        self.buyprice = None
+        self.buycomm = None
+        self.sma = bt.indicators.SimpleMovingAverage(self.datas[0], period=self.params.maperiod)
+
+    def notify_order(self, order):
+        if order.status in [order.Submitted, order.Accepted]:
+            return
+
+        if order.status in [order.Completed]:
+            if order.isbuy():
+                self.log('BUY EXECUTED, Price: %.2f, Cost: %.2f, Comm %.2f' %
+                         (order.executed.price,
+                          order.executed.value,
+                          order.executed.comm))
+                self.buyprice = order.executed.price
+                self.buycomm = order.executed.comm
+            else:
+                self.log('SELL EXECUTED, Price: %.2f, Cost: %.2f, Comm %.2f' %
+                         (order.executed.price,
+                          order.executed.value,
+                          order.executed.comm))
+            self.bar_executed = len(self)
+
+        elif order.status in [order.Canceled, order.Margin, order.Rejected]:
+            self.log('Order Canceled/Margin/Rejected')
+
+        self.order = None
+
+    def notify_trade(self, trade):
+        if not trade.isclosed:
+            return
+        self.log('OPERATION PROFIT, GROSS %.2f, NET %.2f' %
+                 (trade.pnl, trade.pnlcomm))
+
+    def next(self):
+        self.log('Close, %.2f' % self.dataclose[0])
+
+        if self.order:
+            return
+
+        if not self.position:
+            if self.dataclose[0] > self.sma[0]:
+                self.log('BUY CREATE, %.2f' % self.dataclose[0])
+                self.order = self.buy()
+        else:
+            if self.dataclose[0] < self.sma[0]:
+                self.log('SELL CREATE, %.2f' % self.dataclose[0])
+                self.order = self.sell()
+
+
+class MeanReversionStrategy(bt.Strategy):
+    params = (
+        ("maperiod", 20),          # 短均线
+        ("maperiod_long", 60),     # 长均线
+        ("rsi_period", 14),        # RSI周期
+        ("max_stock_num", 3),      # 每日最多买几只
+        ("max_hold_num", 5),       # 最多持仓数
+        ("sell_mode", "open_next"),# 卖出模式
+        ("hold_days", 2),          # hold_N_days 模式下持仓天数
+        ("take_profit", 0.03),     # 止盈阈值 (3%)
+        ("stop_loss", -0.01),      # 止损阈值 (-1%)
+    )
+
+    def __init__(self):
+        self.last_close = dict()
+        self.data_dict = {d._name: d for d in self.datas}
+        self.ma20 = {d._name: bt.indicators.SMA(d.close, period=self.p.maperiod) for d in self.datas}
+        self.ma60 = {d._name: bt.indicators.SMA(d.close, period=self.p.maperiod_long) for d in self.datas}
+        self.rsi = {d._name: bt.indicators.RSI(d.close, period=self.p.rsi_period) for d in self.datas}
+
+        # 记录买入日期
+        self.buy_dates = {}
+
+    def next(self):
+        candidates = []
+
+        for d in self.datas:
+            name = d._name
+
+            if len(d) < max(self.p.maperiod, self.p.maperiod_long):
+                continue
+
+            if d.is_st[0] == 1:  # ST 过滤
+                continue
+
+            if d.amount[0] < 1e8:  # 成交额过滤
+                continue
+
+            if not (d.close[0] > self.ma60[name][0] and self.ma20[name][0] > self.ma20[name][-1]):
+                continue
+
+            if name in self.last_close:
+                daily_return = (d.close[0] - self.last_close[name]) / self.last_close[name]
+                if daily_return > -0.03 or daily_return < -0.07:
+                    continue
+            else:
+                daily_return = 0
+
+            if self.rsi[name][0] > 35:
+                continue
+
+            if abs(d.close[0] - self.ma20[name][0]) / self.ma20[name][0] > 0.02:
+                continue
+
+            candidates.append((d, daily_return, d.volume[0]))
+            self.last_close[name] = d.close[0]
+
+        # 按跌幅、成交量排序
+        candidates.sort(key=lambda x: (x[1], -x[2]))
+        buy_list = candidates[:self.p.max_stock_num]
+
+        # 当前持仓数量
+        current_positions = sum([1 for d in self.datas if self.getposition(d).size > 0])
+        available_slots = max(0, self.p.max_hold_num - current_positions)
+
+        if available_slots <= 0:
+            return
+
+        cash = self.broker.getcash()
+        if len(buy_list) > 0:
+            cash_per_stock = cash / min(len(buy_list), available_slots)
+        else:
+            return
+
+        for d, _, _ in buy_list[:available_slots]:
+            if not self.getposition(d).size:
+                size = int(cash_per_stock / d.close[0])
+                if size > 0:
+                    self.buy(data=d, size=size)
+                    self.buy_dates[d._name] = len(self)
+
+        # 卖出逻辑
+        self.check_sell_rules()
+
+    def check_sell_rules(self):
+        for d in self.datas:
+            pos = self.getposition(d)
+            if not pos.size:
+                continue
+
+            buy_date = self.buy_dates.get(d._name, None)
+
+            # 模式1：次日开盘卖出
+            if self.p.sell_mode == "open_next":
+                if len(self) - buy_date >= 1:
+                    self.close(data=d)
+
+            # 模式2：止盈止损
+            elif self.p.sell_mode == "stop_profit_loss":
+                entry_price = pos.price
+                pnl_ratio = (d.close[0] - entry_price) / entry_price
+                if pnl_ratio >= self.p.take_profit or pnl_ratio <= self.p.stop_loss:
+                    self.close(data=d)
+
+            # 模式3：持有N天
+            elif self.p.sell_mode == "hold_N_days":
+                if len(self) - buy_date >= self.p.hold_days:
+                    self.close(data=d)
+

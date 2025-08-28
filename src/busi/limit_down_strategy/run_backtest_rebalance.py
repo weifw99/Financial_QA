@@ -3,13 +3,15 @@ from datetime import datetime
 
 import backtrader as bt
 
-from busi.limit_down_strategy.strategies.rebalance_tuesday_strategy import RebalanceTuesdayStrategy
+from busi.limit_down_strategy.strategies.rebalance_tuesday_strategy import RebalanceTuesdayStrategy, TestStrategy, \
+    MeanReversionStrategy
 from busi.limit_down_strategy.utils.backtest_util import cerebro_show
 from utils.data_loader import load_stock_data
 
 
 def run():
-    cerebro = bt.Cerebro(cheat_on_open=True)
+    # cerebro = bt.Cerebro(cheat_on_open=True)
+    cerebro = bt.Cerebro()
 
     # 设置滑点和佣金
     cerebro.broker.set_slippage_perc(perc=0.00015)  # 买卖滑点各 0.015%
@@ -31,7 +33,16 @@ def run():
     print('load data DONE.', len(datafeeds))
 
     # 添加策略及其参数
-    cerebro.addstrategy(RebalanceTuesdayStrategy)
+    # cerebro.addstrategy(RebalanceTuesdayStrategy)
+    # cerebro.addstrategy(TestStrategy)
+    # 策略参数：三种卖出方式可选
+    cerebro.addstrategy(MeanReversionStrategy,
+                        max_stock_num=3,
+                        max_hold_num=5,
+                        sell_mode="stop_profit_loss",  # 可切换 open_next / stop_profit_loss / hold_N_days
+                        take_profit=0.03,
+                        stop_loss=-0.01,
+                        hold_days=2)
     print('add strategy DONE.')
 
     # 添加 PyFolio分析组件

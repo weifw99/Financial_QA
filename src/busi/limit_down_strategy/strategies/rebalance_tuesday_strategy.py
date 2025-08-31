@@ -780,69 +780,128 @@ class TestStrategy(bt.Strategy):
 
 class MeanReversionStrategy(bt.Strategy):
     params = (
-        ("maperiod", 20),          # 短均线
-        ("maperiod_long", 60),     # 长均线
-        ("rsi_period", 14),        # RSI周期
-        ("max_stock_num", 3),      # 每日最多买几只
-        ("max_hold_num", 5),       # 最多持仓数
-        ("sell_mode", "open_next"),# 卖出模式
-        ("hold_days", 2),          # hold_N_days 模式下持仓天数
-        ("take_profit", 0.03),     # 止盈阈值 (3%)
-        ("stop_loss", -0.01),      # 止损阈值 (-1%)
+        ("maperiod", 10),
+        ("maperiod_long", 20),
+        ("rsi_period", 10),
+        ("max_stock_num", 3),
+        ("max_hold_num", 5),
+        ("sell_mode", "open_next"),
+        ("hold_days", 2),
+        ("take_profit", 0.03),
+        ("stop_loss", -0.01),
+        ("debug", True),   # 是否打印调试信息
     )
 
     def __init__(self):
-        self.last_close = dict()
-        self.data_dict = {d._name: d for d in self.datas}
-        self.ma20 = {d._name: bt.indicators.SMA(d.close, period=self.p.maperiod) for d in self.datas}
-        self.ma60 = {d._name: bt.indicators.SMA(d.close, period=self.p.maperiod_long) for d in self.datas}
-        self.rsi = {d._name: bt.indicators.RSI(d.close, period=self.p.rsi_period) for d in self.datas}
-
-        # 记录买入日期
         self.buy_dates = {}
 
+    # ========== 通用指标 ==========
+    def get_ma(self, data, period, ago=0):
+        """简单移动平均"""
+        values = data.close.get(size=period + ago)
+        if len(values) < period + ago:
+            return None
+        return np.mean(values[-period-ago:len(values)-ago])
+
+    def get_rsi(self, data, period):
+        closes = np.array(data.close.get(size=period + 1))
+        if len(closes) < period + 1:
+            return None
+        deltas = np.diff(closes)
+        gains = deltas[deltas > 0].sum() / period
+        losses = -deltas[deltas < 0].sum() / period
+        if losses == 0:
+            return 100
+        rs = gains / losses
+        return 100 - (100 / (1 + rs))
+
+    # ========== 策略逻辑 ==========
     def next(self):
+        self.print_positions()
+        self.check_sell_rules()
         candidates = []
+        step_counts = {  # 记录各步通过的股票数量
+            "raw": 0,
+            "non_st": 0,
+            "liquidity": 0,
+            "trend": 0,
+            "drop": 0,
+            "rsi": 0,
+            "near_ma20": 0,
+            "final": 0,
+        }
 
         for d in self.datas:
             name = d._name
+            step_counts["raw"] += 1
 
             if len(d) < max(self.p.maperiod, self.p.maperiod_long):
                 continue
 
-            if d.is_st[0] == 1:  # ST 过滤
+            ma20_today = self.get_ma(d, self.p.maperiod)
+            ma20_yesterday = self.get_ma(d, self.p.maperiod, ago=1)
+            ma60 = self.get_ma(d, self.p.maperiod_long)
+            rsi = self.get_rsi(d, self.p.rsi_period)
+
+            if ma20_today is None or ma60 is None or rsi is None:
                 continue
 
-            if d.amount[0] < 1e8:  # 成交额过滤
+            # ----------- Step1: ST 过滤 -----------
+            if d.is_st[0] == 1:
+                if self.p.debug: print(f"{name} ❌ ST股票")
                 continue
+            step_counts["non_st"] += 1
 
-            if not (d.close[0] > self.ma60[name][0] and self.ma20[name][0] > self.ma20[name][-1]):
+            # ----------- Step2: 流动性过滤 -----------
+            if d.amount[0] < 1e8:
+                if self.p.debug: print(f"{name} ❌ 成交额过低 {d.amount[0]}")
                 continue
+            step_counts["liquidity"] += 1
 
-            if name in self.last_close:
-                daily_return = (d.close[0] - self.last_close[name]) / self.last_close[name]
-                if daily_return > -0.03 or daily_return < -0.07:
-                    continue
-            else:
-                daily_return = 0
-
-            if self.rsi[name][0] > 35:
+            # ----------- Step3: 趋势过滤 -----------
+            if not (d.close[0] > ma60 and (ma20_yesterday is None or ma20_today > ma20_yesterday)):
+                if self.p.debug: print(f"{name} ❌ 趋势不过滤 close={d.close[0]:.2f} ma60={ma60:.2f}")
                 continue
+            step_counts["trend"] += 1
 
-            if abs(d.close[0] - self.ma20[name][0]) / self.ma20[name][0] > 0.02:
+            # ----------- Step4: 当日跌幅过滤 -----------
+            daily_return = (d.close[0] - d.open[0]) / d.open[0]
+
+            if daily_return > -0.05 or daily_return < -0.09:
+                if self.p.debug: print(f"{name} ❌ 当日跌幅 {daily_return:.2%}")
                 continue
+            step_counts["drop"] += 1
 
+            # ----------- Step5: RSI 过滤 -----------
+            # if rsi > 25:
+            #     if self.p.debug: print(f"{name} ❌ RSI={rsi:.2f}")
+            #     continue
+            step_counts["rsi"] += 1
+
+            # ----------- Step6: 接近 MA20 -----------
+            if abs(d.close[0] - ma20_today) / ma20_today > 0.05:
+                if self.p.debug: print(f"{name} ❌ 偏离MA20过大 close={d.close[0]:.2f} ma20={ma20_today:.2f}")
+                continue
+            step_counts["near_ma20"] += 1
+
+            # ✅ 进入候选
             candidates.append((d, daily_return, d.volume[0]))
-            self.last_close[name] = d.close[0]
 
-        # 按跌幅、成交量排序
+        # ----------- 汇总打印 -----------
+        step_counts["final"] = len(candidates)
+        if self.p.debug:
+            print(f"\n日期 {self.datas[0].datetime.date(0)} 候选过滤情况:")
+            for step, count in step_counts.items():
+                print(f"  {step}: {count}")
+            print("-" * 50)
+
+        # ----------- 排序选股 -----------
         candidates.sort(key=lambda x: (x[1], -x[2]))
         buy_list = candidates[:self.p.max_stock_num]
 
-        # 当前持仓数量
+        # ----------- 仓位管理 -----------
         current_positions = sum([1 for d in self.datas if self.getposition(d).size > 0])
         available_slots = max(0, self.p.max_hold_num - current_positions)
-
         if available_slots <= 0:
             return
 
@@ -859,31 +918,50 @@ class MeanReversionStrategy(bt.Strategy):
                     self.buy(data=d, size=size)
                     self.buy_dates[d._name] = len(self)
 
-        # 卖出逻辑
-        self.check_sell_rules()
+        # self.check_sell_rules()
 
+
+    # ========== 卖出规则 ==========
     def check_sell_rules(self):
+        print("检查卖出规则...", self.buy_dates)
         for d in self.datas:
             pos = self.getposition(d)
             if not pos.size:
                 continue
-
             buy_date = self.buy_dates.get(d._name, None)
 
-            # 模式1：次日开盘卖出
             if self.p.sell_mode == "open_next":
                 if len(self) - buy_date >= 1:
+                    print(f"{d._name} ✅ open_next 卖出 {pos.size}股")
                     self.close(data=d)
 
-            # 模式2：止盈止损
             elif self.p.sell_mode == "stop_profit_loss":
                 entry_price = pos.price
                 pnl_ratio = (d.close[0] - entry_price) / entry_price
                 if pnl_ratio >= self.p.take_profit or pnl_ratio <= self.p.stop_loss:
+                    print(f"{d._name} ✅ stop_profit_loss 卖出 {pos.size}股")
                     self.close(data=d)
 
-            # 模式3：持有N天
             elif self.p.sell_mode == "hold_N_days":
                 if len(self) - buy_date >= self.p.hold_days:
+                    print(f"{d._name} ✅ hold_N_days 卖出 {pos.size}股")
+
                     self.close(data=d)
+
+    def print_positions(self):
+        total_value = self.broker.getvalue()
+        cash_value = self.broker.getcash()
+        print(f"\n📊 当前账户总市值: {total_value:,.2f}, cash_value: {cash_value}")
+        for d in self.datas:
+            pos = self.getposition(d)
+            if pos.size > 0:
+                buy_price = pos.price
+                current_price = d.close[0]
+                market_value = pos.size * current_price
+                cost = pos.size * buy_price
+                profit = market_value - cost
+                pnl_pct = 100 * profit / cost if cost else 0
+                print(
+                    f"{d._name:<12} 持仓: {pos.size:>6} 购买价: {buy_price:.2f} 当前价: {current_price:.2f} 盈亏: {profit:.2f} ({pnl_pct:.2f}%)")
+
 

@@ -505,3 +505,247 @@ def load_stock_data(from_idx, to_idx):
 
     return datas
 
+
+
+def load_stock_data_df(from_idx, to_idx):
+    """
+    批量加载 data_dir 下的所有 CSV 文件，返回数据列表
+    文件名将作为数据名称注入，如 '600000.csv' -> data._name = '600000'
+    :param data_dir: 包含CSV的路径
+    :return: list of data feeds
+    """
+    zz_code_data_paths = [
+        # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中小板指数-中小100-399005.csv',
+        '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中小综指-399101.csv',
+        # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中证1000-000852.csv',
+        # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中证2000-932000.csv',
+        # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/微盘股-BK1158.csv',
+    ]
+    zz_code_list = []
+    for zz_code_data_path in zz_code_data_paths:
+        if not os.path.exists(zz_code_data_path):
+            print(f'{zz_code_data_path} 不存在')
+            continue
+        zz_code_df = pd.read_csv(zz_code_data_path)
+        zz_code_list += zz_code_df['type'].tolist()
+
+    datas = []
+
+    base_data_path = '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data'
+    zh_data_dir = Path(base_data_path) / 'market'
+    financial_data_dir = Path(base_data_path).parent / 'zh_data/financial'
+    board_industry_dir = Path(base_data_path).parent / 'zh_data/industry/board_industry'
+
+
+    # 1. 找到行业目录中最新的CSV文件
+    files = [f for f in os.listdir(board_industry_dir) if f.endswith('.csv')]
+    if not files:
+        raise FileNotFoundError(f"⚠️ 行业目录中没有找到CSV文件: {board_industry_dir}")
+    files.sort(key=lambda f: os.path.getmtime(os.path.join(board_industry_dir, f)), reverse=True)
+    latest_file = os.path.join(board_industry_dir, files[0])
+    print(f"📄 使用行业文件: {latest_file}")
+
+    # 2. 读取行业数据
+    industry_df = pd.read_csv(latest_file, dtype={'code': str})
+    industry_df = industry_df[['code', 'name', 'industry_code', 'industry_name']]
+
+    # 获取所有时间数据， 使用000001.csv
+    pdf = pd.read_csv(f'{zh_data_dir}/sh.000001/daily.csv')
+    pdf['date'] = pd.to_datetime(pdf['date'])
+
+    from_date = from_idx - timedelta(days=40)
+    pdf = pdf[pdf['date'] >= from_date]
+    data = pd.DataFrame(index=pdf['date'].unique())
+    data = data.sort_index()
+
+    select_cols = ['date', 'open', 'high', 'low', 'close', 'volume', 'amount', ]
+    add_cols = ['industry_name', 'amount', 'turn', 'mv', 'lt_mv', 'lt_share_rate',   'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q', 'openinterest', ]
+    # 加载 SZ510880 SH159300
+    etf_list = ['SZ510880', 'SH159919', 'SZ510050', 'SZ588000', 'SZ511880']
+    etf_path = '/Users/dabai/liepin/study/llm/Financial_QA/src/busi/etf_/data/etf_trading/daily'
+    for etf_code in etf_list:
+        etf_df = pd.read_csv(f'{etf_path}/{etf_code}.csv')
+        # 选择需要的列
+        etf_df = etf_df[select_cols]
+        for col in add_cols:
+            if col not in etf_df.columns:
+                etf_df[col] = 0
+        etf_df['date'] = pd.to_datetime(etf_df['date'])
+        etf_df['date1'] = etf_df['date']
+        etf_df.set_index('date', inplace=True)  # 设置 datetime 为索引
+        etf_df = etf_df.sort_index()
+        data_ = pd.merge(data, etf_df, left_index=True, right_index=True, how='left')
+        data_.fillna(0, inplace=True)
+        data_ = data_.sort_index()  # ✅ 强制升序
+        datas.append({'code': etf_code, 'data': data_})
+
+
+    index_list =['csi932000', 'sz399101' , 'sh000905', 'sh000852', 'sh000046', 'sz399005', 'sz399008', 'sz399401',
+                 'sz399649','sz399663','sz399377','sh000046','sz399408','sz399401','sh000991' ,
+                 'sh000852', 'sz399004', 'sh000905', 'sz399006',
+                 'sz399693']
+    # 获取指数数据
+    zz_path = '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/index'
+
+    for index_code in index_list:
+
+        zz_df = pd.read_csv(f'{zz_path}/{index_code}.csv')
+        # 选择需要的列
+        zz_df = zz_df[select_cols[:-1]]
+        for col in add_cols:
+            if col not in zz_df.columns:
+                zz_df[col] = 0
+        zz_df['date'] = pd.to_datetime(zz_df['date'])
+        zz_df['date1'] = zz_df['date']
+        zz_df.set_index('date', inplace=True)  # 设置 datetime 为索引
+        zz_df = zz_df.sort_index()
+        data_ = pd.merge(data, zz_df, left_index=True, right_index=True, how='left')
+        data_.fillna(0, inplace=True)
+        data_ = data_.sort_index()  # ✅ 强制升序
+        datas.append({'code': index_code, 'data': data_})
+
+    temp_stock_list = ['sh.000300',  'sh.000016', 'sh.000852', 'BK1158', ]
+    for i, stock_file in enumerate(os.listdir(zh_data_dir)):
+        # if i > 500:
+        #     break
+
+        # 测试
+        # if len(datas) >100 and stock_file  not in temp_stock_list:
+        #     continue
+
+        # 使用指数成分股股票回测
+        if stock_file not in zz_code_list and stock_file not in temp_stock_list:
+            print(f'过滤非指数成分股股票: {stock_file}')
+            continue # 0.1945 sz399101成分股,
+            # 指数的成分股数据 0.10   中证1000-000852，中证2000-932000
+            # 指数的成分股数据 0.158  中小综指-399101,中证1000-000852，中证2000-932000
+            # 指数的成分股数据 0.1945  中小综指-399101,中证1000-000852
+            # 指数的成分股数据 0.158  中小综指-399101,中证2000-932000
+            # 指数的成分股数据 0.10,中证2000-932000
+        # 0.2137，全部数据
+        # 过滤创业板/科创板/北交所股票
+        if ('.30' in stock_file
+                or '.68' in stock_file
+                or '.8' in stock_file
+                or '.4' in stock_file):
+            print(f'过滤创业板/科创板/北交所股票: {stock_file}')
+            continue
+
+        print(f'{i}/{stock_file}')
+        # file_path = f'{zh_data_dir}/{stock_file}/daily.csv'
+        file_path_a = f'{zh_data_dir}/{stock_file}/daily_a.csv'
+
+        # 获取财务盈利信息
+        financial_path = f'{financial_data_dir}/{stock_file}/income.csv'
+        income_gbjg_path = f'{financial_data_dir}/{stock_file}/income_gbjg.csv'
+        if os.path.exists(file_path_a):
+            df = pd.read_csv(file_path_a)
+            if 'code' not in df.columns:
+                print(f'{stock_file} 缺少列: {col}')
+                df['code'] = stock_file
+
+            # df = merge_stock_with_industry(df, industry_df)
+
+            # 过滤上市时间太短的股票 （A 股一年交易时间243天），取上市一年多的股票
+            if len(df) < 275:
+                print(f'{stock_file} 上市交易时间太短，交易的天数: {len(df)}，忽略该股票')
+                continue
+
+            # df_a = pd.read_csv(file_path_a)[['date','close']]
+            # df_a.rename(columns={'close': 'close_1'}, inplace=True)
+
+            # df = pd.merge(df, df_a, on='date', how='inner')
+            df['close_1'] = df['close']
+
+            # 使用后复权价格，factor均设置为1， 回测使用该因子
+            df['factor'] = 1.0
+            # 确保 date 列为 datetime 类型并排序
+            df['date'] = pd.to_datetime(df['date'])
+            df_sorted = df.sort_values('date')
+            df_sorted.rename(columns={'isST': 'is_st', }, inplace=True)
+
+            if os.path.exists(financial_path):
+
+                financial_df = pd.read_csv(financial_path)
+                if os.path.exists(income_gbjg_path):
+                    income_gbjg_df = pd.read_csv(income_gbjg_path)[['变更日期','总股本', '已上市流通A股']]
+                    income_gbjg_df.rename(columns={'变更日期': 'date', '总股本': 'totalShare_new', '已上市流通A股': 'liqaShare_a'}, inplace=True)
+                else:
+                    income_gbjg_df = None
+
+                quarterly_df, annual_df = process_financial_data(financial_df)
+
+                df_temp = merge_with_stock(df_sorted, quarterly_df, annual_df, income_gbjg_df)
+                if 'totalShare_new' not in df_temp.columns:
+                    df_temp['totalShare_new'] = df_temp['totalShare_q']
+
+                if 'liqaShare_a' not in df_temp.columns:
+                    df_temp['liqaShare_a'] = df_temp['liqaShare_q']
+
+                df2_sorted = df_temp.sort_values('date').ffill().dropna()
+
+                df = df2_sorted
+
+                df['mv'] = df['totalShare_new'] * df['close_1'] # 市值 = 总股本 * 收盘价（不复权）
+                df['lt_mv'] = df['liqaShare_a'] * df['close_1'] # 市值 = 已上市流通A股 * 收盘价（不复权）
+                df['lt_share_rate'] = df['liqaShare_a'] / df['totalShare_new'] #  流通A股占比
+
+                df['openinterest'] = 0
+                df['date'] = pd.to_datetime(df['date'])
+                # 价格涨跌幅度
+                df['price_limit'] = (df['close'] - df['open']) / df['open'] * 100
+
+                # 选择需要的列
+                df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn', 'mv', 'lt_mv', 'lt_share_rate',   'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q', 'price_limit', 'openinterest', ]]
+                df['date1'] = df['date']
+                df.set_index('date', inplace=True)  # 设置 datetime 为索引
+                df = df.sort_index()
+
+                data_ = pd.merge(data, df, left_index=True, right_index=True, how='left')
+                data_ = data_.sort_index()  # ✅ 强制升序
+                # 检查并填充关键列
+                # required_cols = ['datetime', 'open', 'high', 'low', 'close', 'volume', 'mv', 'lt_mv', 'lt_share_rate',  'profit', 'revenue', 'is_st']
+                # for col in required_cols:
+                #     if col not in df.columns:
+                #         raise ValueError(f"缺失字段：{col} in {stock_file}")
+                # df = df[required_cols]
+
+                # data_ = df.sort_index()
+                data_.loc[:, ['volume', 'openinterest']] = data_.loc[:, ['volume', 'openinterest']].fillna(0)
+                data_.loc[:, ['open', 'high', 'low', 'close']] = data_.loc[:, ['open', 'high', 'low', 'close', ]].bfill()
+                data_.bfill(inplace=True)
+                data_.fillna(0, inplace=True)
+                rsub_cols = [ 'open', 'high', 'low', 'close', ]
+
+                data_.dropna(subset=rsub_cols, inplace=True)
+
+                # print("最终合并后的 data_ 形状:", data_.shape)
+                # print("缺失字段统计:\n", data_.isnull().sum())
+                # print("close 列前5行:\n", data_['close'].head())
+
+                # if df.empty or len(df) < 100:
+                #     continue
+
+                # data._name = stock_file.replace('.csv', '')  # 设置数据名称（用于后续匹配指数名等）
+                # print(f'添加数据源：{data._name}，数据日期范围：{df["datetime"].min()} ~ {df["datetime"].max()}，共 {len(df)} 条记录')
+                datas.append({'code': stock_file, 'data': data_})
+            else:
+                print(f'{stock_file} 缺少财务信息')
+                # 选择需要的列
+                df_sorted = df_sorted[select_cols]
+                for col in add_cols:
+                    if col not in df_sorted.columns:
+                        df_sorted[col] = 0
+
+                df_sorted['date1'] = df_sorted['date']
+                df_sorted.set_index('date', inplace=True)  # 设置 datetime 为索引
+                df_sorted = df_sorted.sort_index()
+                data_ = pd.merge(data, df_sorted, left_index=True, right_index=True, how='left')
+                data_.fillna(0, inplace=True)
+                data_ = data_.sort_index()  # ✅ 强制升序
+
+
+                datas.append({'code': stock_file, 'data': data_})
+
+    return datas
+

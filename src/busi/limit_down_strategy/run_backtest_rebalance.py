@@ -19,7 +19,7 @@ def run():
     # cerebro.broker.setcash(1000000)  # 初始资金
     cerebro.broker.setcash(100000)  # 初始资金
 
-    from_idx = datetime(2025, 4, 1)  # 记录行情数据的开始时间和结束时间
+    from_idx = datetime(2025, 1, 1)  # 记录行情数据的开始时间和结束时间
     to_idx = datetime(2025, 7, 23)
 
     # from_idx = datetime(2014, 1, 1)  # 记录行情数据的开始时间和结束时间
@@ -39,7 +39,7 @@ def run():
     cerebro.addstrategy(MeanReversionStrategy,
                         max_stock_num=3,
                         max_hold_num=5,
-                        sell_mode="stop_profit_loss",  # 可切换 open_next / stop_profit_loss / hold_N_days
+                        sell_mode="hold_N_days",  # 可切换 open_next / stop_profit_loss / hold_N_days
                         take_profit=0.03,
                         stop_loss=-0.01,
                         hold_days=2)

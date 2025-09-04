@@ -789,7 +789,7 @@ class MeanReversionStrategy(bt.Strategy):
         ("hold_days", 2),
         ("take_profit", 0.03),
         ("stop_loss", -0.01),
-        ("debug", True),   # 是否打印调试信息
+        ("debug", False),   # 是否打印调试信息
     )
 
     def __init__(self):
@@ -817,6 +817,9 @@ class MeanReversionStrategy(bt.Strategy):
 
     # ========== 策略逻辑 ==========
     def next(self):
+        # 获取当前日期
+        current_date = self.data.datetime.date(0)
+        print(f"====================={current_date} next start===================")
         self.print_positions()
         self.check_sell_rules()
         candidates = []
@@ -913,16 +916,20 @@ class MeanReversionStrategy(bt.Strategy):
 
         for d, _, _ in buy_list[:available_slots]:
             if not self.getposition(d).size:
-                size = int(cash_per_stock / d.close[0])
+                size = int(cash_per_stock / d.close[0])/100*100
                 if size > 0:
-                    self.buy(data=d, size=size)
-                    self.buy_dates[d._name] = len(self)
+                    self.buy(data=d, size=size, price=d.close[0])
+                    self.buy_dates[d._name] = current_date
 
         # self.check_sell_rules()
+        print(f"====================={current_date} next end===================")
+        self.print_positions()
 
 
     # ========== 卖出规则 ==========
     def check_sell_rules(self):
+        # 获取当前日期
+        current_date = self.data.datetime.date(0)
         print("检查卖出规则...", self.buy_dates)
         for d in self.datas:
             pos = self.getposition(d)
@@ -931,22 +938,22 @@ class MeanReversionStrategy(bt.Strategy):
             buy_date = self.buy_dates.get(d._name, None)
 
             if self.p.sell_mode == "open_next":
-                if len(self) - buy_date >= 1:
+                if (current_date - buy_date).days >= 1:
                     print(f"{d._name} ✅ open_next 卖出 {pos.size}股")
-                    self.close(data=d)
+                    self.close(data=d, price=d.close[0])
 
             elif self.p.sell_mode == "stop_profit_loss":
                 entry_price = pos.price
                 pnl_ratio = (d.close[0] - entry_price) / entry_price
                 if pnl_ratio >= self.p.take_profit or pnl_ratio <= self.p.stop_loss:
                     print(f"{d._name} ✅ stop_profit_loss 卖出 {pos.size}股")
-                    self.close(data=d)
+                    self.close(data=d, price=d.close[0])
 
             elif self.p.sell_mode == "hold_N_days":
-                if len(self) - buy_date >= self.p.hold_days:
+                if (current_date - buy_date).days >= self.p.hold_days:
                     print(f"{d._name} ✅ hold_N_days 卖出 {pos.size}股")
 
-                    self.close(data=d)
+                    self.close(data=d, price=d.close[0])
 
     def print_positions(self):
         total_value = self.broker.getvalue()

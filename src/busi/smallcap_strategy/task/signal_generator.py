@@ -11,8 +11,13 @@ class SmallCapSignalGenerator:
         self.today = None        # 当前日期
 
     def load_data(self, stock_data_dict: dict, today: datetime):
-        self.stock_data = stock_data_dict
         self.today = today
+        temp_dict= {}
+        for name, df in stock_data_dict.items():
+            df_until_today = df[df.index <= today]
+            temp_dict[ name ] = df_until_today
+        self.stock_data = temp_dict
+
 
     def check_trend_crash(self):
         df = self.stock_data[self.config['smallcap_index'][0]]
@@ -50,7 +55,7 @@ class SmallCapSignalGenerator:
         open_avg = np.mean(open_list, axis=0)
         daily_ret = close_avg / open_avg - 1
 
-        crash_days = (daily_ret < -0.03).sum()
+        crash_days = (daily_ret < -0.025).sum()
         avg_ret = daily_ret.mean()
 
         # 波动率计算使用组合指数的最近11个收盘价
@@ -65,7 +70,9 @@ class SmallCapSignalGenerator:
         vol = np.std(np.diff(np.log(close_series))) * np.sqrt(252)
 
         print(f"📉 组合趋势止损判断：3日组合涨跌={daily_ret}, avg={avg_ret:.2%}, vol={vol:.2%}")
-        if (crash_days >= 2 or avg_ret < -0.04) and vol < 0.2:
+        if (crash_days >= 2 or avg_ret < -0.03) and vol < 0.2:
+            # 最近 3 天至少 2 天跌超 2.5%，或者平均跌超 3%。
+            # 且波动率较低。
             print("🚨 触发组合小市值指数的趋势熔断机制")
             return True
 
@@ -101,7 +108,7 @@ class SmallCapSignalGenerator:
             recovery_scores.append(np.mean(day_scores))
 
         print(f'📊 最近三个动量: {recovery_scores}')
-        return recovery_scores[2] > recovery_scores[1] > recovery_scores[0]
+        return recovery_scores[0] > recovery_scores[1] > recovery_scores[2] , recovery_scores
     def check_momentum_rank(self, top_k=2):
         ranks = []
         for name in self.config['smallcap_index'] + self.config['large_indices']:
@@ -124,12 +131,12 @@ class SmallCapSignalGenerator:
         ranks_comp.sort(key=lambda x: x[1], reverse=True)
         ranks.sort(key=lambda x: x[1], reverse=True)
         in_top_k = '__smallcap_combo__' in [x[0] for x in ranks_comp[:top_k]]
-        is_recovering = self.check_recent_recovery()
+        is_recovering, recovery_scores = self.check_recent_recovery()
 
         if not in_top_k and not is_recovering:
-            return False, ranks
+            return False, ranks, ranks_comp, recovery_scores
         else:
-            return True, ranks
+            return True, ranks, ranks_comp, recovery_scores
 
     def filter_candidates(self):
         results = []
@@ -179,7 +186,7 @@ class SmallCapSignalGenerator:
         """
         # trend_crash = self.check_trend_crash()
         trend_crash = self.check_combo_trend_crash()
-        momentum_ok, momentum_rank = self.check_momentum_rank(top_k=2)
+        momentum_ok, momentum_rank, ranks_comp, recovery_scores = self.check_momentum_rank(top_k=2)
 
         candidates = self.filter_candidates()
 
@@ -197,31 +204,16 @@ class SmallCapSignalGenerator:
             in_hold = 1 if current_hold and name in current_hold else 0
             to_buy.append((name, mv, in_hold, close_price,  name in filter_names))
 
-        if trend_crash:
-            return {
-                'trend_crash': True,
-                'momentum_ok': momentum_ok,
-                'momentum_rank': momentum_rank,
-                'buy': to_buy,
-                'current_hold': list(current_hold or []),
-                'sell': list(current_hold or []),
-            }
-
-        if not momentum_ok:
-            return {
-                'trend_crash': False,
-                'momentum_ok': False,
-                'momentum_rank': momentum_rank,
-                'buy': to_buy,
-                'current_hold': list(current_hold or []),
-                'sell': list(current_hold or []),
-            }
-
-
-        return {
-            'trend_crash': False,
-            'momentum_ok': True,
+        sing = {
+            'trend_crash': trend_crash,
+            'recovery_scores': recovery_scores,
+            'momentum_ok': momentum_ok,
             'momentum_rank': momentum_rank,
-            'buy': to_buy,  # [(name, mv, in_hold, close_price)]
+            'ranks_comp': ranks_comp,
+            'buy': to_buy,
             'current_hold': list(current_hold or []),
+            'sell': list(current_hold or []),
         }
+        print(f"🚀 策略信号：{sing}")
+        return  sing
+

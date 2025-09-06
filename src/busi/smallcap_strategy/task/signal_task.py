@@ -20,9 +20,15 @@ def main():
     today = datetime.today()
     stock_data_dict, data_date = load_recent_data()
 
+    for i in range(25):
+        data_date = today - timedelta(days=i)
+        print(f"数据日期: {data_date.date()}")
+
+        # data_date = today - timedelta(days=3)
+    data_date = today
     # 2. 初始化生成器
     generator = SmallCapSignalGenerator(config)
-    generator.load_data(stock_data_dict, today)
+    generator.load_data(stock_data_dict, data_date)
 
     # 3. 当前持仓（如无自动记录可手动传入）
     current_hold = ["stock_A", "stock_B"]  # 示例
@@ -30,16 +36,19 @@ def main():
     # 4. 生成信号
     signal = generator.generate_signals(current_hold=current_hold)
 
-    print(f"📅 执行日期: {today.date()}")
+    execute_date = datetime.today()
+    print(f"📅 执行日期: {execute_date.date()}")
     print(f"📅 数据截止日期: {data_date.date()}")
     print(f"🚨 趋势熔断: {signal['trend_crash']}")
+    print(f"🚨 趋势动量: {signal['recovery_scores']}")
     print(f"📊 动量领先: {signal['momentum_ok']}")
     print(f"🔁 动量排名: {signal['momentum_rank']}")
+    print(f"🔁 动量排名1: {signal['ranks_comp']}")
     print(f"📥 建议买入: {signal['buy']}")
     print(f"💸 持仓: {signal['current_hold']}")
 
     # 假设你已有 signal = {...}
-    content = format_signal_message(signal, today, data_date)
+    content = format_signal_message(signal, execute_date, data_date)
 
     print(content)
 

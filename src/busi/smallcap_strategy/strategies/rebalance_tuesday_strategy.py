@@ -300,7 +300,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                 day_scores.append(score)
             recovery_scores.append(np.mean(day_scores))
         print(f'📊 最近三个动量: {recovery_scores}')
-        return recovery_scores[2] > recovery_scores[1] > recovery_scores[0]
+        return recovery_scores[0] > recovery_scores[1] > recovery_scores[2]
 
     def check_momentum_rank(self, top_k=2):
         combo_score = self.get_combined_smallcap_momentum()
@@ -391,13 +391,14 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         open_avg = np.mean(open_mat, axis=0)
         daily_return = close_avg / open_avg - 1
 
-        crash_days = np.sum(daily_return < -0.03)
+        crash_days = np.sum(daily_return < -0.025)
         avg_return = daily_return.mean()
         vol = np.std(np.diff(np.log(close_avg))) * np.sqrt(252)
 
         print(f'📉 组合趋势止损判断：3日组合涨跌={daily_return}, 平均={avg_return:.2%}, 波动率={vol:.2%}')
 
-        if (crash_days >= 2 or avg_return < -0.04) and vol < 0.2:
+        if (crash_days >= 2 or avg_return < -0.03) and vol < 0.2:
+            # 最近 3 天至少 2 天跌超 2.5%，或者平均跌超 3%。且波动率较低。
             print("🚨 触发组合小市值指数的趋势熔断机制")
             return True
 
@@ -584,12 +585,13 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                     #         continue  # 静止股票跳过
 
                     # candidates.append((d, mv))
-                    candidates.append((d, lt_mv))
+                    candidates.append((d, lt_mv, mv))
             except:
                 print(f"⚠️ 获取股票数据失败: {d._name}")
                 continue
-
-        candidates = sorted(candidates, key=lambda x: x[1])
+        # candidates = sorted(candidates, key=lambda x: x[1])
+        candidates = sorted(candidates, key=lambda x: (x[1], id(x[0])) )
+        # candidates = sorted(candidates, key=lambda x: (x[1], x[2], id(x[0]) ))
         if len(candidates) > 0:
             print("filter_stocks len：", len(candidates), f'{candidates[0][0]._name} mv min: ', candidates[0][1],
                   f'{candidates[-1][0]._name} mv max: ', candidates[-1][1])

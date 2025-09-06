@@ -271,7 +271,7 @@ class SmallCapStrategy(bt.Strategy):
                 day_scores.append(score)
             recovery_scores.append(np.mean(day_scores))
         print(f'📊 最近三个动量: {recovery_scores}')
-        return recovery_scores[2] > recovery_scores[1] > recovery_scores[0]
+        return recovery_scores[0] > recovery_scores[1] > recovery_scores[2]
 
     def check_momentum_rank(self, top_k=2):
         combo_score = self.get_combined_smallcap_momentum()

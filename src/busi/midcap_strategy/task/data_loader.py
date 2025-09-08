@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 
-from src.busi.smallcap_strategy.utils.data_loader import process_financial_data, merge_with_stock
+from src.busi.midcap_strategy.utils.data_loader import process_financial_data, merge_with_stock
 
 
 def load_recent_data():

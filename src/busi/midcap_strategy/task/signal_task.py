@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
 
-from src.busi.smallcap_strategy.task.seed_message import format_signal_message, send_email, send_wechat_smsg
-from src.busi.smallcap_strategy.task.signal_generator import SmallCapSignalGenerator
-from src.busi.smallcap_strategy.task.data_loader import load_recent_data
+from src.busi.midcap_strategy.task.seed_message import format_signal_message, send_email, send_wechat_smsg
+from src.busi.midcap_strategy.task.signal_generator import SmallCapSignalGenerator
+from src.busi.midcap_strategy.task.data_loader import load_recent_data
 
 config = dict(
     smallcap_index=['csi932000', 'sz399101', 'BK1158'],

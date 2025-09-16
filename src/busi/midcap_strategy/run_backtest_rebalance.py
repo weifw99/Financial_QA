@@ -3,14 +3,12 @@ from datetime import datetime
 
 import backtrader as bt
 
-from busi.smallcap_strategy.run_backtest import load_config
-from busi.smallcap_strategy.strategies.rebalance_tuesday_strategy import RebalanceTuesdayStrategy
-from busi.smallcap_strategy.utils.backtest_util import cerebro_show
+from busi.midcap_strategy.strategies.rebalance_tuesday_strategy import RebalanceTuesdayStrategy
+from busi.midcap_strategy.utils.backtest_util import cerebro_show
 from utils.data_loader import load_stock_data
 
 
 def run():
-    config = load_config()
     cerebro = bt.Cerebro(cheat_on_open=True)
 
     # 设置滑点和佣金

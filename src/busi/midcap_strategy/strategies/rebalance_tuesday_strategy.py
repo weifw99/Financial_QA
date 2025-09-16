@@ -1,7 +1,7 @@
 import backtrader as bt
 import datetime
 import numpy as np
-from busi.smallcap_strategy.utils.momentum_utils import get_momentum
+from busi.midcap_strategy.utils.momentum_utils import get_momentum
 
 
 class RebalanceTuesdayStrategy(bt.Strategy):

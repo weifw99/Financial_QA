@@ -493,7 +493,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         candidates = []
 
         # 加在原有财务条件通过后：
-        # index_data = self.getdatabyname(self.p.smallcap_index[1])  # 默认第一个指数为基准
+        index_data = self.getdatabyname(self.p.smallcap_index[1])  # 默认第一个指数为基准
 
         for d in self.datas:
             if d._name in self.p.smallcap_index + self.p.large_indices:
@@ -549,11 +549,11 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                         and profit_ttm_q > 0
                         # and revenue_single_q > self.p.min_revenue
                 ):
-                    # corr, beta = self.compute_correlation_beta(d, index_data, window=5)
-                    # if np.isnan(corr) or np.isnan(beta):
-                    #     continue
+                    corr, beta = self.compute_correlation_beta(d, index_data, window=5)
+                    if np.isnan(corr) or np.isnan(beta):
+                        continue
                     #
-                    # print(f"{d._name} corr={corr:.2f}, beta={beta:.2f}")
+                    print(f"{d._name} corr={corr:.2f}, beta={beta:.2f}")
 
                     # 设置门槛条件
                     # if corr < 0.3 and beta < 0.5:  #  选取 corr > 0.3 and beta > 0.35:
@@ -585,12 +585,12 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                     #         continue  # 静止股票跳过
 
                     # candidates.append((d, mv))
-                    candidates.append((d, lt_mv, mv))
+                    candidates.append((d, corr, beta, lt_mv, mv))
             except:
                 print(f"⚠️ 获取股票数据失败: {d._name}")
                 continue
         # candidates = sorted(candidates, key=lambda x: x[1])
-        candidates = sorted(candidates, key=lambda x: (x[1], id(x[0])) )
+        candidates = sorted(candidates, key=lambda x: (2*x[0]+x[1] + np.log(-x[2])) ,reverse=True)
         # candidates = sorted(candidates, key=lambda x: (x[1], x[2], id(x[0]) ))
         if len(candidates) > 0:
             print("filter_stocks len：", len(candidates), f'{candidates[0][0]._name} mv min: ', candidates[0][1],

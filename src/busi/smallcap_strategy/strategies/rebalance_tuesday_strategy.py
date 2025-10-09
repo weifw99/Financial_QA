@@ -81,6 +81,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
 
         # smallcap_index=[ 'csi932000', 'sz399005', 'sz399401'],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
         large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'etf_SZ510880', 'sh000905']
+        # large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'etf_SZ510880',]
     )
 
     def __init__(self):
@@ -290,23 +291,37 @@ class RebalanceTuesdayStrategy(bt.Strategy):
 
     def check_recent_recovery(self):
         recovery_scores = []
-        for i in range(3):
+        for i in range(4):
             day_scores = []
             for name in self.p.smallcap_index:
                 d = self.getdatabyname(name)
                 if len(d) < self.p.momentum_days + i + 1:
                     return False
-                prices = d.close.get(size=self.p.momentum_days + i + 1)
+                prices = d.close.get(size=self.p.momentum_days + i)
                 if np.any(np.isnan(prices)):
                     return False
-                score = get_momentum(prices[-(self.p.momentum_days + 1 + i):-i or None], method="log",
-                                     days=self.p.momentum_days)
+                # 修改切片操作，确保获取的数据长度为 momentum_days
+                if i == 0:
+                    # 当 i=0 时，获取最后 momentum_days 个数据点
+                    selected_prices = prices[-(self.p.momentum_days):]
+                else:
+                    # 当 i>0 时，获取倒数第 i+1 天之前 momentum_days 个数据点
+                    selected_prices = prices[-(self.p.momentum_days + i):-i]
+                score = get_momentum(selected_prices, method="log", days=self.p.momentum_days)
                 day_scores.append(score)
             recovery_scores.append(np.mean(day_scores))
-        print(f'📊 最近三个动量: {recovery_scores}')
-        return recovery_scores[0] > recovery_scores[1] > recovery_scores[2]
+        print(f'📊 最近几个动量: {recovery_scores}')
+        return (recovery_scores[0] > recovery_scores[1] > recovery_scores[2] > recovery_scores[3]
+                or ( recovery_scores[0] > recovery_scores[1] > recovery_scores[2]
+                     and recovery_scores[0] > recovery_scores[1] > recovery_scores[3]
+                     )
+                or ( recovery_scores[0] > recovery_scores[1] > recovery_scores[3]
+                     and recovery_scores[0] > recovery_scores[2] > recovery_scores[3]
+                     )
+                )
 
-    def check_momentum_rank(self, top_k=2):
+
+    def check_momentum_rank(self, top_k=1):
         combo_score = self.get_combined_smallcap_momentum()
         returns = {name: self.get_index_return(name, self.p.momentum_days) for name in self.p.large_indices}
         returns['__smallcap_combo__'] = combo_score
@@ -317,8 +332,8 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         in_top_k = '__smallcap_combo__' in [x[0] for x in sorted_returns[:top_k]]
         is_recovering = self.check_recent_recovery()
 
-        # if not in_top_k and not is_recovering :
-        if not in_top_k :
+        if not in_top_k and not is_recovering :
+        # if not in_top_k :
             print(f"⚠️ 小市值组合动量跌出第一，未回升，且分数不高 -> 止损, in_top_k:{in_top_k}, is_recover:{is_recovering},  combo_score: {combo_score}")
             return False
         return True

@@ -80,7 +80,7 @@ class SmallCapSignalGenerator:
     def check_recent_recovery(self):
         recovery_scores = []
 
-        for i in range(3):
+        for i in range(4):
             day_scores = []
             for name in self.config['smallcap_index']:
                 df = self.stock_data.get(name)  # 获取 DataFrame
@@ -95,7 +95,7 @@ class SmallCapSignalGenerator:
 
                 # 取对应的价格区间，注意 pandas 的 index 是正向递增的
                 end = -i if i != 0 else None
-                price_slice = df['close'].iloc[-(self.config['momentum_days'] + i + 1):end]
+                price_slice = df['close'].iloc[-(self.config['momentum_days'] + i ):end]
 
                 if price_slice.isnull().any():
                     print(f"⚠️ {name} 包含缺失值")
@@ -108,7 +108,14 @@ class SmallCapSignalGenerator:
             recovery_scores.append(np.mean(day_scores))
 
         print(f'📊 最近三个动量: {recovery_scores}')
-        return recovery_scores[0] > recovery_scores[1] > recovery_scores[2] , recovery_scores
+        return (recovery_scores[0] > recovery_scores[1] > recovery_scores[2] > recovery_scores[3]
+                or ( recovery_scores[0] > recovery_scores[1] > recovery_scores[2]
+                     and recovery_scores[0] > recovery_scores[1] > recovery_scores[3]
+                     )
+                or ( recovery_scores[0] > recovery_scores[1] > recovery_scores[3]
+                     and recovery_scores[0] > recovery_scores[2] > recovery_scores[3]
+                     )
+                ) , recovery_scores
     def check_momentum_rank(self, top_k=2):
         ranks = []
         for name in self.config['smallcap_index'] + self.config['large_indices']:
@@ -133,8 +140,8 @@ class SmallCapSignalGenerator:
         in_top_k = '__smallcap_combo__' in [x[0] for x in ranks_comp[:top_k]]
         is_recovering, recovery_scores = self.check_recent_recovery()
 
-        # if not in_top_k and not is_recovering:
-        if not in_top_k :
+        if not in_top_k and not is_recovering:
+        # if not in_top_k :
             return False, ranks, ranks_comp, recovery_scores
         else:
             return True, ranks, ranks_comp, recovery_scores

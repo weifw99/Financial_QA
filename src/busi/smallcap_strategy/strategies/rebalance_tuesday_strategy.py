@@ -51,7 +51,9 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         # smallcap_index=['csi932000', 'sz399101', 'sz399005'], # 到 7 月 4 号， 0.2032 （全部股票）
         # smallcap_index=['csi932000', 'sz399101', 'BK1158'], # 到 7 月 4 号， 0.2376 (zz1000/zz2000/微盘股)
         # smallcap_index=['csi932000', 'sz399101'], # 到 7 月 4 号， 0.2028 中小综指-399101成分股 20亿限制
+
         smallcap_index=['csi932000', 'sz399101', 'BK1158'],  # 到 7 月 4 号， 0.2028 中小综指-399101成分股 20亿限制
+
         # smallcap_index=['csi932000', 'sz399101','sz399005'],  # 到 7 月 4 号， 0.2028 中小综指-399101成分股 20亿限制
         # smallcap_index=['sz399005', 'BK1158'], # 到 7 月 4 号，0.2376 全部
         # smallcap_index=['sz399005', 'BK1158'], # 到 7 月 4 号，0.1727 sz399005
@@ -114,7 +116,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         self.check_individual_stop()
 
         # 全局熔断，卖出所有
-        is_momentum_ok = self.check_momentum_rank(top_k=2)
+        is_momentum_ok = self.check_momentum_rank(top_k=1)
         # is_check_trend = self.check_trend_crash()
         is_check_trend = self.check_combo_trend_crash()
         self.log(f'next_open SmallCapStrategy.next stop loss result, is_check_trend：{is_check_trend}, is_momentum_ok： {is_momentum_ok}')
@@ -141,7 +143,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
 
             candidates = self.filter_stocks()
 
-            is_momentum_ok = self.check_momentum_rank(top_k=2)
+            is_momentum_ok = self.check_momentum_rank(top_k=1)
             hold_num = self.p.hold_count_high if is_momentum_ok else self.p.hold_count_low
 
             to_hold = set(candidates[:hold_num])
@@ -207,7 +209,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
             self.is_cleared = True
             return True
 
-        if not self.check_momentum_rank(top_k=2):
+        if not self.check_momentum_rank(top_k=1):
             print(f"⚠️ {dt.date()} 动量止损触发")
             self.sell_all()
             self.clear_until = dt.date() + datetime.timedelta(days=7)
@@ -266,9 +268,11 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         if np.any(np.isnan(prices)) or prices[-1] == 0:
             return -999
         momentum_log = get_momentum(prices, method='log', days=days)
-        momentum_slope = get_momentum(prices, method='slope_r2', days=days)
+        momentum_slope = get_momentum(prices, method='return', days=days)
         # 组合方式（例如加权平均）
         combo_score = 0.5 * momentum_log + 0.5 * momentum_slope
+        # combo_score = momentum_log # 0.4848
+        # combo_score = momentum_slope #
 
         # 将 slope_r2 限制在合理范围（剪枝）
         # momentum_slope = np.clip(momentum_slope, -3, 3)
@@ -313,7 +317,8 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         in_top_k = '__smallcap_combo__' in [x[0] for x in sorted_returns[:top_k]]
         is_recovering = self.check_recent_recovery()
 
-        if not in_top_k and not is_recovering :
+        # if not in_top_k and not is_recovering :
+        if not in_top_k :
             print(f"⚠️ 小市值组合动量跌出第一，未回升，且分数不高 -> 止损, in_top_k:{in_top_k}, is_recover:{is_recovering},  combo_score: {combo_score}")
             return False
         return True

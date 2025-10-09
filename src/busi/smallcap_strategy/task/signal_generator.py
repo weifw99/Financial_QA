@@ -133,7 +133,8 @@ class SmallCapSignalGenerator:
         in_top_k = '__smallcap_combo__' in [x[0] for x in ranks_comp[:top_k]]
         is_recovering, recovery_scores = self.check_recent_recovery()
 
-        if not in_top_k and not is_recovering:
+        # if not in_top_k and not is_recovering:
+        if not in_top_k :
             return False, ranks, ranks_comp, recovery_scores
         else:
             return True, ranks, ranks_comp, recovery_scores
@@ -186,7 +187,7 @@ class SmallCapSignalGenerator:
         """
         # trend_crash = self.check_trend_crash()
         trend_crash = self.check_combo_trend_crash()
-        momentum_ok, momentum_rank, ranks_comp, recovery_scores = self.check_momentum_rank(top_k=2)
+        momentum_ok, momentum_rank, ranks_comp, recovery_scores = self.check_momentum_rank(top_k=1)
 
         candidates = self.filter_candidates()
 

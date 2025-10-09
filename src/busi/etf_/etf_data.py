@@ -146,8 +146,8 @@ class EtfDataHandle:
                 df.to_csv(path_, index=False)
                 etf_result.append(df)
 
-                if i > 1:
-                    time.sleep(0.01)
+                if i > 0:
+                    time.sleep(0.13)
 
             except Exception as e:
                 print(f"{symbol}获取日线数据失败: {e}")
@@ -216,6 +216,20 @@ class EtfDataHandle:
         etf_trading_day_pd.to_csv(DataCons.ETF_INFO_CAT, index=False)
 
         return etf_trading_day_pd
+
+
+    def get_down_etf_by_code(self, code_list: list[str]) -> None:
+
+        print('总得数据量', len(code_list))
+
+        for i, etf_code in enumerate(code_list):
+            print(f"正在获取第 {i} 个 etf: {etf_code}")
+            time.sleep(random.randint(1, 2))
+            temp_etf: list[pd.DataFrame] = self.download_etf_trading_day_data(symbol=str( etf_code ) )
+
+            if len(temp_etf) == 0:
+                continue
+            time.sleep(random.randint(1, 3))
 
 
     def get_down_data(self, code_list:list = [], refresh: bool = False):

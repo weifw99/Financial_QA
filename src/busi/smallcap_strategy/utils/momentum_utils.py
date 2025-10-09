@@ -6,7 +6,10 @@ def calc_simple_return(prices, days=20):
     """简单收益率动量"""
     if len(prices) < days + 1:
         return np.nan
-    return prices[-1] / prices[-(days + 1)] - 1
+    div_num = prices[-(days + 1)]
+    if div_num == 0 or np.isnan(div_num):
+        return 0.0001
+    return prices[-1] / div_num - 1
 
 
 def calc_log_return(prices, days=20):

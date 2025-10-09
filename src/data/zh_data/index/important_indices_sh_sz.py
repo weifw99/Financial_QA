@@ -150,7 +150,7 @@ if __name__ == '__main__':
         stock_zh_index_spot_em_df = ak.stock_zh_index_spot_em(symbol=name_zs)
         print(stock_zh_index_spot_em_df['代码'].tolist())
         code_list = stock_zh_index_spot_em_df['代码'].tolist()
-
+        time.sleep(random.randint(1, 3))
         for j, code in enumerate(code_list):
             query_code =  code
             query_code1 =  code

@@ -19,9 +19,10 @@ def run():
     # cerebro.broker.setcash(1000000)  # 初始资金
     cerebro.broker.setcash(100000)  # 初始资金
 
+    from_idx = datetime(2015, 2, 15)  # 记录行情数据的开始时间和结束时间
+    from_idx = datetime(2020, 2, 15)  # 记录行情数据的开始时间和结束时间
     # from_idx = datetime(2025, 2, 15)  # 记录行情数据的开始时间和结束时间
-    from_idx = datetime(2025, 2, 15)  # 记录行情数据的开始时间和结束时间
-    to_idx = datetime(2025, 9, 19)
+    to_idx = datetime(2025, 10, 7)
 
     # from_idx = datetime(2014, 1, 1)  # 记录行情数据的开始时间和结束时间
     # to_idx = datetime(2025, 6, 26)

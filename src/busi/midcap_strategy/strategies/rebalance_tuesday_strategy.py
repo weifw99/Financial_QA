@@ -114,7 +114,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         self.check_individual_stop()
 
         # 全局熔断，卖出所有
-        is_momentum_ok = self.check_momentum_rank(top_k=2)
+        is_momentum_ok = self.check_momentum_rank(top_k=1)
         # is_check_trend = self.check_trend_crash()
         is_check_trend = self.check_combo_trend_crash()
         self.log(f'next_open SmallCapStrategy.next stop loss result, is_check_trend：{is_check_trend}, is_momentum_ok： {is_momentum_ok}')
@@ -141,7 +141,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
 
             candidates = self.filter_stocks()
 
-            is_momentum_ok = self.check_momentum_rank(top_k=2)
+            is_momentum_ok = self.check_momentum_rank(top_k=1)
             hold_num = self.p.hold_count_high if is_momentum_ok else self.p.hold_count_low
 
             to_hold = set(candidates[:hold_num])
@@ -207,7 +207,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
             self.is_cleared = True
             return True
 
-        if not self.check_momentum_rank(top_k=2):
+        if not self.check_momentum_rank(top_k=1):
             print(f"⚠️ {dt.date()} 动量止损触发")
             self.sell_all()
             self.clear_until = dt.date() + datetime.timedelta(days=7)
@@ -311,7 +311,8 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         print(f'📊 动量排名: {sorted_returns}')
 
         in_top_k = '__smallcap_combo__' in [x[0] for x in sorted_returns[:top_k]]
-        is_recovering = self.check_recent_recovery()
+        # is_recovering = self.check_recent_recovery()
+        is_recovering = False
 
         if not in_top_k and not is_recovering :
             print(f"⚠️ 小市值组合动量跌出第一，未回升，且分数不高 -> 止损, in_top_k:{in_top_k}, is_recover:{is_recovering},  combo_score: {combo_score}")
@@ -549,7 +550,8 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                         and profit_ttm_q > 0
                         # and revenue_single_q > self.p.min_revenue
                 ):
-                    corr, beta = self.compute_correlation_beta(d, index_data, window=5)
+                    # corr, beta = self.compute_correlation_beta(d, index_data, window=5)
+                    corr, beta = self.compute_correlation_beta(d, index_data, window=15)
                     if np.isnan(corr) or np.isnan(beta):
                         continue
                     #
@@ -585,13 +587,22 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                     #         continue  # 静止股票跳过
 
                     # candidates.append((d, mv))
-                    candidates.append((d, corr, beta, lt_mv, mv))
+                    candidates.append((d, corr, beta, lt_mv, mv, 2*corr+beta + np.log(-lt_mv/100000000)))
+                    print('test======', (d, corr, beta, lt_mv, mv))
+                    print('test======', candidates[-1][1], candidates[-1][2], candidates[-1][3], candidates[-1][4])
+                    print('test======', candidates[-1][1],
+                          2*candidates[-1][1],
+                          2*candidates[-1][1]+candidates[-1][2],
+                          -candidates[-1][3] / 100000000,
+                          np.log(-candidates[-1][3]/100000000) )
+                    print('test======', 2*candidates[-1][1]+candidates[-1][2] + np.log(-candidates[-1][3]/100000000))
             except:
                 print(f"⚠️ 获取股票数据失败: {d._name}")
                 continue
-        # candidates = sorted(candidates, key=lambda x: x[1])
-        candidates = sorted(candidates, key=lambda x: (2*x[0]+x[1] + np.log(-x[2])) ,reverse=True)
-        # candidates = sorted(candidates, key=lambda x: (x[1], x[2], id(x[0]) ))
+        candidates = sorted(candidates, key=lambda x: x[1])
+        # candidates = sorted(candidates, key=lambda x: (2*x[1]+x[2] + np.log(-x[3]/100000000)) ,reverse=True)
+        candidates = sorted(candidates, key=lambda x: x[0] + np.nan ,reverse=True)
+        print('candidates:', candidates)
         if len(candidates) > 0:
             print("filter_stocks len：", len(candidates), f'{candidates[0][0]._name} mv min: ', candidates[0][1],
                   f'{candidates[-1][0]._name} mv max: ', candidates[-1][1])

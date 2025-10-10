@@ -14,10 +14,10 @@ def get_momentum(prices: list | np.ndarray, method: str = 'log', days: int = 20)
     - slope_r2: 斜率 * R² 组合动量指标
     """
     prices = np.array(prices)
-    if len(prices) < days + 1:
+    if len(prices) < days:
         return np.nan
 
-    prices = prices[-(days + 1):]
+    prices = prices[-(days):]
     if np.any(prices <= 0):
         return np.nan
 

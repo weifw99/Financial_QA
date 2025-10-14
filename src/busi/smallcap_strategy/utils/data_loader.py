@@ -328,7 +328,7 @@ def load_stock_data(from_idx, to_idx):
     index_list =['csi932000', 'sz399101' , 'sh000905', 'sh000852', 'sh000046', 'sz399005', 'sz399008', 'sz399401',
                  'sz399649','sz399663','sz399377','sh000046','sz399408','sz399401','sh000991' ,
                  'sh000852', 'sz399004', 'sh000905', 'sz399006',
-                 'sz399693']
+                 'sz399693' ,'sh000132','sh000133','sh000010','sh000009', 'sh000906']
     # 获取指数数据
     zz_path = '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/index'
 

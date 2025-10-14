@@ -18,8 +18,8 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         # 5 0.08
         hold_count_high=5,  # 行情好时持股数（集中）
         hold_count_low=5,  # 行情差时持股数（分散）
-        hight_price=50,  # 个股最高限价
-        momentum_days=15,  # 动量观察窗口
+        hight_price=20,  # 个股最高限价
+        momentum_days=16,  # 动量观察窗口
         trend_threshold=-0.05,  # 快速熔断阈值（小市值单日下跌5%）
         stop_loss_pct=0.06,  # 个股止损线（跌幅超过6%）
         take_profit_pct=0.5,  # 个股止盈线（涨幅超过50%）
@@ -52,7 +52,16 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         # smallcap_index=['csi932000', 'sz399101', 'BK1158'], # 到 7 月 4 号， 0.2376 (zz1000/zz2000/微盘股)
         # smallcap_index=['csi932000', 'sz399101'], # 到 7 月 4 号， 0.2028 中小综指-399101成分股 20亿限制
 
-        smallcap_index=['csi932000', 'sz399101', 'BK1158'],  # 到 7 月 4 号， 0.2028 中小综指-399101成分股 20亿限制
+        # smallcap_index=['csi932000', 'sz399101', 'BK1158', 'sz399005', 'sz399008'], # 0.3847
+        # smallcap_index=['csi932000', 'sz399101', 'BK1158', 'sz399005','sz399401'], # 0.3989
+        # smallcap_index=['csi932000', 'sz399101', 'BK1158', 'sz399401'], # 0.4031
+        # smallcap_index=['csi932000', 'sz399101', 'BK1158', 'sz399008'], # 0.3654
+        smallcap_index=['csi932000', 'sz399101', 'BK1158'], # 0.4284
+        # smallcap_index=['sz399101', 'BK1158'], # 0.38
+        # smallcap_index=['csi932000', 'sz399101', 'BK1158', 'sz399005','sz399401', 'sz399008'], # 0.3728
+        # smallcap_index=[ 'sz399101', 'BK1158', 'sz399005','sz399401', 'sz399008'], # 0.3339
+        # smallcap_index=['csi932000', 'sz399101', 'BK1158', 'sz399005','sz399401','sh000046'],
+        # smallcap_index=['csi932000', 'sz399101', 'BK1158'],  # 到 7 月 4 号， 0.2028 中小综指-399101成分股 20亿限制
 
         # smallcap_index=['csi932000', 'sz399101','sz399005'],  # 到 7 月 4 号， 0.2028 中小综指-399101成分股 20亿限制
         # smallcap_index=['sz399005', 'BK1158'], # 到 7 月 4 号，0.2376 全部
@@ -81,7 +90,8 @@ class RebalanceTuesdayStrategy(bt.Strategy):
 
         # smallcap_index=[ 'csi932000', 'sz399005', 'sz399401'],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
         large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'etf_SZ510880', 'sh000905']
-        # large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'etf_SZ510880',]
+        # large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'etf_SZ510880','sh000132' ]
+        # '000132','000133','000010','000009'
     )
 
     def __init__(self):
@@ -259,11 +269,11 @@ class RebalanceTuesdayStrategy(bt.Strategy):
             print(f"⚠️ 指数 {name} 获取失败: {e}")
             return -999
 
-        if len(d) < days + 1:
+        if len(d) < days:
             return -999
 
-        prices = d.close.get(size=days + 1)
-        if prices is None or len(prices) < days + 1:
+        prices = d.close.get(size=days)
+        if prices is None or len(prices) < days:
             return -999
 
         if np.any(np.isnan(prices)) or prices[-1] == 0:
@@ -287,7 +297,11 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         scores = [self.get_index_return(name, self.p.momentum_days) for name in self.p.smallcap_index]
         valid_scores = [s for s in scores if s > -999]
         print(f'📊 小市值动量: {scores}')
-        return np.mean(valid_scores) if valid_scores else -999
+        # 倒序排序并取前2个元素
+        top2_scores = sorted(valid_scores, reverse=True)[:3]
+        # return np.max(top2_scores) if top2_scores else -999
+        return np.mean(top2_scores) if top2_scores else -999
+        # return np.sum(top2_scores) if top2_scores else -999
 
     def check_recent_recovery(self):
         recovery_scores = []
@@ -309,7 +323,8 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                     selected_prices = prices[-(self.p.momentum_days + i):-i]
                 score = get_momentum(selected_prices, method="log", days=self.p.momentum_days)
                 day_scores.append(score)
-            recovery_scores.append(np.mean(day_scores))
+            recovery_scores.append(np.sum(day_scores))
+            # recovery_scores.append(np.mean(day_scores))
         print(f'📊 最近几个动量: {recovery_scores}')
         return (recovery_scores[0] > recovery_scores[1] > recovery_scores[2] > recovery_scores[3]
                 or ( recovery_scores[0] > recovery_scores[1] > recovery_scores[2]

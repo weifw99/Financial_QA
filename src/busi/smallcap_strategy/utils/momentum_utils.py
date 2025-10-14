@@ -4,9 +4,9 @@ from scipy.stats import linregress
 
 def calc_simple_return(prices, days=20):
     """简单收益率动量"""
-    if len(prices) < days + 1:
+    if len(prices) < days:
         return np.nan
-    div_num = prices[-(days + 1)]
+    div_num = prices[-(days)]
     if div_num == 0 or np.isnan(div_num):
         return 0.0001
     return prices[-1] / div_num - 1
@@ -14,9 +14,9 @@ def calc_simple_return(prices, days=20):
 
 def calc_log_return(prices, days=20):
     """对数收益率动量"""
-    if len(prices) < days + 1:
+    if len(prices) < days:
         return np.nan
-    prev_price = prices[-(days + 1)]
+    prev_price = prices[-(days)]
     if prev_price == 0 or np.isnan(prev_price) or np.isnan(prices[-1]):
         return -999  # 或者你设置的极端异常值
     return np.log(prices[-1] / prev_price)
@@ -24,9 +24,9 @@ def calc_log_return(prices, days=20):
 
 def calc_regression_slope(prices, days=20):
     """线性拟合斜率"""
-    if len(prices) < days + 1:
+    if len(prices) < days:
         return np.nan
-    y = np.log(prices[-(days + 1):])  # 使用 log(price)
+    y = np.log(prices[-(days):])  # 使用 log(price)
     x = np.arange(len(y))
     slope, _, _, _, _ = linregress(x, y)
     return slope
@@ -34,9 +34,9 @@ def calc_regression_slope(prices, days=20):
 
 def calc_slope_r2(prices, days=20):
     """复合动量 = slope × R²"""
-    if len(prices) < days + 1:
+    if len(prices) < days:
         return np.nan
-    y = np.log(prices[-(days + 1):])
+    y = np.log(prices[-(days):])
     x = np.arange(len(y))
     slope, _, r_value, _, _ = linregress(x, y)
     return slope * (r_value ** 2)

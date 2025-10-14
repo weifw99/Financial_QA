@@ -11,7 +11,7 @@ config = dict(
     min_profit=0,
     min_revenue=1e8,
     hight_price=50,
-    momentum_days=15,
+    momentum_days=16,
     hold_count_high=12,
 )
 
@@ -26,6 +26,7 @@ def main():
 
         # data_date = today - timedelta(days=3)
     data_date = today
+    # data_date = today - timedelta(days=1)
     # 2. 初始化生成器
     generator = SmallCapSignalGenerator(config)
     generator.load_data(stock_data_dict, data_date)

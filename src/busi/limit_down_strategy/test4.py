@@ -19,8 +19,8 @@ TRANSACTION_COST = 0.0008
 SLIPPAGE = 0.0005
 SAVE_FULL_DETAIL = True
 USE_CONTINUOUS_TREND = False   # 🔁 True = 连续趋势模式；False = 离散投票模式
-USE_CONTINUOUS_TREND = True   # 🔁 True = 连续趋势模式；False = 离散投票模式
-MAX_STOCKS = 50
+USE_CONTINUOUS_TREND = False   # 🔁 True = 连续趋势模式；False = 离散投票模式
+MAX_STOCKS = 5000
 
 # ========= 日志配置 =========
 os.makedirs("results", exist_ok=True)
@@ -249,8 +249,22 @@ def backtest(stocks_processed, rebalance_days=REBALANCE_DAYS, top_n=TOP_N):
     logging.info(f"✅ 回测完成，总天数={len(all_dates)}，最终累计收益={cum.iloc[-1]:.3f}")
     return {'daily_ret': net_ret, 'cum_ret': cum, 'positions': positions}
 
+
+def load_index_name():
+    index_names = set()
+    index_path = '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/index'
+    for file in os.listdir(index_path):
+        if file.endswith(".csv"):
+            index_names.add(file.split(".")[0])
+
+    return index_names
+
+
 # ========= 主流程 =========
 if __name__ == "__main__":
+
+    index_names = load_index_name()
+
     from_idx = datetime(2015, 1, 1)
     to_idx = datetime(2025, 7, 23)
     index_code = 'sh.000300'
@@ -262,6 +276,10 @@ if __name__ == "__main__":
         if stock["code"] == index_code:
             index_series = stock["data"]['close']
         else:
+            code = stock["code"].replace('.', '').lower()
+            if code in index_names:
+                logging.warning(f"⚠️ 忽略指数 {stock['code']}")
+                continue
             stocks.append(stock)
 
     logging.info(f"股票数量={len(stocks)}, 指数数据={'已加载' if index_series is not None else '无'}")
@@ -271,6 +289,7 @@ if __name__ == "__main__":
         res = process_single_stock(s['code'], s['data'], index_close=index_series)
         if res: results.append(res)
 
+    '''
     bt = backtest(results)
 
     # 汇总输出
@@ -287,3 +306,5 @@ if __name__ == "__main__":
         })
     pd.DataFrame(summary).to_csv("trend_emotion_results_summary.csv", index=False)
     logging.info("📁 已保存 trend_emotion_results_summary.csv")
+    
+    '''

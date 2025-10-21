@@ -148,49 +148,81 @@ def process_single_stock(code, df, index_close=None):
     try:
         logging.info(f"▶ 处理 {code} 数据行数={len(df)}")
         if df is None or df.empty:
-            logging.warning(f"⚠️ {code} 数据为空，跳过。"); return None
-        if not all(col in df.columns for col in ['open','high','low','close']):
-            logging.warning(f"⚠️ {code} 缺少关键列，跳过。"); return None
+            logging.warning(f"⚠️ {code} 数据为空，跳过。")
+            return None
+        if not all(col in df.columns for col in ['open', 'high', 'low', 'close']):
+            logging.warning(f"⚠️ {code} 缺少关键列，跳过。")
+            return None
 
-        # df = df.copy().sort_values('date')
+        # === 预处理 ===
+        # df = df.copy()
+        # df = df.sort_values('date')
         # df.index = pd.to_datetime(df['date'])
-        df = df[['open','high','low','close','volume']].dropna()
+        base_cols = ['open', 'high', 'low', 'close', 'volume', 'amount', 'turn', 'mv', 'lt_mv', 'lt_share_rate',   'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q', 'price_limit',]
+        df = df[base_cols].dropna()
 
+        # === 趋势模块 ===
         trend_score, trend_components = compute_trend_score(df)
 
         if index_close is not None:
-            idx_aligned = index_close.reindex(df.index).fillna(method='ffill')
+            idx_aligned = index_close.reindex(df.index).ffill()
             ratio_close = df['close'] / idx_aligned
             ratio_df = pd.DataFrame({
                 'close': ratio_close,
-                'high': df['high']/idx_aligned,
-                'low': df['low']/idx_aligned
+                'high': df['high'] / idx_aligned,
+                'low': df['low'] / idx_aligned
             })
             ratio_trend, _ = compute_trend_score(ratio_df)
-            joint = [np.sign(t)*min(abs(t),abs(r)) if np.sign(t)==np.sign(r)!=0 else 0.0 for t,r in zip(trend_score, ratio_trend)]
+            joint = [
+                np.sign(t) * min(abs(t), abs(r)) if np.sign(t) == np.sign(r) != 0 else 0.0
+                for t, r in zip(trend_score, ratio_trend)
+            ]
             joint = pd.Series(joint, index=trend_score.index)
         else:
             joint = trend_score
 
+        # === 情绪模块 ===
         emotion, emotion_components = compute_emotion_index(df)
+
+        # === 锚定趋势与择时 ===
         anchored = compute_anchored_trend(joint, emotion)
         timing = anchored - emotion
 
+        # === 汇总主指标 ===
         main_df = pd.DataFrame({
-            'trend': trend_score, 'joint_trend': joint,
-            'emotion': emotion, 'anchored': anchored,
-            'timing': timing, 'close': df['close']
+            'trend': trend_score,
+            'joint_trend': joint,
+            'emotion': emotion,
+            'anchored': anchored,
+            'timing': timing,
+            'close': df['close']
         }, index=df.index)
 
+        # === 拼接完整结果 ===
         if SAVE_FULL_DETAIL:
             full_df = pd.concat([main_df, trend_components, emotion_components], axis=1)
         else:
             full_df = main_df
 
+        # === 保证列顺序：基础行情在最前 ===
+        # base_cols = ['open', 'high', 'low', 'close', 'volume']
+        # 从 df 拿到原始行情
+        full_df = pd.concat([df[base_cols], full_df], axis=1)
+        # 去重防止重复列名（如 close 重复）
+        full_df = full_df.loc[:, ~full_df.columns.duplicated()]
+
+        # === 保存文件 ===
+        os.makedirs("results", exist_ok=True)
         filepath = os.path.join("results", f"{code}_TET_full.csv")
-        full_df.to_csv(filepath)
-        logging.info(f"💾 已保存 {code} 指标结果至 {filepath} ({len(full_df)} 行, {len(full_df.columns)} 列)")
+        full_df.to_csv(filepath, index=True, index_label="date")
+
+        logging.info(
+            f"💾 已保存 {code} 指标结果至 {filepath} "
+            f"({len(full_df)} 行, {len(full_df.columns)} 列)"
+        )
+
         return {'code': code, 'result': main_df}
+
     except Exception as e:
         logging.error(f"❌ {code} 计算出错: {e}", exc_info=True)
         return None

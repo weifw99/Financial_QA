@@ -614,9 +614,9 @@ def load_stock_data_df(from_idx, to_idx):
         #     continue
 
         # 使用指数成分股股票回测
-        if stock_file not in zz_code_list and stock_file not in temp_stock_list:
-            print(f'过滤非指数成分股股票: {stock_file}')
-            continue # 0.1945 sz399101成分股,
+        # if stock_file not in zz_code_list and stock_file not in temp_stock_list:
+        #     print(f'过滤非指数成分股股票: {stock_file}')
+        #     continue # 0.1945 sz399101成分股,
             # 指数的成分股数据 0.10   中证1000-000852，中证2000-932000
             # 指数的成分股数据 0.158  中小综指-399101,中证1000-000852，中证2000-932000
             # 指数的成分股数据 0.1945  中小综指-399101,中证1000-000852

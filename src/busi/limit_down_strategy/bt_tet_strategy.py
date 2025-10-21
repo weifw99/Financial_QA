@@ -135,6 +135,7 @@ def run_backtest():
     # add datafeeds
     for code, fp in symbols:
         df = pd.read_csv(fp, parse_dates=['date'], index_col='date')
+        # df = pd.read_csv(fp)
         # ensure ascending index
         df = df.sort_index()
         # remove rows with nonpositive close

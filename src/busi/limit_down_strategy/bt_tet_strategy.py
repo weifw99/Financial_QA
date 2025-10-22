@@ -23,7 +23,9 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 # ========== 自定义 PandasData 扩展以载入额外列 ==========
 class PandasDataTET(bt.feeds.PandasData):
     # 下面列出你 CSV 中的列名，让 backtrader 把它们映射成 lines
-    lines = ('trend','joint_trend','emotion','anchored','timing',
+    lines = ('amount', 'turn', 'mv', 'lt_mv', 'lt_share_rate',  'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q',
+
+             'trend','joint_trend','emotion','anchored','timing',
              'RoC_24','RoC_32','RoC_48','RoC_64','RoC_96','RoC_128','RoC_192','RoC_256','RoC_384','RoC_512',
              'SMA_24','SMA_32','SMA_48','SMA_64','SMA_96','SMA_128','SMA_192','SMA_256','SMA_384','SMA_512',
              'X_20_50','X_20_100','X_20_200','X_20_400','X_50_100','X_50_200','X_50_400','X_100_200','X_100_400','X_200_400',
@@ -39,6 +41,21 @@ class PandasDataTET(bt.feeds.PandasData):
         ('close', 'close'),
         ('volume', 'volume'),
         # map each extra column
+        ('amount', 'amount'),
+        ('turn', 'turn'),
+        ('mv', 'mv'),
+        ('lt_mv', 'lt_mv'),
+        ('lt_share_rate', 'lt_share_rate'),
+        ('is_st', 'is_st'),  # 0 or 1 表示是否ST
+        ('profit_ttm_y', 'profit_ttm_y'),
+        ('profit_y', 'profit_y'),
+        ('revenue_y', 'revenue_y'),
+        ('roeAvg_y', 'roeAvg_y'),  #
+        ('profit_ttm_q', 'profit_ttm_q'),
+        ('profit_q', 'profit_q'),
+        ('revenue_single_q', 'revenue_single_q'),
+        ('roeAvg_q', 'roeAvg_q'),  #
+
         ('trend','trend'),('joint_trend','joint_trend'),('emotion','emotion'),('anchored','anchored'),('timing','timing'),
         ('RoC_24','RoC_24'),('RoC_32','RoC_32'),('RoC_48','RoC_48'),('RoC_64','RoC_64'),('RoC_96','RoC_96'),
         ('RoC_128','RoC_128'),('RoC_192','RoC_192'),('RoC_256','RoC_256'),('RoC_384','RoC_384'),('RoC_512','RoC_512'),

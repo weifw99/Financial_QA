@@ -18,7 +18,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         # 5 0.08
         hold_count_high=5,  # 行情好时持股数（集中）
         hold_count_low=5,  # 行情差时持股数（分散）
-        hight_price=20,  # 个股最高限价
+        hight_price=100,  # 个股最高限价
         momentum_days=16,  # 动量观察窗口
         trend_threshold=-0.05,  # 快速熔断阈值（小市值单日下跌5%）
         stop_loss_pct=0.06,  # 个股止损线（跌幅超过6%）
@@ -56,8 +56,10 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         # smallcap_index=['csi932000', 'sz399101', 'BK1158', 'sz399005','sz399401'], # 0.3989
         # smallcap_index=['csi932000', 'sz399101', 'BK1158', 'sz399401'], # 0.4031
         # smallcap_index=['csi932000', 'sz399101', 'BK1158', 'sz399008'], # 0.3654
-        smallcap_index=['csi932000', 'sz399101', 'BK1158'], # 0.4284
-        # smallcap_index=['sz399101', 'BK1158'], # 0.38
+        # smallcap_index=['csi932000', 'sz399101', 'BK1158'], # 0.40
+        # smallcap_index=['BK1158'], # 0.46
+        # smallcap_index=['sz399101','BK1158'], # 0.50
+        smallcap_index=['csi932000', 'BK1158'], # 0.53
         # smallcap_index=['csi932000', 'sz399101', 'BK1158', 'sz399005','sz399401', 'sz399008'], # 0.3728
         # smallcap_index=[ 'sz399101', 'BK1158', 'sz399005','sz399401', 'sz399008'], # 0.3339
         # smallcap_index=['csi932000', 'sz399101', 'BK1158', 'sz399005','sz399401','sh000046'],
@@ -89,7 +91,8 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         # 'sz399401'
 
         # smallcap_index=[ 'csi932000', 'sz399005', 'sz399401'],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
-        large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'etf_SZ510880', 'sh000905']
+        # large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'etf_SZ510880', 'sh000905']
+        large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'sh000905']
         # large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'etf_SZ510880','sh000132' ]
         # '000132','000133','000010','000009'
     )
@@ -571,7 +574,11 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                         and is_st == 0
                         and turn > 1.5
                         and amount > 4000000
-                        and 2 < close < self.p.hight_price
+                        # and 8 < close < self.p.hight_price# 0.6569
+                        # and 6 < close < self.p.hight_price# 0.6223
+                        and 5 < close < self.p.hight_price # 6223
+                        # and 2 < close < self.p.hight_price
+                        # and 10 < close < self.p.hight_price # 6503
                         # 年度数据
                         and profit_y > 0
                         and roeAvg_y > 0
@@ -625,7 +632,8 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                 print(f"⚠️ 获取股票数据失败: {d._name}")
                 continue
         # candidates = sorted(candidates, key=lambda x: x[1])
-        candidates = sorted(candidates, key=lambda x: (x[1], id(x[0])) )
+        # candidates = sorted(candidates, key=lambda x: (x[1], id(x[0])) )
+        candidates = sorted(candidates, key=lambda x: x[2], reverse=False)
         # candidates = sorted(candidates, key=lambda x: (x[1], x[2], id(x[0]) ))
         if len(candidates) > 0:
             print("filter_stocks len：", len(candidates), f'{candidates[0][0]._name} mv min: ', candidates[0][1],

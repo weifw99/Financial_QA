@@ -107,7 +107,7 @@ class SmallCapSignalGenerator:
             # 每天所有小市值指数动量均值
             recovery_scores.append(np.mean(day_scores))
 
-        print(f'📊 最近三个动量: {recovery_scores}')
+        print(f'📊 最近四个动量: {recovery_scores}')
         return (recovery_scores[0] > recovery_scores[1] > recovery_scores[2] > recovery_scores[3]
                 or ( recovery_scores[0] > recovery_scores[1] > recovery_scores[2]
                      and recovery_scores[0] > recovery_scores[1] > recovery_scores[3]
@@ -162,8 +162,8 @@ class SmallCapSignalGenerator:
                     and row['lt_mv'] > self.config['min_mv']
                     and row['lt_share_rate'] >= 0.8
                     and row['is_st'] == 0
-                    and 2 < row['close'] < self.config['hight_price']
-                    # and row['amount'] > 4000000
+                    and 5 < row['close'] < self.config['hight_price']
+                    and row['amount'] > 4000000
                     and row['turn'] > 1.5
 
                     and row['profit_y'] > 0
@@ -177,12 +177,12 @@ class SmallCapSignalGenerator:
                     # and row['revenue_single_q'] > self.config['min_revenue']
 
                 ):
-                    results.append((name, row['lt_mv']))
+                    results.append((name, row['lt_mv'], row['mv']))
                     # results.append((name, row['mv']))
             except:
                 continue
-        results.sort(key=lambda x: x[1])
-        return [(x[0], x[1]) for x in results[:self.config['hold_count_high']]]
+        results.sort(key=lambda x: x[2], reverse=False)
+        return [(x[0], x[2]) for x in results[:self.config['hold_count_high']]]
 
     def generate_signals(self, current_hold=None):
         """

@@ -46,9 +46,9 @@ def format_signal_message(signal, exe_date, data_date):
 - **执行日期**：{exe_date.strftime('%Y-%m-%d')}
 - **数据截止**：{data_date.strftime('%Y-%m-%d')}
 - **趋势熔断**：{'🚨 是' if signal['trend_crash'] else '✅ 否'} （最近 3 天至少 2 天跌超 2.5%，或者平均跌超 3%。且波动率较低。）
-- **动量领先**：{'🚀 是' if signal['momentum_ok'] else '📉 否'} （领先：小市值组合动量排名在top2，或则跌出top2，但是最近三天的动量趋势向上）
+- **动量领先**：{'🚀 是' if signal['momentum_ok'] else '📉 否'} （领先：小市值组合动量排名在top1，或则跌出top1，但是最近四天的动量趋势向上，今天>昨天>前天>大前天or今天>昨天>[前天/大前天]or今天>[昨天/前天]>大前天）
 
-- **动量趋势（顺序-今天/昨天/前天）**：{signal['recovery_scores']}
+- **最近四天的动量（顺序-今天/昨天/前天/大前天）**：{signal['recovery_scores']}
 """
 
     # 动量排名表格

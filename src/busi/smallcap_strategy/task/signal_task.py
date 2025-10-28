@@ -5,12 +5,13 @@ from src.busi.smallcap_strategy.task.signal_generator import SmallCapSignalGener
 from src.busi.smallcap_strategy.task.data_loader import load_recent_data
 
 config = dict(
-    smallcap_index=['csi932000', 'sz399101', 'BK1158'],
-    large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'etf_SZ510880', 'sh000905'],
+    # smallcap_index=['csi932000', 'sz399101', 'BK1158'],
+    smallcap_index=['csi932000', 'BK1158'],
+    large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'sh000905'],
     min_mv=10e8,
     min_profit=0,
     min_revenue=1e8,
-    hight_price=50,
+    hight_price=100,
     momentum_days=16,
     hold_count_high=12,
 )
@@ -26,7 +27,7 @@ def main():
 
         # data_date = today - timedelta(days=3)
     data_date = today
-    # data_date = today - timedelta(days=1)
+    data_date = today - timedelta(days=1)
     # 2. 初始化生成器
     generator = SmallCapSignalGenerator(config)
     generator.load_data(stock_data_dict, data_date)

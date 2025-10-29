@@ -59,7 +59,7 @@ if __name__ == '__main__':
         else:
             continue
 
-        time.sleep(random.randint(1,3))
+        time.sleep(random.randint(2,5))
 
         print(f'important_indices_sh_sz execute - {j}:', query_code)
         stock_zh_index_daily_em_df = ak.stock_zh_index_daily_em(symbol=query_code)

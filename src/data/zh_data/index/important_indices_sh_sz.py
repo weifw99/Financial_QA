@@ -51,6 +51,7 @@ def stock_board_industry_hist_em(
         "smplmt": "10000",
         "lmt": "1000000",
     }
+
     r = requests.get(url, params=params)
     data_json = r.json()
     temp_df = pd.DataFrame([item.split(",") for item in data_json["data"]["klines"]])

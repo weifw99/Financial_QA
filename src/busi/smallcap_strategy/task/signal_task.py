@@ -27,7 +27,7 @@ def main():
 
         # data_date = today - timedelta(days=3)
     data_date = today
-    data_date = today - timedelta(days=1)
+    # data_date = today - timedelta(days=1)
     # 2. 初始化生成器
     generator = SmallCapSignalGenerator(config)
     generator.load_data(stock_data_dict, data_date)

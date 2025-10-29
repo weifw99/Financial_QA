@@ -224,12 +224,12 @@ class EtfDataHandle:
 
         for i, etf_code in enumerate(code_list):
             print(f"正在获取第 {i} 个 etf: {etf_code}")
-            time.sleep(random.randint(1, 2))
+            time.sleep(random.randint(2, 5))
             temp_etf: list[pd.DataFrame] = self.download_etf_trading_day_data(symbol=str( etf_code ) )
 
             if len(temp_etf) == 0:
                 continue
-            time.sleep(random.randint(1, 3))
+            time.sleep(random.randint(2, 5))
 
 
     def get_down_data(self, code_list:list = [], refresh: bool = False):
@@ -250,11 +250,11 @@ class EtfDataHandle:
 
         for i, etf_code in enumerate(code_list):
             print(f"正在获取第 {i} 个 etf: {etf_code}")
-            time.sleep(random.randint(1, 2))
+            time.sleep(random.randint(2, 5))
             temp_etf: list[pd.DataFrame] = self.download_etf_trading_day_data(symbol=str( etf_code ) )
             if len(temp_etf) == 0:
                 continue
-            time.sleep(random.randint(1, 3))
+            time.sleep(random.randint(2, 5))
 
 
 def main():

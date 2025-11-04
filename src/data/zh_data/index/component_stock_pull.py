@@ -112,6 +112,7 @@ if __name__ == '__main__':
         '932000': '中证2000',
     }
     for code, name in zz_index_dict.items():
+        print(f"load_index_stock_cons - {code}:", code)
         df = load_index_stock_cons(code)
         df.to_csv(f"{ base_path }/{ name}-{code}.csv", index=False)
         if code in ['000852']:
@@ -128,6 +129,7 @@ if __name__ == '__main__':
         '399005': '中小板指数-中小100',
     }
     for code, name in sina_index_dict.items():
+        print(f"load_index_stock_cons - {code}:", code)
         df = fetch_index_components_sina(code)
         df.to_csv(f"{base_path}/{name}-{code}.csv", index=False)
         # code_path = f"{base_market_path}/{get_exchange_prefix( code)}{code}"
@@ -140,6 +142,7 @@ if __name__ == '__main__':
         'BK1158': '微盘股',
     }
     for code, name in dfcf_index_dict.items():
+        print(f"load_index_stock_cons_dfcf - {code}:", code)
         df = load_index_stock_cons_dfcf(code)
         df.to_csv(f"{base_path}/{name}-{code}.csv", index=False)
         # code_path = f"{base_market_path}/{code}"

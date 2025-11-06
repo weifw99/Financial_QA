@@ -283,12 +283,13 @@ class DataSync:
             now = datetime.now()
             current_year = now.year
             current_quarter = (now.month - 1) // 3 + 1
+            print(f"股票{code} 当前年度和季度: {current_year}年{current_quarter}季度")
 
             # 利润表
             income_data = self.financial_api.get_income_statement(
                 code,
                 year=current_year,
-                quarter=current_quarter
+                # quarter=current_quarter
             )
             if not income_data.empty:
                 self._save_data(income_data, self.financial_dir, code, 'income', mode='a')

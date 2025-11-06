@@ -13,7 +13,7 @@ config = dict(
     min_revenue=1e8,
     hight_price=100,
     momentum_days=16,
-    hold_count_high=12,
+    hold_count_high=15,
 )
 
 def main():

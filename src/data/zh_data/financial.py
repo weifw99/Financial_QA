@@ -39,10 +39,13 @@ class FinancialDataAPI:
                 years = [year]
             else:
                 years = year
-            if type(quarter) == int:
-                quarters = [quarter]
+            if quarter is None:
+                quarters = [1, 2, 3, 4]
             else:
-                quarters = quarter
+                if type(quarter) == int:
+                    quarters = [quarter]
+                else:
+                    quarters = quarter
 
         data_list = []
         for year in years:

@@ -198,19 +198,28 @@ class Getdata():
 
     def dailydata(self):
         """获取日线数据"""
+        data = self.dailydata_no_index()
+        # 设置多级索引
+        data.set_index(['date', ], inplace=True)
+        # 选择需要的列
+        data = data[['symbol', 'open', 'high', 'low', 'close', 'volume', 'openinterest']]
+        return data
+
+    def dailydata_no_index(self):
+        """获取日线数据"""
         # 获取所有数据
         if self.symbols is None:
             data = EtfDataHandle().get_down_all_data()
         else:
-            data = EtfDataHandle().get_down_symbols_data(self.symbols)
-            
+            data = EtfDataHandle().get_down_symbols_data(self.symbols, refresh=False)
+
         if data is None or data.empty:
             print("警告：从EtfDataHandle获取数据为空")
             return None
-            
+
         print(f"原始数据基本信息：\n{data.info()}")
         print(f"原始数据前5行：\n{data.head()}")
-        
+
         # 数据选择
         rename_cols = {
             '代码': 'symbol',
@@ -223,12 +232,12 @@ class Getdata():
         }
         data.rename(columns=rename_cols, inplace=True)
         data['openinterest'] = 0
-        
+
         # 检查数据完整性
         print(f"数据时间范围：{data['date'].min()} 到 {data['date'].max()}")
         print(f"ETF数量：{data['symbol'].nunique()}")
         print(f"价格数据统计：\n{data[['open', 'high', 'low', 'close']].describe()}")
-        
+
         # 检查是否有零值或空值
         zero_prices = data[data['close'] == 0]
         if not zero_prices.empty:
@@ -238,16 +247,13 @@ class Getdata():
         data['symbol'] = data['symbol'].apply(lambda x: x.replace('SH', '').replace('SZ', '').replace('WZ', ''))
         # 按日期和股票代码排序
         data = data.sort_values(['date', 'symbol'])
-        
+
         # 将日期转换为datetime类型
         data['date'] = pd.to_datetime(data['date'])
-        
-        # 设置多级索引
-        data.set_index(['date', ], inplace=True)
-        
+
         # 选择需要的列
-        data = data[['symbol', 'open', 'high', 'low', 'close', 'volume', 'openinterest']]
-        
+        data = data[['date', 'symbol', 'open', 'high', 'low', 'close', 'volume', 'openinterest']]
+
         return data
 
     def dailydata1(self, momentum_params=None):

@@ -10,8 +10,8 @@ from busi.etf_.etf_momentum_strategy import  MomentumStrategy1
 
 if __name__ == '__main__':
 
-    from_idx = datetime(2021, 1, 1)  # 记录行情数据的开始时间和结束时间
-    to_idx = datetime(2025, 7, 28)
+    from_idx = datetime(2020, 1, 1)  # 记录行情数据的开始时间和结束时间
+    to_idx = datetime(2025, 10, 28)
     print(from_idx, to_idx)
     #启动回测
 
@@ -22,6 +22,7 @@ if __name__ == '__main__':
     pool_file = 'data/etf_strategy/etf_pool_120.csv'
     pool_file = 'data/etf_strategy/etf_pool.csv'
     pool_file = 'data/etf_strategy/etf_pool1.csv'
+    pool_file = 'data/etf_strategy/etf_pool_test.csv'
     df = pd.read_csv(pool_file)
     etf_codes = df['代码'].tolist()
     #获取数据源
@@ -52,7 +53,6 @@ if __name__ == '__main__':
 
 
     # 载入策略
-    # cerebro.addstrategy(MomentumStrategy)
     cerebro.addstrategy(MomentumStrategy1)
     print('add strategy DONE.')
 

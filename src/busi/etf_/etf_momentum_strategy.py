@@ -29,7 +29,8 @@ class MomentumStrategy1(bt.Strategy):
                              # 'log_simple_window': 5, # 负
             # 'linear_window': 5, # 0.8
 
-                             'log_r2_window': 5, # 0.8
+                             # 'log_r2_window': 5, # 0.8
+                             'weighted_linear_mom': 25, # 0.8
                              # 'line_log_r2_window': 5, # 负
                              # 'long_window': 10,
                              # 'short_window': 5,
@@ -176,9 +177,10 @@ class MomentumStrategy1(bt.Strategy):
         self.log(f"当前动量参数: {params}")
 
         close = data.close
-        t = len(close) - 1  # 当前索引，不一定用得上
+        t = len(close) - 1  # 当前索引
 
-        # 简单动量: 当前收盘价 - N 日前收盘价
+        # -------------------------
+        # 1️⃣ 简单动量
         if 'simple_window' in params:
             window = params['simple_window']
             if len(close) > window:
@@ -186,7 +188,8 @@ class MomentumStrategy1(bt.Strategy):
                 self.log(f"[简单动量] 当前={close[0]:.2f}, {window}日前={close[-window]:.2f}, 动量={momentum:.4f}")
                 return momentum
 
-        # 对数动量: log(当前/过去N日)
+        # -------------------------
+        # 2️⃣ 对数动量
         elif 'log_simple_window' in params:
             window = params['log_simple_window']
             if len(close) > window and close[0] > 0 and close[-window] > 0:
@@ -194,7 +197,8 @@ class MomentumStrategy1(bt.Strategy):
                 self.log(f"[对数动量] 当前={close[0]:.2f}, {window}日前={close[-window]:.2f}, 动量={momentum:.4f}")
                 return momentum
 
-        # 线性回归 slope 动量
+        # -------------------------
+        # 3️⃣ 线性回归 slope 动量
         elif 'linear_window' in params:
             window = params['linear_window']
             if len(close) > window:
@@ -208,11 +212,41 @@ class MomentumStrategy1(bt.Strategy):
                 self.log(f"[线性动量] slope={slope:.6f}, 窗口={window}")
                 return slope
 
-        # 对数回归 R² 动量
+        # -------------------------
+        # 4️⃣ 新增：加权线性回归动量（Weighted Linear Regression MOM）
+        elif 'weighted_linear_mom' in params:
+            window = params['weighted_linear_mom']
+            if len(close) >= window:
+                # 获取最近 window 个收盘价
+                y_list = close.get(size=window)  # 返回 numpy.ndarray
+                y = np.log(np.array(y_list))  # 对数价格
+                n = len(y)
+                x = np.arange(n)
+
+                # 权重：最近数据权重更高
+                weights = np.linspace(1, 2, n)
+
+                # 加权线性回归
+                slope, intercept = np.polyfit(x, y, 1, w=weights)
+
+                # 年化收益率
+                annualized_returns = np.exp(slope * 250) - 1
+
+                # 加权 R²
+                residuals = y - (slope * x + intercept)
+                weighted_residuals = weights * residuals ** 2
+                r_squared = 1 - (np.sum(weighted_residuals) / np.sum(weights * (y - np.mean(y)) ** 2))
+
+                score = annualized_returns * r_squared
+                self.log(f"[加权线性动量] slope={slope:.6f}, R²={r_squared:.6f}, score={score:.6f}")
+                return score
+
+        # -------------------------
+        # 5️⃣ 对数回归 R² 动量
         elif 'log_r2_window' in params:
             window = params['log_r2_window']
-            if len(close) > window and all(c > 0 for c in close.get(size=window)):
-                y = [math.log(close[-i]) for i in reversed(range(window))]
+            if len(close) > window and all(c > 0 for c in close[-window:]):
+                y = [math.log(c) for c in close[-window:]]
                 x = list(range(window))
                 x_mean = sum(x) / window
                 y_mean = sum(y) / window
@@ -225,11 +259,12 @@ class MomentumStrategy1(bt.Strategy):
                 self.log(f"[对数R²动量] R²={r2:.6f}, 窗口={window}")
                 return r2
 
-        # 线性对数R² + slope 混合评分
+        # -------------------------
+        # 6️⃣ 线性对数R² + slope 混合评分
         elif 'line_log_r2_window' in params:
             window = params['line_log_r2_window']
-            if len(close) > window and all(c > 0 for c in close.get(size=window)):
-                y = [math.log(close[-i]) for i in reversed(range(window))]
+            if len(close) > window and all(c > 0 for c in close[-window:]):
+                y = [math.log(c) for c in close[-window:]]
                 x = list(range(window))
                 x_mean = sum(x) / window
                 y_mean = sum(y) / window
@@ -243,7 +278,8 @@ class MomentumStrategy1(bt.Strategy):
                 self.log(f"[线性log R²动量] slope={slope:.6f}, R²={r2:.6f}, score={score:.6f}")
                 return score
 
-        # 双动量：短期动量 - 长期动量
+        # -------------------------
+        # 7️⃣ 双动量：短期动量 - 长期动量
         elif 'short_window' in params and 'long_window' in params:
             sw = params['short_window']
             lw = params['long_window']
@@ -253,27 +289,22 @@ class MomentumStrategy1(bt.Strategy):
                 dual_mom = short_mom - long_mom
 
                 if 'slope_positive_filter' in params:
-                    # 可选：添加线性slope过滤
                     slope_window = sw
-                    y = [close[-i] for i in reversed(range(slope_window))]
-                    x = list(range(slope_window))
-                    x_mean = sum(x) / slope_window
-                    y_mean = sum(y) / slope_window
-                    numerator = sum((xi - x_mean) * (yi - y_mean) for xi, yi in zip(x, y))
-                    denominator = sum((xi - x_mean) ** 2 for xi in x)
+                    y_slope = [close[-i] for i in reversed(range(slope_window))]
+                    x_slope = list(range(slope_window))
+                    x_mean = sum(x_slope) / slope_window
+                    y_mean = sum(y_slope) / slope_window
+                    numerator = sum((xi - x_mean) * (yi - y_mean) for xi, yi in zip(x_slope, y_slope))
+                    denominator = sum((xi - x_mean) ** 2 for xi in x_slope)
                     slope = numerator / denominator if denominator != 0 else 0.0
                     if slope <= 0:
                         self.log(f"[双动量V2] slope<=0，过滤，值为0")
                         return 0.0
-                    self.log(f"[双动量V2] short={short_mom:.4f}, long={long_mom:.4f}, 结果={dual_mom:.4f}")
-                else:
-                    self.log(f"[双动量] short={short_mom:.4f}, long={long_mom:.4f}, 结果={dual_mom:.4f}")
-
+                self.log(f"[双动量] short={short_mom:.4f}, long={long_mom:.4f}, 结果={dual_mom:.4f}")
                 return dual_mom
 
         self.log(f"⚠️ 未找到匹配的动量计算方式（当前 params: {params}）")
         return None
-
     def print_positions(self):
         total_value = self.broker.getvalue()
         cash_value = self.broker.getcash()

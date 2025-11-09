@@ -15,8 +15,14 @@ def prepare_data(df, start_date=None, end_date=None):
     df['date'] = pd.to_datetime(df['date'])
     df = df.sort_values(['symbol', 'date'])
 
+    # === 🧹 关键修复：去除重复 (symbol, date) ===
+    if df.duplicated(subset=['symbol', 'date']).any():
+        print(f"⚠️ 检测到 {df.duplicated(subset=['symbol', 'date']).sum()} 条重复记录，已自动去重（取最后一条）")
+        df = df.drop_duplicates(subset=['symbol', 'date'], keep='last')
+
     price_df = df.pivot(index='date', columns='symbol', values='close')
     price_df = price_df.fillna(method='ffill')
+    price_df = price_df.fillna(0.001)
 
     if start_date:
         price_df = price_df[price_df.index >= pd.to_datetime(start_date)]
@@ -69,9 +75,8 @@ def generate_rebalance_dates(price_df, freq='month', weekday=0, month_day=10):
     print(f"📆 生成 {len(rebalance_dates)} 个调仓日（freq={freq}）")
     return rebalance_dates
 
-
 # ============================================================
-# ⚙️ 4️⃣ 回测逻辑（含资金分配）
+# ⚙️ 4️⃣ 回测逻辑（含资金分配、手续费、滑点）
 # ============================================================
 def backtest(prices,
              momentum_window=120,
@@ -83,6 +88,8 @@ def backtest(prices,
              freq='month',
              weekday=0,
              month_day=10):
+    import traceback
+
     print(f"\n🚀 回测开始：window={momentum_window}, method={method}, top={n_select}, freq={freq}")
 
     returns = prices.pct_change().dropna()
@@ -92,7 +99,7 @@ def backtest(prices,
     # 初始化资金
     total_value = pd.Series(index=prices.index, dtype=float)
     total_value.iloc[0] = init_cash
-    holdings = {}  # symbol -> 持仓金额（初始为0）
+    holdings = {}  # symbol -> 持仓金额
 
     for j, date in enumerate(rebalance_dates):
         if date not in momentum.index:
@@ -107,12 +114,10 @@ def backtest(prices,
             if len(top_etfs) == 0:
                 continue
 
-            # === 资金分配：平均分配到N个标的 ===
+            # === 安全获取当前账户资金 ===
             past_values = total_value.loc[:date].dropna()
-            if len(past_values) == 0:
-                current_value = init_cash
-            else:
-                current_value = past_values.iloc[-1]
+            current_value = past_values.iloc[-1] if len(past_values) > 0 else init_cash
+            print(f"💰 {date.date()} 账户余额：{current_value:.2f}")
 
             # === 资金分配：平均分配到N个标的 ===
             each_value = current_value / n_select
@@ -122,32 +127,41 @@ def backtest(prices,
             next_date = rebalance_dates[j + 1] if j < len(rebalance_dates) - 1 else prices.index[-1]
 
             # === 模拟每日组合净值变化 ===
-            period_idx = (returns.index > date) & (returns.index <= next_date)
-            if not period_idx.any():
+            period_idx = (returns.index >= date) & (returns.index <= next_date)
+            period_dates = returns.index[period_idx]
+            if len(period_dates) == 0:
+                print(f"⚠️ 无有效交易日: {date} ~ {next_date}, 跳过 period_idx: {period_idx}, returns.index: {returns.index}")
                 continue
 
-            period_dates = returns.index[period_idx]
             port_daily = pd.Series(index=period_dates, dtype=float)
 
-            for t in period_dates:
-                # 每天根据持仓ETF涨跌调整持仓金额
+            # 每日净值更新
+            for i, t in enumerate(period_dates):
                 day_ret = returns.loc[t, top_etfs].fillna(0)
-                daily_growth = (day_ret + 1).prod() ** (1 / len(day_ret)) - 1  # 简化平均收益
-                current_value = current_value * (1 + daily_growth)
+                daily_port_ret = day_ret.mean()
+                current_value *= (1 + daily_port_ret)
+
+                # 调仓当天扣手续费+滑点
+                if i == 0:
+                    current_value *= (1 - fee_rate - slippage)
+
                 port_daily.loc[t] = current_value
 
-            # === 更新总资产 ===
-            print(f"💰 {date.date()} 净值：{current_value:.2f}")
+            # 更新总资产
             total_value.loc[period_dates] = port_daily
+
+            # 为下一次调仓更新资金
+            current_value = port_daily.iloc[-1]
+
+            print(f"💰 {date.date()} 调仓后净值：{current_value:.2f}")
 
         except Exception as e:
             print(f"❌ 调仓 {date.date()} 出错: {e}")
             traceback.print_exc()
 
-    # === 绩效指标 ===
+    # === 绩效指标计算 ===
     nav = total_value.ffill()
     daily_ret = nav.pct_change().dropna()
-
     if len(daily_ret) == 0:
         print("⚠️ 无有效交易区间，跳过。")
         return None

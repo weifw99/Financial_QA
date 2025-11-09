@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pybroker as pyb
 from pybroker import ExecContext, Strategy, StrategyConfig, FeeMode
 import pandas as pd
@@ -25,7 +27,7 @@ etf_codes = []
 etf_codes.append( df['symbol'].unique().tolist() )
 for pool_file in files:
     df_pool = pd.read_csv(data_dir + pool_file)
-    etf_codes.append( df_pool['代码'].tolist() )
+    etf_codes.append( df_pool['代码'].astype( str).tolist() )
 
 
 # 注册自定义指标
@@ -90,7 +92,33 @@ def calc_momentum_score(close, method, window):
         ss_res = sum((yi - yhi) ** 2 for yi, yhi in zip(y, y_hat))
         r2 = 1 - ss_res / ss_total if ss_total != 0 else 0.0
         return slope * r2
+    # 🆕 新增的动量算法：weighted_regression
+    elif method == 'weighted_regression':
+        # 取最近 window 天收盘价
+        y = np.log(close[-window:])  # 对价格取对数
+        n = len(y)
+        if n < 3:  # 样本太少无法回归
+            return 0.0
 
+        x = np.arange(n)  # 时间索引
+        # 权重：线性递增（近期数据更重要）
+        weights = np.linspace(1, 2, n)
+
+        # 加权线性回归
+        slope, intercept = np.polyfit(x, y, 1, w=weights)
+
+        # 年化收益率
+        annualized_returns = np.exp(slope * 250) - 1
+
+        # 加权 R²
+        residuals = y - (slope * x + intercept)
+        weighted_residuals = weights * residuals**2
+        ss_total = np.sum(weights * (y - np.mean(y))**2)
+        r_squared = 1 - np.sum(weighted_residuals) / ss_total if ss_total != 0 else 0.0
+
+        # 综合评分 = 收益率 × 稳定性
+        score = annualized_returns * r_squared
+        return score
     else:
         raise NotImplementedError(f"Momentum method {method} not implemented")
 
@@ -117,8 +145,16 @@ def rank(ctxs: dict[str, ExecContext]):
     sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
     threshold = pyb.param('rank_threshold')
     top_scores = sorted_scores[:threshold]
+
+    # 安全区间过滤：得分在(0, 5]范围内
+    # 得分>0：确保正向动量，避免负向趋势
+    # 得分<=5：避免动量过高，防止追高风险
+
+    top_scores = [(s[0], s[1]) for s in top_scores if s[1]>0 and s[1]<=5]
+
     pyb.param('top_symbols', [s[0] for s in top_scores])
     pyb.param('top_scores', top_scores)
+    print(f'top_scores: {top_scores}')
 
 
 # ======================
@@ -142,47 +178,157 @@ def should_rebalance(date, freq):
         return False
 
 
-def rotate(ctx: ExecContext):
+def rotate1(ctx: ExecContext):
     # 判断是否到调仓日
     today_ = ctx.date[-1]  # 举例取一个 symbol 的最新日期
-    print(f'{ctx.symbol} rotate Checking date for {today_}...')
     # 比如：每月最后一个交易日
     if not should_rebalance(today_, pyb.param('rebalance_freq')):
         return  # 不触发调仓
 
+    print(f'{ctx.symbol} rotate 触发调仓 date for {today_}...long_pos： {ctx.long_pos()}')
+
     # 卖出不在 top N 的持仓
     if ctx.long_pos() and ctx.symbol not in pyb.param('top_symbols'):
         ctx.sell_all_shares()
-
     # 买入 top N
     elif ctx.symbol in pyb.param('top_symbols') and not ctx.long_pos():
         target_size = pyb.param('target_size')
         ctx.buy_shares = ctx.calc_target_shares(target_size)
         ctx.score = ctx.momentum_score[-1]
+    print(f'{ctx.symbol} rotate 触发调仓 date for {today_}...long_pos： {ctx.long_pos()}')
 
+from decimal import Decimal
+import pandas as pd
+
+def rotate3(ctx: ExecContext):
+    freq = pyb.param('rebalance_freq')
+    top_symbols = pyb.param('top_symbols')
+    target_size = pyb.param('target_size')
+
+    # 判断是否到调仓日
+
+    today_ = pd.Timestamp(ctx.date[-1])
+    if not should_rebalance(today_, freq):
+        return
+    print(f'{ctx.symbol} rotate 触发调仓 date for {today_}...long_pos： {ctx.long_pos()}')
+
+    symbol = ctx.symbol
+    price_val = ctx.close[-1]
+    if price_val <= 0:
+        return
+    price = Decimal(str(price_val))
+
+    # 获取当前持仓
+    pos = ctx.pos(symbol, pos_type="long")
+    current_shares = Decimal(str(pos.shares)) if pos else Decimal(0)
+    current_value = current_shares * price
+
+    total_value = Decimal(str(ctx.total_market_value))
+    # 每个标的目标仓位价值
+    target_value = total_value * Decimal("1") / Decimal(str(target_size))
+    diff_value = target_value - current_value
+    diff_shares = int(diff_value / price)
+
+    # === 调仓逻辑 ===
+    if symbol not in top_symbols:
+        if current_shares > 0:
+            ctx.sell_all_shares()
+            print(f"🟥 卖出 {symbol} 全部 {current_shares} 股")
+        return
+
+    # 当前 symbol 在 top N
+    if diff_shares > 0:
+        ctx.buy_shares = diff_shares
+        print(f"🟩 买入 {symbol} {diff_shares} 股")
+    elif diff_shares < 0:
+        ctx.sell_shares = abs(diff_shares)
+        print(f"🟦 减仓 {symbol} {abs(diff_shares)} 股")
+
+    print(f"✅ {symbol} 调仓完成: 当前 {current_shares} 股, 目标 {target_value:.2f}")
+
+from decimal import Decimal, ROUND_DOWN
+
+from decimal import Decimal, ROUND_DOWN
+
+def rotate(ctx: ExecContext):
+    freq = pyb.param('rebalance_freq')
+    top_symbols = pyb.param('top_symbols')
+    target_size = pyb.param('target_size')
+
+    today_ = pd.Timestamp(ctx.date[-1])
+    if not should_rebalance(today_, freq):
+        return
+
+    symbol = ctx.symbol
+    price_val = ctx.close[-1]
+    if price_val <= 0:
+        return
+    price = Decimal(str(price_val))
+
+    # 1️⃣ 卖出不在 top N 的持仓，释放现金
+    if symbol not in top_symbols:
+        pos = ctx.pos(symbol, "long")
+        current_shares = Decimal(str(pos.shares)) if pos else Decimal(0)
+        if current_shares > 0:
+            ctx.sell_all_shares()
+            print(f"🟥 卖出 {symbol} 全部 {current_shares} 股")
+        return
+
+    # 2️⃣ 当前 symbol 在 top N，计算目标仓位
+    total_value = Decimal(str(ctx.total_market_value))
+    target_value = (total_value * Decimal(str(target_size))).quantize(Decimal("0.01"))
+
+    pos = ctx.pos(symbol, "long")
+    current_shares = Decimal(str(pos.shares)) if pos else Decimal(0)
+    current_value = (current_shares * price).quantize(Decimal("0.01"))
+
+    diff_value = target_value - current_value
+
+    if diff_value > 0:
+        # 可买入股数
+        available_cash = Decimal(str(ctx.cash))
+        buy_value = min(diff_value, available_cash)
+        buy_shares = int((buy_value / price).to_integral_value(rounding=ROUND_DOWN))
+        if buy_shares > 0:
+            ctx.buy_shares = buy_shares
+            print(f"🟩 买入 {symbol} {buy_shares} 股, target_value={target_value:.2f}")
+    elif diff_value < 0:
+        # 超过目标仓位，减仓
+        sell_shares = int((-diff_value / price).to_integral_value(rounding=ROUND_DOWN))
+        if sell_shares > 0:
+            ctx.sell_shares = sell_shares
+            print(f"🟦 减仓 {symbol} {sell_shares} 股, target_value={target_value:.2f}")
+
+    print(f"✅ {symbol} 调仓完成: 当前 {current_shares} 股, 目标 {target_value:.2f}, 现金 {ctx.cash:.2f}")
 
 # ======================
 # 4️⃣ 网格搜索参数
 # ======================
 
 param_grid = {
-    'max_long_positions': [2, 3],
-    'momentum_method': ['simple_window', 'log_simple_window', 'linear_window', 'log_r2_window', 'line_log_r2_window'],
-    'momentum_window': [10, 20, 30],
-    'etf_codes': etf_codes,
+    'max_long_positions': [ 1, 2 ],
+    # 'max_long_positions': [1, 2, 3, 4],
+    # 'momentum_method': ['log_simple_window', ],
+    'momentum_method': ['weighted_regression', ],
+    # 'momentum_method': ['simple_window', 'log_simple_window', 'linear_window', 'log_r2_window', 'line_log_r2_window'],
+    'momentum_window': [25, ],
+    # 'momentum_window': [10, 16, 20, 30, 40, 60],
+    # 'etf_codes': etf_codes,
+    'etf_codes': [['518880', '513100','510300', '159915', '513520', '159985']],
     'rebalance_freq': [
-        {'type': 'daily'},
-        {'type': 'weekly', 'value': 0},   # 每周一
+        # {'type': 'daily'},
+        # {'type': 'weekly', 'value': 0},   # 每周一
+        # {'type': 'weekly', 'value': 1},   # 每周一
         {'type': 'weekly', 'value': 2},
-        {'type': 'weekly', 'value': 3},
-        {'type': 'weekly', 'value': 3},   # 每周四
-        {'type': 'weekly', 'value': 4},
-        {'type': 'monthly', 'value': 1},  # 每月 1 号
-        {'type': 'monthly', 'value': 5},
-        {'type': 'monthly', 'value': 10},
-        {'type': 'monthly', 'value': 15},
-        {'type': 'monthly', 'value': 20},
-        {'type': 'monthly', 'value': 25},
+        # {'type': 'weekly', 'value': 3},
+        # {'type': 'weekly', 'value': 3},   # 每周四
+        # {'type': 'weekly', 'value': 4},
+        # {'type': 'monthly', 'value': 1},  # 每月 1 号
+        # {'type': 'monthly', 'value': 5},
+        # {'type': 'monthly', 'value': 10},
+        # {'type': 'monthly', 'value': 15},
+        # {'type': 'monthly', 'value': 20},
+        # {'type': 'monthly', 'value': 25},
     ]
 }
 
@@ -206,7 +352,7 @@ for max_pos, method, window, freq, etf_code in grid_combinations:
 
         print(f"Backtest: max_pos={max_pos}, method={method}, window={window}, freq={freq}, etf_code={etf_code}")
 
-        df_filtered = filter_data(df, '2019-01-01', '2025-01-01')
+        df_filtered = filter_data(df, '2020-01-01', '2025-10-01')
         df_mom = calc_indicators(df_filtered, method=method, window=window)
 
         config = StrategyConfig(
@@ -234,12 +380,17 @@ for max_pos, method, window, freq, etf_code in grid_combinations:
             'momentum_method': method,
             'momentum_window': window,
             'rebalance_freq': freq,
+            'etf_code': etf_code,
             'final_nav': final_nav,
+            'max_drawdown_pct': result.metrics.max_drawdown_pct,
             'portfolio': result.portfolio,
             'orders': result.orders,
             'metrics': result.metrics
         })
-    except:
+        print(result)
+        print(result.metrics)
+    except Exception as e :
+        print( 'Exception:', e)
         continue
 
 
@@ -247,10 +398,31 @@ for max_pos, method, window, freq, etf_code in grid_combinations:
 # 6️⃣ 输出最优参数
 # ======================
 # pd.DataFrame(results).to_csv('etf_momentum_grid_results.csv', index=False)
+
+# 保存参数和关键指标摘要
+summary_results = []
+for res in results:
+    summary_results.append({
+        'max_long_positions': res['max_long_positions'],
+        'momentum_method': res['momentum_method'],
+        'momentum_window': res['momentum_window'],
+        'rebalance_freq': str(res['rebalance_freq']),  # 字典转字符串
+        'final_nav': res['final_nav'],
+        'total_pnl': res['metrics'].total_pnl if hasattr(res['metrics'], 'total_pnl') else None,
+        'total_return_pct': res['metrics'].total_return_pct if hasattr(res['metrics'], 'total_return_pct') else None,
+        'annual_return_pct': res['metrics'].annual_return_pct if hasattr(res['metrics'], 'annual_return_pct') else None,
+        'max_drawdown': res['metrics'].max_drawdown if hasattr(res['metrics'], 'max_drawdown') else None,
+        'max_drawdown_pct': res['metrics'].max_drawdown_pct if hasattr(res['metrics'], 'max_drawdown_pct') else None,
+        'win_rate': res['metrics'].win_rate if hasattr(res['metrics'], 'win_rate') else None,
+        'annual_volatility_pct': res['metrics'].annual_volatility_pct if hasattr(res['metrics'], 'annual_volatility_pct') else None,
+        # 添加其他关键指标...
+    })
+pd.DataFrame(summary_results).to_csv('etf_momentum_grid_results.csv', index=False)
+
 best = max(results, key=lambda x: x['final_nav'])
 print("===== 最优策略 =====")
-print(f"持仓数: {best['max_long_positions']}, 动量方法: {best['momentum_method']}, 窗口: {best['momentum_window']}, 调仓周期: {best['rebalance_freq']}, 最终净值: {best['final_nav']:.2f}")
-
+print(f"持仓数: {best['max_long_positions']}, 动量方法: {best['momentum_method']}, 窗口: {best['momentum_window']}, 调仓周期: {best['rebalance_freq']}, 最终净值: {best['final_nav']:.2f}, 最大回撤: {best['max_drawdown_pct']:.2f}")
+print("etf_code:", best['etf_code'])
 # 绘制净值曲线
 # import plotly.graph_objects as go
 # fig = go.Figure()
@@ -331,3 +503,9 @@ fig.update_layout(
 )
 
 fig.show()
+
+
+
+best = min(results, key=lambda x: x['max_drawdown_pct'])
+print(f"持仓数: {best['max_long_positions']}, 动量方法: {best['momentum_method']}, 窗口: {best['momentum_window']}, 调仓周期: {best['rebalance_freq']}, 最终净值: {best['final_nav']:.2f}, 最大回撤: {best['max_drawdown_pct']:.2f}")
+

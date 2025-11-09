@@ -159,7 +159,7 @@ class SmallCapSignalGenerator:
                         # 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q',
                         # 'openinterest', ]
                     row['mv'] > self.config['min_mv']
-                    and row['lt_mv'] > self.config['min_mv']
+                    # and row['lt_mv'] > self.config['min_mv']
                     and row['lt_share_rate'] >= 0.8
                     and row['is_st'] == 0
                     and 5 < row['close'] < self.config['hight_price']
@@ -173,7 +173,7 @@ class SmallCapSignalGenerator:
 
                     # and row['profit_q'] > 0
                     # and row['roeAvg_q'] > 0
-                    and row['profit_ttm_q'] > 0
+                    # and row['profit_ttm_q'] > 0
                     # and row['revenue_single_q'] > self.config['min_revenue']
 
                 ):

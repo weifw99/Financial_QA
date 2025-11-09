@@ -45,6 +45,7 @@ def calc_indicators(df, momentum_window=20):
         roc = ta.ROC(close, timeperiod=momentum_window)
         volatility = ta.STDDEV(close, timeperiod=momentum_window)
         vol_mom = ta.ROC(volume, timeperiod=momentum_window)
+        ta.MOM(close, timeperiod=momentum_window)
 
         # 简单动量融合：价量 + 波动调整
         momentum_score = roc * 0.6 + vol_mom * 0.3 - volatility * 0.1
@@ -81,13 +82,17 @@ def rank(ctxs: dict[str, ExecContext]):
     sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
     threshold = pyb.param('rank_threshold')
     top_scores = sorted_scores[:threshold]
+
+    print('Ranking...', top_scores)
     pyb.param('top_symbols', [s[0] for s in top_scores])
+    pyb.param('top_scores', top_scores)
 
 # ======================
 # 5️⃣ 轮动函数
 # ======================
 def rotate(ctx: ExecContext):
     # 卖出不在 top N 的持仓
+    print(f'Rotating {ctx.symbol}..., top_scores:', pyb.param('top_scores'))
     if ctx.long_pos() and ctx.symbol not in pyb.param('top_symbols'):
         ctx.sell_all_shares()
     # 买入 top N ETF

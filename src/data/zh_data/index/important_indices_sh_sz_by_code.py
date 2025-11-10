@@ -42,8 +42,8 @@ if __name__ == '__main__':
 
     bast_path = '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/index'
 
-    code_list: list[str] = ['399101', '399005', '399401','399663', '399008', '000300', '000016','000046',
-                            '000905', '000906', '000132','000133','000010','000009', '932000']
+    code_list: list[str] = ['932000', '399101', '399005', '399401', '399663', '399008', '000300', '000016','000046',
+                            '000905', '000906', '000132','000133', '000010','000009', ]
     for j, code in enumerate(code_list):
         query_code =  code
         query_code1 =  code

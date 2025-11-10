@@ -211,7 +211,7 @@ class Getdata():
         if self.symbols is None:
             data = EtfDataHandle().get_down_all_data()
         else:
-            data = EtfDataHandle().get_down_symbols_data(self.symbols, refresh=False)
+            data = EtfDataHandle().get_local_symbols_data(self.symbols)
 
         if data is None or data.empty:
             print("警告：从EtfDataHandle获取数据为空")
@@ -223,7 +223,7 @@ class Getdata():
         # 数据选择
         rename_cols = {
             '代码': 'symbol',
-            '日期': 'date',
+            # '日期': 'date',
             '开盘': 'open',
             '收盘': 'close',
             '最高': 'high',

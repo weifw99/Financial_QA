@@ -155,6 +155,55 @@ class EtfDataHandle:
 
         return etf_result
 
+
+    @staticmethod
+    def local_etf_trading_day_data(symbol: Union[str, List[str]]) -> list[pd.DataFrame]:
+        """
+        :param symbol:
+        :return:
+        """
+        if isinstance(symbol, str):
+            symbols = [symbol]
+        else:
+            symbols = symbol
+        etf_result = []
+        for i, symbol in enumerate(symbols):
+            path_ = DataCons.ETF_HS_DAILY_FILE_PATH.format(symbol)
+            Path(path_).parent.mkdir(parents=True, exist_ok=True)
+            if os.path.exists(path_):
+                print(f"从本地文件已存在 etf日频交易 数据: {symbol} ")
+                bef_df = pd.read_csv(path_)
+                bef_df = bef_df.drop_duplicates(subset=['date'], keep='last')
+                bef_df = bef_df.sort_values(by='date', ascending=False)
+                etf_result.append(bef_df)
+            else:
+                print(f"本地文件不存在 etf日频交易 数据: {symbol}, 获取数据")
+        return etf_result
+
+    def get_local_symbols_data(self, symbols: List[str]) -> pd.DataFrame:
+
+        etf_list = []
+        for etf_code in symbols:
+            etf_code = str(etf_code)
+
+            if etf_code.startswith('15'):
+                etf_code = 'SH' + etf_code
+            elif etf_code.startswith('51'):
+                etf_code = 'SZ' + etf_code
+            temp_etf: list[pd.DataFrame] = self.local_etf_trading_day_data(symbol=str( etf_code ) )
+
+            if len(temp_etf) == 0:
+                continue
+            temp_etf0 = temp_etf[0]
+            temp_etf0['代码'] = etf_code
+            temp_etf0['日期'] = temp_etf0['date']
+            etf_list.append(temp_etf0)
+
+        etf_trading_day_pd = pd.concat(etf_list, axis=0)
+        etf_trading_day_pd.index = etf_trading_day_pd['日期']
+
+        return etf_trading_day_pd
+
     def get_down_symbols_data(self, symbols: List[str], refresh: bool = False) -> pd.DataFrame:
 
         if (not refresh) and os.path.exists(DataCons.ETF_INFO_CAT):
@@ -163,6 +212,28 @@ class EtfDataHandle:
         etf_list = []
         for etf_code in symbols:
             temp_etf: list[pd.DataFrame] = self.download_etf_trading_day_data(symbol=str( etf_code ) )
+
+            if len(temp_etf) == 0:
+                continue
+            temp_etf0 = temp_etf[0]
+            temp_etf0['代码'] = etf_code
+            etf_list.append(temp_etf0)
+
+        etf_trading_day_pd = pd.concat(etf_list, axis=0)
+
+        etf_trading_day_pd.index = etf_trading_day_pd['日期']
+        if not os.path.exists(DataCons.ETF_INFO_DIR):
+            os.makedirs(DataCons.ETF_INFO_DIR)
+        etf_trading_day_pd.to_csv(DataCons.ETF_INFO_CAT, index=False)
+
+        return etf_trading_day_pd
+
+
+    def get_down_symbols_data1(self, symbols: List[str], refresh: bool = False) -> pd.DataFrame:
+
+        etf_list = []
+        for etf_code in symbols:
+            temp_etf: list[pd.DataFrame] = self.download_etf_trading_day_data(symbol=str( etf_code ), refresh=refresh )
 
             if len(temp_etf) == 0:
                 continue

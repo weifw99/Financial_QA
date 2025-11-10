@@ -23,11 +23,15 @@ class MomentumStrategy1(bt.Strategy):
                              'weighted_linear_mom': 25, # 0.8
                              # 'line_log_r2_window': 25, # 负
                              }),  # 动量计算参数
+        ('take_profit', 0.10),  # 止盈阈值（10%）
+        ('stop_loss', 0.03),  # 止损阈值（3%）
     )
 
     def __init__(self):
         super().__init__()
         self.etf_positions = {}  # 用于跟踪持仓的字典
+        self.etf_stops = set()  # 用于跟踪止损的标的
+        self.etf_takes = set()  # 用于跟踪止盈的标的
         self.data_dict = {}  # 存储数据源的字典
         self.last_weekday = None  # 记录上一个交易日是周几
 
@@ -47,6 +51,9 @@ class MomentumStrategy1(bt.Strategy):
         current_date = self.datas[0].datetime.date(0)
         weekday = current_date.weekday()  # 0=周一, 2=周三, 4=周五
 
+        # 每日检查止盈止损
+        self.check_stop_take_profit()
+
         # 每周三执行交易（避免重复执行）
         if weekday == 2 and self.last_trade_date != current_date:
             self.log("=== 每周三轮动交易触发 ===")
@@ -56,6 +63,39 @@ class MomentumStrategy1(bt.Strategy):
         # 打印当前持仓
         self.print_positions()
 
+    # ------------------------------------------------------
+    # 新增止盈止损逻辑
+    # ------------------------------------------------------
+    def check_stop_take_profit(self):
+        """每天检查止盈止损"""
+        for data in self.datas:
+            pos = self.getposition(data)
+            if pos.size <= 0:
+                continue
+
+            current_price = data.close[0]
+            buy_price = pos.price
+            change_pct = (current_price - buy_price) / buy_price
+
+            # 止盈
+            if change_pct >= self.p.take_profit:
+                self.log(f"📈 达到止盈条件 {data._name}: 当前涨幅 {change_pct*100:.2f}%，执行止盈卖出")
+                self.close(data)
+                self.etf_positions[data._name] = 0
+                self.etf_takes.add(data._name)
+
+
+            # 止损
+            elif change_pct <= -self.p.stop_loss:
+                self.log(f"📉 达到止损条件 {data._name}: 当前跌幅 {change_pct*100:.2f}%，执行止损卖出")
+                self.close(data)
+                self.etf_positions[data._name] = 0
+                self.etf_stops.add(data._name)
+        # 触发了止盈，并且空仓，需要平衡
+        if len(self.etf_takes) >0 :
+            self.log(f"⚠️ 触发止盈，开始平衡")
+            self.rebalance_etfs()
+            self.etf_takes.clear()
     # ------------------------------------------------------
     # 核心轮动逻辑
     # ------------------------------------------------------
@@ -82,14 +122,16 @@ class MomentumStrategy1(bt.Strategy):
 
         all_etfs = sorted(momentum_scores.items(), key=lambda x: x[1], reverse=True)
         self.log(f"所有的ETF动量: { all_etfs }")
-        top_etfs = all_etfs[:self.p.top_n]
+        top_etfs = [(etf, score) for etf, score in all_etfs if score > -0.01 and score <= 5.5 and etf not in self.etf_stops]
+        top_etfs = top_etfs[:self.p.top_n]
         # 安全区间过滤：得分在(0, 5]范围内
         # 得分>0：确保正向动量，避免负向趋势
         # 得分<=5：避免动量过高，防止追高风险
         # 风险控制：如果所有ETF都不符合条件，则空仓避险
         # top_etfs = [(etf, score) for etf, score in top_etfs if score > 0 and score <= 5.1 ]
         # top_etfs = [(etf, score) for etf, score in top_etfs if score > -0.01 and score <= 5.1 ]
-        top_etfs = [(etf, score) for etf, score in top_etfs if score > -0.01 and score <= 5.5 ]
+
+        # top_etfs = [(etf, score) for etf, score in top_etfs if score > -0.01 and score <= 5.5 ]
         # 记录选中的ETF及其动量分数
         self.log(f"选中的ETF数量: {len(top_etfs)}")
         for name, score in top_etfs:
@@ -132,6 +174,8 @@ class MomentumStrategy1(bt.Strategy):
             else:
                 self.log(f"继续持有: {name}")
 
+        self.etf_stops.clear()
+
     def close_all_positions(self):
         """平掉所有持仓"""
         if not self.etf_positions:
@@ -145,6 +189,8 @@ class MomentumStrategy1(bt.Strategy):
                 self.close(self.data_dict[name])
                 self.etf_positions[name] = 0
         self.log("平仓完成")
+        self.etf_stops.clear()
+        self.etf_takes.clear()
 
     def notify_order(self, order):
         self.log(f"订单通知: {order.data._name}, 状态: {order.getstatusname()}")
@@ -230,13 +276,14 @@ class MomentumStrategy1(bt.Strategy):
 
                 # 年化收益率
                 annualized_returns = np.exp(slope * 250) - 1
+                # annualized_returns = np.exp(slope * 21) - 1
 
                 # 加权 R²
                 residuals = y - (slope * x + intercept)
                 weighted_residuals = weights * residuals ** 2
                 r_squared = 1 - (np.sum(weighted_residuals) / np.sum(weights * (y - np.mean(y)) ** 2))
 
-                window_short = 5
+                window_short = 10
                 # score = annualized_returns * r_squared + (close[0] - close[-window_short])/(close[-window_short]+0.001) * r_squared
                 score = annualized_returns * r_squared
                 self.log(f"{data._name}: [年化收益率] annualized_returns={annualized_returns:.6f}, R²={r_squared:.6f}, window_short涨幅={(close[0] - close[-window_short])/(close[-window_short]+0.001):.6f}")

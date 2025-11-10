@@ -8,10 +8,6 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 
-from busi.etf_.util_moment import momentum_linear, momentum_simple, momentum_dual, log_momentum_r2, log_momentum_simple, \
-    line_log_momentum_r2
-from busi.smallcap_strategy.utils.momentum_utils import get_momentum
-
 
 class MomentumStrategy1(bt.Strategy):
     """
@@ -20,9 +16,7 @@ class MomentumStrategy1(bt.Strategy):
     params = (
         ('top_n', 1),  # 选择前N个ETF
         ('min_momentum', -0.1),  # 最小动量阈值，调整为负值以允许负动量
-        ('max_position', 0.2),  # 最大持仓比例
         ('momentum_params', {
-
                              # 'simple_window': 5, # 负
 
 
@@ -32,9 +26,6 @@ class MomentumStrategy1(bt.Strategy):
                              # 'log_r2_window': 5, # 0.8
                              'weighted_linear_mom': 25, # 0.8
                              # 'line_log_r2_window': 5, # 负
-                             # 'long_window': 10,
-                             # 'short_window': 5,
-                             # 'slope_positive_filter': True,
                              }),  # 动量计算参数
     )
 
@@ -43,6 +34,8 @@ class MomentumStrategy1(bt.Strategy):
         self.etf_positions = {}  # 用于跟踪持仓的字典
         self.data_dict = {}  # 存储数据源的字典
         self.last_weekday = None  # 记录上一个交易日是周几
+
+        self.last_trade_date = None  # 上次交易日期
         
         # 存储所有数据源
         for data in self.datas:
@@ -54,81 +47,90 @@ class MomentumStrategy1(bt.Strategy):
         print(f'{dt.isoformat()}: {txt}')
 
     def next(self):
-        # 获取当前日期
+        """每个bar调用一次"""
         current_date = self.datas[0].datetime.date(0)
-        current_weekday = current_date.weekday()  # 0-6，0是周一，4是周五
-        self.buy_etfs()
-        # 如果是周一，进行买入操作
-        # if current_weekday == 0:
-        #     self.log("=== 周一买入信号 ===")
-        #     self.buy_etfs()
-        # 如果是周五，进行平仓操作
-        # elif current_weekday == 4:
-        #     self.log("=== 周五平仓信号 ===")
-        #     self.close_all_positions()
-            
-        self.last_weekday = current_weekday
+        weekday = current_date.weekday()  # 0=周一, 2=周三, 4=周五
 
-        self.log("next，持仓如下：")
+        # 每周三执行交易（避免重复执行）
+        if weekday == 2 and self.last_trade_date != current_date:
+            self.log("=== 每周三轮动交易触发 ===")
+            self.rebalance_etfs()
+            self.last_trade_date = current_date
+
+        # 打印当前持仓
         self.print_positions()
 
-    def buy_etfs(self):
-        """买入动量最高的ETF"""
-        # 计算所有ETF的动量分数
+    # ------------------------------------------------------
+    # 核心轮动逻辑
+    # ------------------------------------------------------
+    def rebalance_etfs(self):
+        """轮动逻辑：卖出非目标ETF，买入动量最强ETF"""
+        self.log(f"开始计算动量分数，共 {len(self.data_dict)} 个ETF")
         momentum_scores = {}
-        self.log(f"开始计算ETF动量分数，ETF数量: {len(self.data_dict)}")
-        
-        for name, data in self.data_dict.items():
-            momentum = self.calculate_momentum(data)
-            if momentum is not None:
-                self.log(f"ETF: {name}, 原始动量分数: {momentum}")
-                if momentum > self.p.min_momentum:
-                    momentum_scores[name] = momentum
-                    self.log(f"ETF: {name}, 有效动量分数: {momentum}")
-                else:
-                    self.log(f"ETF: {name}, 动量分数低于阈值: {momentum} < {self.p.min_momentum}")
-            else:
-                self.log(f"ETF: {name}, 动量分数无效")
 
-        # 选择动量最高的N个ETF
+        # 计算动量
+        for name, data in self.data_dict.items():
+            score = self.calculate_momentum(data)
+            if score is not None and score > self.p.min_momentum:
+                momentum_scores[name] = score
+                self.log(f"ETF {name}: 动量 {score:.4f}")
+            else:
+                self.log(f"ETF {name}: 动量无效或低于阈值")
+
+        # 选出动量最高的 top_n
+        if not momentum_scores:
+            self.log("⚠️ 无有效动量ETF，全部平仓避险")
+            self.close_all_positions()
+            return
+
         top_etfs = sorted(momentum_scores.items(), key=lambda x: x[1], reverse=True)[:self.p.top_n]
-        
+        self.log(f"总共的ETF动量: { top_etfs }")
+        # 安全区间过滤：得分在(0, 5]范围内
+        # 得分>0：确保正向动量，避免负向趋势
+        # 得分<=5：避免动量过高，防止追高风险
+        # 风险控制：如果所有ETF都不符合条件，则空仓避险
+        top_etfs = [(etf, score) for etf, score in top_etfs if score > 0 and score <= 5 ]
         # 记录选中的ETF及其动量分数
         self.log(f"选中的ETF数量: {len(top_etfs)}")
         for name, score in top_etfs:
             self.log(f"ETF: {name}, 动量分数: {score:.4f}")
-        
-        # 计算每个ETF的目标权重
-        total_momentum = sum(score for _, score in top_etfs)
-        if total_momentum > 0:
-            target_weights = {name: min(score/total_momentum, self.p.max_position) 
-                            for name, score in top_etfs}
-            self.log(f"总动量分数: {total_momentum:.4f}，target_weights：{target_weights}")
-        else:
-            target_weights = {}
-            self.log("警告：所有ETF的动量分数都为0或无效")
 
-        # 调整持仓
+        target_etfs = [etf for etf, score in top_etfs]
+        self.log(f"目标ETF: {target_etfs}")
+
+        # -------------------
+        # 1️⃣ 卖出非目标ETF
+        # -------------------
+        for name, pos in self.etf_positions.items():
+            if pos > 0 and name not in target_etfs:
+                self.log(f"卖出非目标ETF: {name}")
+                self.close(self.data_dict[name])
+                self.etf_positions[name] = 0
+
+        # -------------------
+        # 2️⃣ 买入目标ETF
+        # -------------------
         current_value = self.broker.getvalue()
-        self.log(f"当前账户价值: {current_value:.2f}")
-        
-        # 调整现有持仓
-        for name, weight in target_weights.items():
+        cash = self.broker.getcash()
+        self.log(f"当前账户价值: {current_value:.2f}, cash: {cash}")
+        if not target_etfs:
+            self.log("⚠️ 无目标ETF，保持空仓")
+            return
+
+        value_per_etf = cash / len(target_etfs)
+        for name in target_etfs:
             data = self.data_dict[name]
-            target_size = (current_value * weight) / data.close[0]
-            
-            if name in self.etf_positions:
-                # 调整现有持仓
-                current_size = self.etf_positions[name]
-                if abs(target_size - current_size) > 1e-6:  # 避免微小调整
-                    self.log(f"调整持仓: {name}, 目标数量: {target_size:.2f}, 当前数量: {current_size:.2f}, 权重: {weight:.2%}")
-                    self.order_target_size(data, target_size)
-                    self.etf_positions[name] = target_size
+            pos = self.getposition(data)
+
+            if pos.size == 0:
+                target_value = current_value * self.p.top_n / len(target_etfs)
+                # self.log(f"买入ETF: {name}, 金额: {target_value:.2f}")
+                self.log(f"买入ETF{name} 前：现金={self.broker.getcash():.2f}, 总资产={self.broker.getvalue():.2f}, 目标金额={target_value:.2f}, ETF价格={data.close[0]:.2f}")
+
+                self.order_target_value(data, target_value*0.98)
+                self.etf_positions[name] = target_value / data.close[0]
             else:
-                # 开新仓
-                self.log(f"开新仓: {name}, 数量: {target_size:.2f}, 权重: {weight:.2%}, 价格: {data.close[0]:.2f}")
-                self.order_target_size(data, target_size)
-                self.etf_positions[name] = target_size
+                self.log(f"继续持有: {name}")
 
     def close_all_positions(self):
         """平掉所有持仓"""
@@ -185,7 +187,7 @@ class MomentumStrategy1(bt.Strategy):
             window = params['simple_window']
             if len(close) > window:
                 momentum = close[0] - close[-window]
-                self.log(f"[简单动量] 当前={close[0]:.2f}, {window}日前={close[-window]:.2f}, 动量={momentum:.4f}")
+                self.log(f"{data._name}: [简单动量] 当前={close[0]:.2f}, {window}日前={close[-window]:.2f}, 动量={momentum:.4f}")
                 return momentum
 
         # -------------------------
@@ -194,7 +196,7 @@ class MomentumStrategy1(bt.Strategy):
             window = params['log_simple_window']
             if len(close) > window and close[0] > 0 and close[-window] > 0:
                 momentum = math.log(close[0] / close[-window])
-                self.log(f"[对数动量] 当前={close[0]:.2f}, {window}日前={close[-window]:.2f}, 动量={momentum:.4f}")
+                self.log(f"{data._name}: [对数动量] 当前={close[0]:.2f}, {window}日前={close[-window]:.2f}, 动量={momentum:.4f}")
                 return momentum
 
         # -------------------------
@@ -209,7 +211,7 @@ class MomentumStrategy1(bt.Strategy):
                 numerator = sum((xi - x_mean) * (yi - y_mean) for xi, yi in zip(x, y))
                 denominator = sum((xi - x_mean) ** 2 for xi in x)
                 slope = numerator / denominator if denominator != 0 else 0.0
-                self.log(f"[线性动量] slope={slope:.6f}, 窗口={window}")
+                self.log(f"{data._name}: [线性动量] slope={slope:.6f}, 窗口={window}")
                 return slope
 
         # -------------------------
@@ -238,7 +240,7 @@ class MomentumStrategy1(bt.Strategy):
                 r_squared = 1 - (np.sum(weighted_residuals) / np.sum(weights * (y - np.mean(y)) ** 2))
 
                 score = annualized_returns * r_squared
-                self.log(f"[加权线性动量] slope={slope:.6f}, R²={r_squared:.6f}, score={score:.6f}")
+                self.log(f"{data._name}: [加权线性动量] slope={slope:.6f}, R²={r_squared:.6f}, score={score:.6f}")
                 return score
 
         # -------------------------
@@ -256,7 +258,7 @@ class MomentumStrategy1(bt.Strategy):
                 y_hat = [slope * (xi - x_mean) + y_mean for xi in x]
                 ss_res = sum((yi - yhi) ** 2 for yi, yhi in zip(y, y_hat))
                 r2 = 1 - ss_res / ss_total if ss_total != 0 else 0.0
-                self.log(f"[对数R²动量] R²={r2:.6f}, 窗口={window}")
+                self.log(f"{data._name}: [对数R²动量] R²={r2:.6f}, 窗口={window}")
                 return r2
 
         # -------------------------
@@ -275,40 +277,18 @@ class MomentumStrategy1(bt.Strategy):
                 ss_res = sum((yi - yhi) ** 2 for yi, yhi in zip(y, y_hat))
                 r2 = 1 - ss_res / ss_total if ss_total != 0 else 0.0
                 score = slope * r2
-                self.log(f"[线性log R²动量] slope={slope:.6f}, R²={r2:.6f}, score={score:.6f}")
+                self.log(f"{data._name}: [线性log R²动量] slope={slope:.6f}, R²={r2:.6f}, score={score:.6f}")
                 return score
 
-        # -------------------------
-        # 7️⃣ 双动量：短期动量 - 长期动量
-        elif 'short_window' in params and 'long_window' in params:
-            sw = params['short_window']
-            lw = params['long_window']
-            if len(close) > lw:
-                short_mom = close[0] - close[-sw]
-                long_mom = close[0] - close[-lw]
-                dual_mom = short_mom - long_mom
-
-                if 'slope_positive_filter' in params:
-                    slope_window = sw
-                    y_slope = [close[-i] for i in reversed(range(slope_window))]
-                    x_slope = list(range(slope_window))
-                    x_mean = sum(x_slope) / slope_window
-                    y_mean = sum(y_slope) / slope_window
-                    numerator = sum((xi - x_mean) * (yi - y_mean) for xi, yi in zip(x_slope, y_slope))
-                    denominator = sum((xi - x_mean) ** 2 for xi in x_slope)
-                    slope = numerator / denominator if denominator != 0 else 0.0
-                    if slope <= 0:
-                        self.log(f"[双动量V2] slope<=0，过滤，值为0")
-                        return 0.0
-                self.log(f"[双动量] short={short_mom:.4f}, long={long_mom:.4f}, 结果={dual_mom:.4f}")
-                return dual_mom
-
-        self.log(f"⚠️ 未找到匹配的动量计算方式（当前 params: {params}）")
+        else:
+            self.log(f"⚠️ 未找到匹配的动量计算方式（当前 params: {params}）")
         return None
+
     def print_positions(self):
+        current_date = self.datas[0].datetime.date(0)
         total_value = self.broker.getvalue()
         cash_value = self.broker.getcash()
-        print(f"\n📊 当前账户总市值: {total_value:,.2f}, cash_value: {cash_value}")
+        print(f"\n📊 {current_date} 当前账户总市值: {total_value:,.2f}, cash_value: {cash_value}")
         for d in self.datas:
             pos = self.getposition(d)
             if pos.size > 0:
@@ -319,6 +299,8 @@ class MomentumStrategy1(bt.Strategy):
                 profit = market_value - cost
                 pnl_pct = 100 * profit / cost if cost else 0
                 print(f"{d._name:<12} 持仓: {pos.size:>6} 购买价: {buy_price:.2f} 当前价: {current_price:.2f} 盈亏: {profit:.2f} ({pnl_pct:.2f}%)")
+
+        print("\n")
 
 
 

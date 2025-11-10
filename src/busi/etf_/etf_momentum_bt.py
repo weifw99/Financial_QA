@@ -17,6 +17,7 @@ if __name__ == '__main__':
 
     cerebro = bt.Cerebro()
     cerebro.broker.setcash(100000.0)
+    cerebro.broker.setcommission(commission=0.0005)
     # print(data_1,data_1.columns)
 
     pool_file = 'data/etf_strategy/etf_pool_120.csv'

@@ -18,14 +18,10 @@ class MomentumStrategy1(bt.Strategy):
         ('min_momentum', -0.1),  # 最小动量阈值，调整为负值以允许负动量
         ('momentum_params', {
                              # 'simple_window': 5, # 负
-
-
-                             # 'log_simple_window': 5, # 负
-            # 'linear_window': 5, # 0.8
-
-                             # 'log_r2_window': 5, # 0.8
+                             # 'log_simple_window': 25, # 负
+                             # 'log_r2_window': 25, # 0.8
                              'weighted_linear_mom': 25, # 0.8
-                             # 'line_log_r2_window': 5, # 负
+                             # 'line_log_r2_window': 25, # 负
                              }),  # 动量计算参数
     )
 
@@ -67,6 +63,7 @@ class MomentumStrategy1(bt.Strategy):
         """轮动逻辑：卖出非目标ETF，买入动量最强ETF"""
         self.log(f"开始计算动量分数，共 {len(self.data_dict)} 个ETF")
         momentum_scores = {}
+        # momentum_scores_short = {}
 
         # 计算动量
         for name, data in self.data_dict.items():
@@ -83,13 +80,16 @@ class MomentumStrategy1(bt.Strategy):
             self.close_all_positions()
             return
 
-        top_etfs = sorted(momentum_scores.items(), key=lambda x: x[1], reverse=True)[:self.p.top_n]
-        self.log(f"总共的ETF动量: { top_etfs }")
+        all_etfs = sorted(momentum_scores.items(), key=lambda x: x[1], reverse=True)
+        self.log(f"所有的ETF动量: { all_etfs }")
+        top_etfs = all_etfs[:self.p.top_n]
         # 安全区间过滤：得分在(0, 5]范围内
         # 得分>0：确保正向动量，避免负向趋势
         # 得分<=5：避免动量过高，防止追高风险
         # 风险控制：如果所有ETF都不符合条件，则空仓避险
-        top_etfs = [(etf, score) for etf, score in top_etfs if score > 0 and score <= 5 ]
+        # top_etfs = [(etf, score) for etf, score in top_etfs if score > 0 and score <= 5.1 ]
+        # top_etfs = [(etf, score) for etf, score in top_etfs if score > -0.01 and score <= 5.1 ]
+        top_etfs = [(etf, score) for etf, score in top_etfs if score > -0.01 and score <= 5.5 ]
         # 记录选中的ETF及其动量分数
         self.log(f"选中的ETF数量: {len(top_etfs)}")
         for name, score in top_etfs:
@@ -198,9 +198,7 @@ class MomentumStrategy1(bt.Strategy):
                 momentum = math.log(close[0] / close[-window])
                 self.log(f"{data._name}: [对数动量] 当前={close[0]:.2f}, {window}日前={close[-window]:.2f}, 动量={momentum:.4f}")
                 return momentum
-
-        # -------------------------
-        # 3️⃣ 线性回归 slope 动量
+        # 线性回归 slope 动量
         elif 'linear_window' in params:
             window = params['linear_window']
             if len(close) > window:
@@ -211,9 +209,8 @@ class MomentumStrategy1(bt.Strategy):
                 numerator = sum((xi - x_mean) * (yi - y_mean) for xi, yi in zip(x, y))
                 denominator = sum((xi - x_mean) ** 2 for xi in x)
                 slope = numerator / denominator if denominator != 0 else 0.0
-                self.log(f"{data._name}: [线性动量] slope={slope:.6f}, 窗口={window}")
+                self.log(f"[线性动量] slope={slope:.6f}, 窗口={window}")
                 return slope
-
         # -------------------------
         # 4️⃣ 新增：加权线性回归动量（Weighted Linear Regression MOM）
         elif 'weighted_linear_mom' in params:
@@ -239,7 +236,10 @@ class MomentumStrategy1(bt.Strategy):
                 weighted_residuals = weights * residuals ** 2
                 r_squared = 1 - (np.sum(weighted_residuals) / np.sum(weights * (y - np.mean(y)) ** 2))
 
+                window_short = 5
+                # score = annualized_returns * r_squared + (close[0] - close[-window_short])/(close[-window_short]+0.001) * r_squared
                 score = annualized_returns * r_squared
+                self.log(f"{data._name}: [年化收益率] annualized_returns={annualized_returns:.6f}, R²={r_squared:.6f}, window_short涨幅={(close[0] - close[-window_short])/(close[-window_short]+0.001):.6f}")
                 self.log(f"{data._name}: [加权线性动量] slope={slope:.6f}, R²={r_squared:.6f}, score={score:.6f}")
                 return score
 
@@ -247,8 +247,8 @@ class MomentumStrategy1(bt.Strategy):
         # 5️⃣ 对数回归 R² 动量
         elif 'log_r2_window' in params:
             window = params['log_r2_window']
-            if len(close) > window and all(c > 0 for c in close[-window:]):
-                y = [math.log(c) for c in close[-window:]]
+            if len(close) > window and all(c > 0 for c in close.get(size=window) ):
+                y = [math.log(c) for c in close.get(size=window) ]
                 x = list(range(window))
                 x_mean = sum(x) / window
                 y_mean = sum(y) / window
@@ -265,8 +265,8 @@ class MomentumStrategy1(bt.Strategy):
         # 6️⃣ 线性对数R² + slope 混合评分
         elif 'line_log_r2_window' in params:
             window = params['line_log_r2_window']
-            if len(close) > window and all(c > 0 for c in close[-window:]):
-                y = [math.log(c) for c in close[-window:]]
+            if len(close) > window and all(c > 0 for c in close.get(size=window)):
+                y = [math.log(c) for c in close.get(size=window)]
                 x = list(range(window))
                 x_mean = sum(x) / window
                 y_mean = sum(y) / window

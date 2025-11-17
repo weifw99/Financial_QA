@@ -6,13 +6,13 @@ from datetime import datetime
 
 import quantstats
 from busi.etf_.bt_data import Getdata, Dailydataextend
-from busi.etf_.etf_momentum_strategy import  MomentumStrategy1
+from busi.etf_.etf_momentum_strategy import  MomentumStrategy1, MomentumStrategyV2
 
 if __name__ == '__main__':
 
     from_idx = datetime(2020, 1, 1)  # 记录行情数据的开始时间和结束时间
-    # from_idx = datetime(2024, 10, 12)  # 记录行情数据的开始时间和结束时间
-    to_idx = datetime(2025, 11, 10)
+    # from_idx = datetime(2025, 3, 12)  # 记录行情数据的开始时间和结束时间
+    to_idx = datetime(2025, 11, 15)
     print(from_idx, to_idx)
     #启动回测
 
@@ -55,7 +55,8 @@ if __name__ == '__main__':
 
 
     # 载入策略
-    cerebro.addstrategy(MomentumStrategy1)
+    # cerebro.addstrategy(MomentumStrategy1)
+    cerebro.addstrategy(MomentumStrategyV2)
     print('add strategy DONE.')
 
     # 添加分析

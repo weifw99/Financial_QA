@@ -700,16 +700,20 @@ class RebalanceTuesdayStrategy(bt.Strategy):
     def print_positions(self):
         total_value = self.broker.getvalue()
         cash_value = self.broker.getcash()
-        print(f"\n📊 当前账户总市值: {total_value:,.2f}, cash_value: {cash_value}")
+        self.log(f"\n📊 当前账户总市值: {total_value:,.2f}, cash_value: {cash_value}")
         for d in self.datas:
             pos = self.getposition(d)
             if pos.size > 0:
                 buy_price = pos.price
                 current_price = d.close[0]
+                open_price = d.open[0]
+                if (current_price/open_price-1) >= 0.095:
+                    self.log(f"{d._name:<12}️ 涨停: {d._name}, 幅度:{current_price/open_price-1}")
+                # self.log(f"{d._name:<12} 持仓: {pos.size:>6} 购买价: {buy_price:.2f} 开仓价: {open_price:.2f}, 幅度:{current_price/open_price-1}")
                 market_value = pos.size * current_price
                 cost = pos.size * buy_price
                 profit = market_value - cost
                 pnl_pct = 100 * profit / cost if cost else 0
-                print(f"{d._name:<12} 持仓: {pos.size:>6} 购买价: {buy_price:.2f} 当前价: {current_price:.2f} 盈亏: {profit:.2f} ({pnl_pct:.2f}%)")
+                self.log(f"{d._name:<12} 持仓: {pos.size:>6} 购买价: {buy_price:.2f} 当前价: {current_price:.2f} 盈亏: {profit:.2f} ({pnl_pct:.2f}%)")
 
 

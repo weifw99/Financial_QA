@@ -132,6 +132,9 @@ df_price = load_industry_price(base_price_path)
 df_flow = load_industry_fundflow(f'{base_path}/industry_flow.csv')
 
 
+import pandas as pd
+
+
 
 # research = IndustryFactorResearch(df_price, df_flow)
 #
@@ -145,7 +148,8 @@ df_flow = load_industry_fundflow(f'{base_path}/industry_flow.csv')
 
 # 1. 初始化
 research = IndustryFactorResearch(df_price, df_flow)
-
+code_industry_dict = research.build_code_industry_dict()
+print(code_industry_dict)
 # 3. 构建多周期 RPS（可选择 20/40/55/80/120）
 # research.build_rps(40)
 # research.build_rps(55)

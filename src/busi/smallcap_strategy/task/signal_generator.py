@@ -105,6 +105,7 @@ class SmallCapSignalGenerator:
                 day_scores.append(score)
 
             # 每天所有小市值指数动量均值
+            day_scores = [ s*w for s, w in zip(day_scores, self.config['smallcap_weight'])]
             recovery_scores.append(np.mean(day_scores))
 
         print(f'📊 最近四个动量: {recovery_scores}')
@@ -130,8 +131,10 @@ class SmallCapSignalGenerator:
             # 组合方式（例如加权平均）
             combo_score = 0.5 * momentum_log + 0.5 * momentum_slope
             ranks.append((name, combo_score))
-
-        combo_score = np.mean([ x[1] for x in ranks if x[0] in self.config['smallcap_index']] )
+        # print(ranks)
+        combo_scores = [s*w for s, w in zip([ x[1] for x in ranks if x[0] in self.config['smallcap_index']], self.config['smallcap_weight'])]
+        # combo_score = np.mean([ x[1] for x in ranks if x[0] in self.config['smallcap_index']] )
+        combo_score = np.mean(combo_scores)
         ranks.append(('__smallcap_combo__', combo_score))
 
         ranks_comp = ranks[len(self.config['smallcap_index']):]

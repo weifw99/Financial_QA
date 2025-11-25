@@ -102,8 +102,8 @@ class IndustryFactorResearch:
     # -------------------------------
     def calc_ic(self):
         df = self.df
-        ic_series = df.groupby('日期').apply(
-            lambda x: x['combo_score'].corr(x['future_ret'])
+        ic_series = df.groupby('日期', group_keys=False).apply(
+            lambda x: x['combo_score'].corr(x['future_ret']), include_groups=False
         )
         return {
             'IC_mean': ic_series.mean(),
@@ -422,3 +422,31 @@ class IndustryFactorResearch:
         return result_dict
 
 
+    def build_code_industry_dict(self, df: pd.DataFrame=None) -> dict:
+        """
+        根据股票 code 转换前缀，生成 {转换后code: industry_code} 的字典。
+        """
+        if df is None:
+            base_path = "/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/industry"
+            # 加载数据
+            import pandas as pd
+            df = pd.read_csv(f'{base_path}/board_industry/data.csv', dtype={'code': 'string'})
+
+        def convert_code(code: str) -> str:
+            if code.startswith("00"):
+                return f"sz.{code}"
+            elif code.startswith("399"):
+                return f"sz.{code}"
+            elif code.startswith("93"):
+                return f"csi{code}"
+            else:
+                return f"sh.{code}"  # 默认用上交所，如果你需要可修改
+
+        result = {}
+        for _, row in df.iterrows():
+            raw_code = row["code"]
+            industry_code = row["industry_code"]
+            conv_code = convert_code(raw_code)
+            result[conv_code] = industry_code
+
+        return result

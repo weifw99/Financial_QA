@@ -1,11 +1,12 @@
 import backtrader as bt
 import datetime
 import numpy as np
+from pandas import Timestamp
+
 from busi.smallcap_strategy.utils.momentum_utils import get_momentum
 
 
-class RebalanceTuesdayStrategy(bt.Strategy):
-
+class InRebalanceTuesdayStrategy(bt.Strategy):
 
     params = dict(
         min_mv=10e8,  # 最小市值 10亿，0.2376； 13/14亿 0.2464
@@ -61,14 +62,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         # smallcap_index=['BK1158'], # 0.46
         # smallcap_index=['sz399101','BK1158'], # 0.50
         smallcap_index=['csi932000', 'BK1158'], # 0.53
-        # smallcap_index=['csi932000', 'sz399101', 'BK1158'], # 0.53
-        # smallcap_weight=[1, 1.1, 1.2], #
-        # smallcap_weight=[1, 1], # 1.6687
-        smallcap_weight=[0.9, 1.1], # 1.6716
-        # smallcap_weight=[0.8, 1.2], # 1.6716
-        # smallcap_weight=[0.7, 1.3], # 1.6395
-        # smallcap_weight=[0.5, 1.5],  # 1.4806
-        # smallcap_index=['sz399101', 'BK1158'], #
+        # smallcap_index=['sz399101', 'BK1158'], # 0.53
         # smallcap_index=['csi932000', 'sz399101', 'BK1158', 'sz399005','sz399401', 'sz399008'], # 0.3728
         # smallcap_index=[ 'sz399101', 'BK1158', 'sz399005','sz399401', 'sz399008'], # 0.3339
         # smallcap_index=['csi932000', 'sz399101', 'BK1158', 'sz399005','sz399401','sh000046'],
@@ -105,9 +99,15 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         # large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'etf_SZ510880','sh000132' ]
         # '000132','000133','000010','000009'
     )
-    def __init__(self):
+
+    def __init__(self, ind_dict: dict[Timestamp, dict[str, list[str]]] = None, stock_ind: dict[str, str] = None):
         self.clear_until = None
         self.do_rebalance_today = False
+
+        # {Timestamp('2025-05-29 00:00:00'): {'Q1': [], 'Q2': [], 'Q3': [], 'Q4': [], 'Q5': []}
+        self.ind_dict = ind_dict
+        # {'000001.XSHE': 'Q1', '000002.XSHE': 'Q1',}
+        self.stock_ind = stock_ind
 
         self.rebalance_flag = False
         self.to_buy_list = []
@@ -177,7 +177,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
             self.log(f"next_open to_sell：{to_sell}")
             self.log(f"next_open to_buy：{to_buy}")
 
-            self.to_buy_list=sorted(list(to_buy))
+            self.to_buy_list=list(to_buy)
 
             for d in to_sell:
                 self.log(f"next_open 💸 清仓：{d._name}")
@@ -306,13 +306,12 @@ class RebalanceTuesdayStrategy(bt.Strategy):
 
     def get_combined_smallcap_momentum(self):
         scores = [self.get_index_return(name, self.p.momentum_days) for name in self.p.smallcap_index]
-        valid_scores = [s*w for s, w in zip(scores, self.p.smallcap_weight) if s > -999]
-        print(f'📊 小市值动量scores: {scores}, valid_scores:{valid_scores}, ✅ 合并动量: {np.mean(valid_scores)}')
+        valid_scores = [s for s in scores if s > -999]
+        print(f'📊 小市值动量: {scores}')
         # 倒序排序并取前2个元素
-        # top2_scores = sorted(valid_scores, reverse=True)[:3]
+        top2_scores = sorted(valid_scores, reverse=True)[:3]
         # return np.max(top2_scores) if top2_scores else -999
-        # smallcap_weight
-        return np.mean(valid_scores) if valid_scores else -999
+        return np.mean(top2_scores) if top2_scores else -999
         # return np.sum(top2_scores) if top2_scores else -999
 
     def check_recent_recovery(self):
@@ -335,8 +334,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                     selected_prices = prices[-(self.p.momentum_days + i):-i]
                 score = get_momentum(selected_prices, method="log", days=self.p.momentum_days)
                 day_scores.append(score)
-            day_scores = [s * w for s, w in zip(day_scores, self.p.smallcap_weight)]
-            recovery_scores.append(np.mean(day_scores))
+            recovery_scores.append(np.sum(day_scores))
             # recovery_scores.append(np.mean(day_scores))
         print(f'📊 最近几个动量: {recovery_scores}')
         return (recovery_scores[0] > recovery_scores[1] > recovery_scores[2] > recovery_scores[3]
@@ -543,9 +541,24 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         # 加在原有财务条件通过后：
         # index_data = self.getdatabyname(self.p.smallcap_index[1])  # 默认第一个指数为基准
 
+        dt = self.datas[0].datetime.datetime(0)
+        ind_dict = self.ind_dict.get(dt)
+        print('ind_dict', ind_dict )
+        print('stock_ind', self.stock_ind )
         for d in self.datas:
             if d._name in self.p.smallcap_index + self.p.large_indices:
                 continue
+
+            #         # {Timestamp('2025-05-29 00:00:00'): {'Q1': [], 'Q2': [], 'Q3': [], 'Q4': [], 'Q5': []}
+            #         self.ind_dict = ind_dict
+            #         # {'000001.XSHE': 'Q1', '000002.XSHE': 'Q1',}
+            #         self.stock_ind = stock_ind
+
+            if ind_dict is not None:
+                temp_inds = [ v[0] for v in ind_dict.get('Q1')]
+                print('d._name', d._name, self.stock_ind.get(d._name))
+                if not ( d._name in self.stock_ind and self.stock_ind.get(d._name) in temp_inds ):
+                    continue
             try:
 
                 # pubDate	公司发布财报的日期
@@ -653,10 +666,9 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         return [x[0] for x in candidates]
 
     def sell_all(self):
-        self.log('💰 清仓 - sell_all')
+        print('💰 清仓 - sell_all')
         for data, pos in self.positions.items():
-            if pos.size != 0:
-                self.log(f'💰 清仓 - sell_all - code: {data._name}, size: {pos.size}')
+            if pos.size > 0:
                 self.close(data)
 
     def adjust_stock_num_bt(self):
@@ -711,7 +723,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
     def print_positions(self):
         total_value = self.broker.getvalue()
         cash_value = self.broker.getcash()
-        self.log(f"\n📊 当前账户总市值: {total_value:,.2f}, cash_value: {cash_value:,.2f}")
+        self.log(f"\n📊 当前账户总市值: {total_value:,.2f}, cash_value: {cash_value}")
         for d in self.datas:
             pos = self.getposition(d)
             if pos.size > 0:

@@ -20,9 +20,9 @@ def run():
     cerebro.broker.setcash(100000)  # 初始资金
 
     from_idx = datetime(2015, 2, 15)  # 记录行情数据的开始时间和结束时间
-    from_idx = datetime(2020, 2, 15)  # 记录行情数据的开始时间和结束时间
-    from_idx = datetime(2025, 2, 15)  # 记录行情数据的开始时间和结束时间
-    to_idx = datetime(2025, 10, 30)
+    from_idx = datetime(2024, 2, 10)  # 记录行情数据的开始时间和结束时间
+    # from_idx = datetime(2025, 2, 15)  # 记录行情数据的开始时间和结束时间
+    to_idx = datetime(2025, 11, 30)
 
     # from_idx = datetime(2014, 1, 1)  # 记录行情数据的开始时间和结束时间
     # to_idx = datetime(2025, 6, 26)
@@ -34,7 +34,38 @@ def run():
         cerebro.adddata(feed)
     print('load data DONE.', len(datafeeds))
 
+
+    '''
+    from busi.smallcap_strategy.utils.selected_industries_util import load_industry_price, load_industry_fundflow
+
+    base_price_path = "/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/industry/industry_price"
+    base_path = "/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/industry"
+    # 加载数据
+    df_price = load_industry_price(base_price_path)
+    df_flow = load_industry_fundflow(f'{base_path}/industry_flow.csv')
+
+    # 1. 初始化
+    from busi.smallcap_strategy.test.industry_factor_research import IndustryFactorResearch
+
+    research = IndustryFactorResearch(df_price, df_flow)
+    code_industry_dict = research.build_code_industry_dict()
+
+    # {'RPS周期': 5, 'future_day': 20, 'w_hot': 0.05, 'w_advanced': 0.95, 'IC_mean': 0.13631835749094978, 'window_trend': 7}
+    research.build_hot_factors()
+    research.build_advanced_flow_features(window_trend=7)
+
+    research.build_rps(5)
+    research.compute_future_ret(20)
+    research.build_combo_score_advanced(w_hot=0.05, w_advanced=0.95)
+
+    print(research.get_daily_quantile_details())
+
     # 添加策略及其参数
+    # cerebro.addstrategy(RebalanceTuesdayStrategy)
+    from busi.smallcap_strategy.strategies.in_rebalance_tuesday_strategy import InRebalanceTuesdayStrategy
+    cerebro.addstrategy(InRebalanceTuesdayStrategy, ind_dict=research.get_daily_quantile_details(), stock_ind=code_industry_dict)
+    
+    '''
     cerebro.addstrategy(RebalanceTuesdayStrategy)
     print('add strategy DONE.')
 

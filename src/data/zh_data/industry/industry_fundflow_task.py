@@ -1,3 +1,5 @@
+import random
+
 import akshare as ak
 from datetime import datetime
 import time
@@ -122,7 +124,7 @@ def save_all_stock_industry_map():
             cons_df.to_csv(f"{board_industry_base_path}/{industry_name}.csv", index=False, encoding='utf-8-sig')
             result.append(cons_df)
             print(f"✅ {industry_name} 获取成功，共 {len(cons_df)} 条")
-            time.sleep(0.5)  # 防止请求太快被封
+            time.sleep(random.randint(1, 5))  # 防止请求太快被封
         except Exception as e:
             print(f"⚠️ 获取 {industry_name} 失败：{e}")
 

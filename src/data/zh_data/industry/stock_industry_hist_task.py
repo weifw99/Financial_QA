@@ -1,3 +1,5 @@
+import random
+
 import akshare as ak
 import pandas as pd
 import os
@@ -23,7 +25,19 @@ def save_all_industry_history(start_date="20200101", end_date=None, save_dir=Non
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
-    industry_list = ak.stock_board_industry_name_em().to_dict("records")
+    # industry_list = ak.stock_board_industry_name_em().to_dict("records")
+    # 获取行业列表
+    industry_base_path = "/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/industry"
+    if os.path.exists(f"{industry_base_path}/industry_list.csv"):
+        industry_df = pd.read_csv(f"{industry_base_path}/industry_list.csv")
+        industry_list = industry_df.to_dict('records')
+    else:
+        industry_df = ak.stock_board_industry_name_em()
+        industry_df.to_csv(f"{industry_base_path}/industry_list.csv", index=False, encoding='utf-8-sig')
+        industry_list = industry_df.to_dict('records')
+
+    random.shuffle(industry_list)
+
     success_count = 0
 
     for item in industry_list:
@@ -45,7 +59,7 @@ def save_all_industry_history(start_date="20200101", end_date=None, save_dir=Non
             df.to_csv(file_path, index=False, encoding="utf-8-sig")
             print(f"✅ {name}（{code}）保存成功，{len(df)} 行")
             success_count += 1
-            time.sleep(0.5)  # 防止被封
+            time.sleep(random.randint(1, 5))  # 防止被封
         except Exception as e:
             print(f"⚠️ {name}（{code}）获取失败：{e}")
             continue

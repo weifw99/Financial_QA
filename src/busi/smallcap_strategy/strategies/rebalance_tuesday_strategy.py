@@ -144,6 +144,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         self.log(f'next_open SmallCapStrategy.next stop loss result, is_check_trend：{is_check_trend}, is_momentum_ok： {is_momentum_ok}')
 
         if is_check_trend or not is_momentum_ok:
+            self.log("next_open 触发止损，卖出所有")
             self.sell_all()
             return
 
@@ -157,8 +158,8 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                 self.log("next_open ⚠️ 指数数据不足，跳过调仓")
                 return
 
-            if self.check_stop_conditions(dt):
-                return
+            # if self.check_stop_conditions(dt):
+            #     return
 
             # hold_num = self.adjust_stock_num_bt()
             # print(f"✅ 本轮建议持股数量为: {hold_num}")

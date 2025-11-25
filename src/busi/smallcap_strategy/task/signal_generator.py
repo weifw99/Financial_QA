@@ -12,11 +12,15 @@ class SmallCapSignalGenerator:
 
     def load_data(self, stock_data_dict: dict, today: datetime):
         self.today = today
+        self.stock_data_date = today
         temp_dict= {}
         for name, df in stock_data_dict.items():
             df_until_today = df[df.index <= today]
             temp_dict[ name ] = df_until_today
+            data_index = df_until_today.index.unique().to_list()
+            self.stock_data_date = data_index[-1]
         self.stock_data = temp_dict
+
 
 
     def check_trend_crash(self):
@@ -124,12 +128,15 @@ class SmallCapSignalGenerator:
             if df is None or len(df) < self.config['momentum_days'] + 1:
                 print(f"⚠️ {name} 数据缺失或不足 {self.config['momentum_days'] + 1} 行")
                 continue
-            prices = df['close'].values[-(self.config['momentum_days'] + 1):]
+            # prices = df['close'].values[-(self.config['momentum_days'] + 1):]
+            prices = df['close'].values[-(self.config['momentum_days']):]
+            # print('get_index_return:', name, prices)
             score = get_momentum(prices, method='log', days=self.config['momentum_days'])
             momentum_log = get_momentum(prices, method='log', days=self.config['momentum_days'])
-            momentum_slope = get_momentum(prices, method='slope_r2', days=self.config['momentum_days'])
+            momentum_slope = get_momentum(prices, method='return', days=self.config['momentum_days'])
             # 组合方式（例如加权平均）
             combo_score = 0.5 * momentum_log + 0.5 * momentum_slope
+            # print('get_index_return:', name, combo_score, momentum_log, momentum_slope)
             ranks.append((name, combo_score))
         # print(ranks)
         combo_scores = [s*w for s, w in zip([ x[1] for x in ranks if x[0] in self.config['smallcap_index']], self.config['smallcap_weight'])]
@@ -201,8 +208,9 @@ class SmallCapSignalGenerator:
 
         candidates = self.filter_candidates()
 
-        filter_names = filter_stocks_by_forecast([name for name, mv in candidates])
-        print(f"🔍 筛选股票：{filter_names}")
+        # filter_names = filter_stocks_by_forecast([name for name, mv in candidates])
+        # print(f"🔍 筛选股票：{filter_names}")
+        filter_names = []
 
         # ➕ 添加收盘价字段
         to_buy = []

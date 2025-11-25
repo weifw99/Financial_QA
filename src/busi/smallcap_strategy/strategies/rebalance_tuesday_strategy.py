@@ -290,10 +290,12 @@ class RebalanceTuesdayStrategy(bt.Strategy):
 
         if np.any(np.isnan(prices)) or prices[-1] == 0:
             return -999
+        # print('get_index_return:' , name, prices)
         momentum_log = get_momentum(prices, method='log', days=days)
         momentum_slope = get_momentum(prices, method='return', days=days)
         # 组合方式（例如加权平均）
         combo_score = 0.5 * momentum_log + 0.5 * momentum_slope
+        # print('get_index_return:', name, combo_score, momentum_log, momentum_slope)
         # combo_score = momentum_log # 0.4848
         # combo_score = momentum_slope #
 
@@ -313,7 +315,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         # top2_scores = sorted(valid_scores, reverse=True)[:3]
         # return np.max(top2_scores) if top2_scores else -999
         # smallcap_weight
-        return np.mean(valid_scores) if valid_scores else -999
+        return np.mean(valid_scores)
         # return np.sum(top2_scores) if top2_scores else -999
 
     def check_recent_recovery(self):

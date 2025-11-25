@@ -41,7 +41,7 @@ def main():
 
     execute_date = datetime.today()
     print(f"📅 执行日期: {execute_date.date()}")
-    print(f"📅 数据截止日期: {data_date.date()}")
+    print(f"📅 数据截止日期: {generator.stock_data_date.date()}")
     print(f"🚨 趋势熔断: {signal['trend_crash']}")
     print(f"🚨 趋势动量: {signal['recovery_scores']}")
     print(f"📊 动量领先: {signal['momentum_ok']}")
@@ -51,7 +51,7 @@ def main():
     print(f"💸 持仓: {signal['current_hold']}")
 
     # 假设你已有 signal = {...}
-    content = format_signal_message(signal, execute_date, data_date)
+    content = format_signal_message(signal, execute_date, generator.stock_data_date.date())
 
     print(content)
 

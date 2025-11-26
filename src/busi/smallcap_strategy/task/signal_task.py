@@ -45,8 +45,9 @@ def main():
     print(f"🚨 趋势熔断: {signal['trend_crash']}")
     print(f"🚨 趋势动量: {signal['recovery_scores']}")
     print(f"📊 动量领先: {signal['momentum_ok']}")
-    print(f"🔁 动量排名: {signal['momentum_rank']}")
-    print(f"🔁 动量排名1: {signal['ranks_comp']}")
+    print(f"🔁 所有动量结果: {signal['momentum_rank']}")
+    print(f"🔁 动量排名结果: {signal['ranks_comp']}")
+    print(f"📊 小市值动量排名: {signal['top_n']}")
     print(f"📥 建议买入: {signal['buy']}")
     print(f"💸 持仓: {signal['current_hold']}")
 
@@ -57,7 +58,7 @@ def main():
 
     # 发送
     # send_email("【小市值策略信号】", content, "your_friend@example.com")
-    # send_wechat_smsg("小市值策略信号", content)
+    send_wechat_smsg("小市值策略信号", content)
 
 
 if __name__ == '__main__':

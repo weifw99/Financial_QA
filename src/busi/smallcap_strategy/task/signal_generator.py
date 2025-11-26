@@ -148,13 +148,14 @@ class SmallCapSignalGenerator:
         ranks_comp.sort(key=lambda x: x[1], reverse=True)
         ranks.sort(key=lambda x: x[1], reverse=True)
         in_top_k = '__smallcap_combo__' in [x[0] for x in ranks_comp[:top_k]]
+        top_n = [x[0] for x in ranks_comp].index('__smallcap_combo__') + 1
         is_recovering, recovery_scores = self.check_recent_recovery()
 
         if not in_top_k and not is_recovering:
         # if not in_top_k :
-            return False, ranks, ranks_comp, recovery_scores
+            return False, ranks, ranks_comp, recovery_scores, top_n
         else:
-            return True, ranks, ranks_comp, recovery_scores
+            return True, ranks, ranks_comp, recovery_scores, top_n
 
     def filter_candidates(self):
         results = []
@@ -204,13 +205,13 @@ class SmallCapSignalGenerator:
         """
         # trend_crash = self.check_trend_crash()
         trend_crash = self.check_combo_trend_crash()
-        momentum_ok, momentum_rank, ranks_comp, recovery_scores = self.check_momentum_rank(top_k=1)
+        momentum_ok, momentum_rank, ranks_comp, recovery_scores, top_n = self.check_momentum_rank(top_k=1)
 
         candidates = self.filter_candidates()
 
-        # filter_names = filter_stocks_by_forecast([name for name, mv in candidates])
-        # print(f"🔍 筛选股票：{filter_names}")
-        filter_names = []
+        filter_names = filter_stocks_by_forecast([name for name, mv in candidates])
+        print(f"🔍 筛选股票：{filter_names}")
+        # filter_names = []
 
         # ➕ 添加收盘价字段
         to_buy = []
@@ -227,6 +228,7 @@ class SmallCapSignalGenerator:
             'trend_crash': trend_crash,
             'recovery_scores': recovery_scores,
             'momentum_ok': momentum_ok,
+            'top_n': top_n,
             'momentum_rank': momentum_rank,
             'ranks_comp': ranks_comp,
             'buy': to_buy,

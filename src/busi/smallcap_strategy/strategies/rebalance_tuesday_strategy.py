@@ -133,22 +133,43 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         # 5 → 星期六（Saturday）
         # 6 → 星期日（Sunday）
 
-        self.log(f'next_open 账户净值: {self.broker.getvalue()}, 可用资金: {self.broker.getcash()}, 持仓个数:  {len( {d for d, pos in self.positions.items() if pos.size > 0} )}')
+        hold_num = len({d for d, pos in self.positions.items() if pos.size > 0})
+        self.log(f'next_open 账户净值: {self.broker.getvalue()}, 可用资金: {self.broker.getcash()}, 持仓个数:  {hold_num}')
         # 个股止盈止损
         self.check_individual_stop()
 
         # 全局熔断，卖出所有
         is_momentum_ok = self.check_momentum_rank(top_k=1)
+        is_momentum_ok_3 = self.check_momentum_rank(top_k=3)
         # is_check_trend = self.check_trend_crash()
         is_check_trend = self.check_combo_trend_crash()
         self.log(f'next_open SmallCapStrategy.next stop loss result, is_check_trend：{is_check_trend}, is_momentum_ok： {is_momentum_ok}')
 
-        if is_check_trend or not is_momentum_ok:
-            self.log("next_open 触发止损，卖出所有")
+        holding_num = self.get_pos_holding_num()
+        max_days = self.get_max_holding_days()
+        min_days = self.get_min_holding_days()
+        self.log(f'next_open 持仓数：{holding_num},最大持仓天数：{max_days}, 最小持仓天数：{min_days}')
+        if hasattr(self, "entry_dates"):
+            self.log(self.entry_dates)
+
+        # if (is_check_trend or not is_momentum_ok) and (not is_momentum_ok_3 or min_days >  1):
+        if (not is_momentum_ok) and (not is_momentum_ok_3 or min_days > 1): # 两个条件的回测结果一样
+            self.log(f"next_open 触发止损，卖出所有, 最小持仓 {min_days} 天, 检查持仓天数，至少要持仓两天，进一步检查动量的强度")
+            # 继续检查动量的强度， 如果跌出 top3，直接清仓
+
+            # if not is_momentum_ok_3 or min_days >  1:
+            #     self.log(f"next_open 触发止损，卖出所有, 最小持仓 {min_days} 天, 检查动量的强度，跌出 top3")
+            #     self.sell_all()
+            #     return
+            # if min_days >  1:
+            #     self.log( f"next_open 触发止损，卖出所有, 最小持仓 {min_days} 天")
+            #     self.sell_all()
+            #     return
             self.sell_all()
             return
 
-        if weekday == self.p.rebalance_weekday and self.rebalance_date != dt.date():
+
+        if is_momentum_ok and ( ( weekday == self.p.rebalance_weekday and self.rebalance_date != dt.date() ) or hold_num == 0 ):
             self.rebalance_date = dt.date()
             self.log("next_open 触发调仓日，准备先卖后买")
             self.log("next_open 当前持仓如下：")
@@ -183,6 +204,9 @@ class RebalanceTuesdayStrategy(bt.Strategy):
             for d in to_sell:
                 self.log(f"next_open 💸 清仓：{d._name}")
                 self.close(d)  # 以开盘价卖出
+                if hasattr(self, "entry_dates"):
+                    if d._name in self.entry_dates:
+                        self.entry_dates.pop(d._name)
 
             self.log(f"next_open ✅ 待买入：{self.to_buy_list}")
 
@@ -210,6 +234,8 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                 if size >= 100:
                     self.log(f"next 📥 买入：{d._name} size={size}")
                     self.buy(d, size=size)
+                    if hasattr(self, "entry_dates"):
+                        self.entry_dates[d._name] = self.datas[0].datetime.date(0)
                 else:
                     self.log(f"next ⚠️ 资金不足，跳过买入：{d._name} size={size}")
 
@@ -259,11 +285,17 @@ class RebalanceTuesdayStrategy(bt.Strategy):
             if change_pct >= self.p.take_profit_pct:
                 print(f"✅ 止盈触发：{data._name} 涨幅 {change_pct:.2%}")
                 self.close(data)
+                if hasattr(self, "entry_dates"):
+                    if data._name in self.entry_dates:
+                        self.entry_dates.pop(data._name)
                 continue
 
             if change_pct <= -self.p.stop_loss_pct:
                 print(f"⛔ 止损触发：{data._name} 跌幅 {change_pct:.2%}")
                 self.close(data)
+                if hasattr(self, "entry_dates"):
+                    if data._name in self.entry_dates:
+                        self.entry_dates.pop(data._name)
 
 
     def validate_index_data(self):
@@ -662,6 +694,9 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                 self.log(f'💰 清仓 - sell_all - code: {data._name}, size: {pos.size}')
                 self.close(data)
 
+        self.entry_dates = {}
+
+
     def adjust_stock_num_bt(self):
         """
         基于中小综指的 MA 差值，动态调整持股数。
@@ -728,6 +763,36 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                 cost = pos.size * buy_price
                 profit = market_value - cost
                 pnl_pct = 100 * profit / cost if cost else 0
-                self.log(f"{d._name:<12} 持仓: {pos.size:>6} 购买价: {buy_price:.2f} 当前价: {current_price:.2f} 盈亏: {profit:.2f} ({pnl_pct:.2f}%)")
+                self.log(f"{d._name:<12} 持仓: {pos.size:>6} 购买价: {buy_price:.2f} 当前价: {current_price:.2f} 盈亏: {profit:.2f} ({pnl_pct:.2f}%), 持仓天数: {self.get_holding_days(d)}")
 
+    def get_holding_days(self, data):
+        pos = self.getposition(data)
+        if pos.size == 0:
+            return 0
 
+        # 用 pos.price 记录的开仓价格，找对应的 bar index
+        # 这里简单做：每次开仓，记录 entry_date（必须维护）
+        if not hasattr(self, "entry_dates"):
+            self.entry_dates = {}
+        name = data._name
+        if name not in self.entry_dates:
+            # 第一次开仓
+            self.entry_dates[name] = self.datas[0].datetime.date(0)
+
+        today = self.datas[0].datetime.date(0)
+        return (today - self.entry_dates[name]).days
+
+    def get_pos_holding_num(self):
+        days = [self.get_holding_days(d) for d in self.datas]
+        days = [d for d in days if d > 0]
+        return len(days) if days else 0
+
+    def get_max_holding_days(self):
+        days = [self.get_holding_days(d) for d in self.datas]
+        days = [d for d in days if d > 0]
+        return max(days) if days else 0
+
+    def get_min_holding_days(self):
+        days = [self.get_holding_days(d) for d in self.datas]
+        days = [d for d in days if d > 0]
+        return min(days) if days else 0

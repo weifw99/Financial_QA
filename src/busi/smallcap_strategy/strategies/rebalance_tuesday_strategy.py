@@ -117,6 +117,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         # 日志缓存
         self.buy_info = {}  # 每个标的的买入信息 {symbol: {...}}
         self.trade_logs = []  # 聚合后的交易
+        self.signal_logs = []  # 信号后的交易
         self.close_days = 0 # 空仓的天数
 
         # 写入 RAW 日志表头
@@ -164,7 +165,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
 
                 # 写入原始日志
                 self.log_raw([
-                    dt.isoformat(), symbol, "BUY",
+                    dt.strftime('%Y-%m-%d'), symbol, "BUY",
                     order.executed.price,
                     order.executed.size,
                     order.executed.value,
@@ -186,7 +187,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
             # ------------------ SELL ------------------
             else:
                 self.log_raw([
-                    dt.isoformat(), symbol, "SELL",
+                    dt.strftime('%Y-%m-%d'), symbol, "SELL",
                     order.executed.price,
                     order.executed.size,
                     order.executed.value,
@@ -205,12 +206,12 @@ class RebalanceTuesdayStrategy(bt.Strategy):
 
                     self.trade_logs.append({
                         "symbol": symbol,
-                        "buy_date": info["buy_date"].isoformat(),
+                        "buy_date": info["buy_date"].strftime('%Y-%m-%d'),
                         "buy_price": info["buy_price"],
                         "buy_open_price": info["buy_open"],
                         "buy_close_price": info["buy_close"],
                         "buy_size": info["buy_size"],
-                        "sell_date": dt.isoformat(),
+                        "sell_date": dt.strftime('%Y-%m-%d'),
                         "sell_price": order.executed.price,
                         "sell_open_price": cur_open,
                         "sell_close_price": cur_close,
@@ -224,7 +225,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
 
         elif order.status in [order.Margin, order.Rejected, order.Canceled]:
             # 写入失败订单
-            self.log_raw([dt.isoformat(), symbol, "REJECT", None, None, None, None, cur_open, cur_close])
+            self.log_raw([dt.strftime('%Y-%m-%d'), symbol, "REJECT", None, None, None, None, cur_open, cur_close])
 
     # -----------------------------
     # ✔️  回测结束保存 trade_summary.csv
@@ -233,9 +234,15 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         self.log("策略结束")
 
         if self.trade_logs:
-            df = pd.DataFrame(self.trade_logs)
+            df = pd.DataFrame(self.trade_logs).sort_values("buy_date")
             df.to_csv("trade_summary.csv", index=False, encoding="utf-8")
             print("\ntrade_summary.csv saved:")
+            print(df.head())
+
+        if self.signal_logs:
+            df = pd.DataFrame(self.signal_logs).sort_values("signal_date")
+            df.to_csv("signal_summary.csv", index=False, encoding="utf-8")
+            print("\nsignal_summary.csv saved:")
             print(df.head())
 
 
@@ -328,13 +335,19 @@ class RebalanceTuesdayStrategy(bt.Strategy):
             hold_num = self.p.hold_count_high if is_momentum_ok else self.p.hold_count_low
 
             to_hold = set(candidates[:hold_num])
-            self.log(f"next_open 待持仓：{to_hold}")
+            self.log(f"next_open 待持仓：{[d._name for d in to_hold]}")
             current_hold = {d for d, pos in self.positions.items() if pos.size > 0}
 
             to_sell = current_hold - to_hold
             to_buy = to_hold - current_hold
-            self.log(f"next_open to_sell：{to_sell}")
-            self.log(f"next_open to_buy：{to_buy}")
+            self.log(f"next_open to_sell：{[d._name for d in to_sell]}")
+            self.log(f"next_open to_buy：{[d._name for d in to_buy]}")
+
+            self.signal_logs.append({
+                "signal_date": dt.date().strftime('%Y-%m-%d'),
+                "to_sell": [d._name for d in to_sell],
+                "to_buy": [d._name for d in to_buy],
+            })
 
             self.to_buy_list=sorted(list(to_buy))
 

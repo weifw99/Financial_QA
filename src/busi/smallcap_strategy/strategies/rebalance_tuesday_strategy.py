@@ -2,6 +2,8 @@ import backtrader as bt
 import datetime
 import numpy as np
 from busi.smallcap_strategy.utils.momentum_utils import get_momentum
+import csv
+import pandas as pd
 
 
 class RebalanceTuesdayStrategy(bt.Strategy):
@@ -112,7 +114,130 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         self.rebalance_flag = False
         self.to_buy_list = []
         self.rebalance_date = datetime.date(1900, 1, 1)  # ✅ 初始化为一个不可能的历史时间
+        # 日志缓存
+        self.buy_info = {}  # 每个标的的买入信息 {symbol: {...}}
+        self.trade_logs = []  # 聚合后的交易
+        self.close_days = 0 # 空仓的天数
+
+        # 写入 RAW 日志表头
+        with open("log_raw.csv", "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow([
+                "datetime", "symbol", "type",
+                "price", "size", "value", "commission",
+                "open_price", "close_price"  # ← 新增两列
+            ])
+
         self.log("初始化策略完成")
+
+    # 日志工具
+    def log_raw(self, row):
+        with open("log_raw.csv", "a", newline="", encoding="utf-8") as f:
+            csv.writer(f).writerow(row)
+
+    def _symbol(self, data):
+        return getattr(data, "_name", getattr(data, "_dataname", "unknown"))
+
+
+    # -----------------------------
+    # ✔️  BUY / SELL 日志系统
+    # -----------------------------
+    def notify_order(self, order):
+        dt = self.datas[0].datetime.datetime(0)
+        data = order.data
+        symbol = self._symbol(data)
+
+        # 当前日期的开盘、收盘价（买卖发生的当天）
+        cur_open = data.open[0]
+        cur_close = data.close[0]
+
+        if order.status in [order.Submitted, order.Accepted]:
+            return
+
+        # =============================
+        #        订单成交 Completed
+        # =============================
+        if order.status == order.Completed:
+
+            # ------------------ BUY ------------------
+            if order.isbuy():
+
+                # 写入原始日志
+                self.log_raw([
+                    dt.isoformat(), symbol, "BUY",
+                    order.executed.price,
+                    order.executed.size,
+                    order.executed.value,
+                    order.executed.comm,
+                    cur_open,  # ← 新增：买入日开盘
+                    cur_close  # ← 新增：买入日收盘
+                ])
+
+                # 缓存买入信息
+                self.buy_info[symbol] = {
+                    "buy_date": dt,
+                    "buy_price": order.executed.price,
+                    "buy_size": order.executed.size,
+                    "buy_comm": order.executed.comm,
+                    "buy_open": cur_open,
+                    "buy_close": cur_close,
+                }
+
+            # ------------------ SELL ------------------
+            else:
+                self.log_raw([
+                    dt.isoformat(), symbol, "SELL",
+                    order.executed.price,
+                    order.executed.size,
+                    order.executed.value,
+                    order.executed.comm,
+                    cur_open,  # ← 新增：卖出日开盘
+                    cur_close  # ← 新增：卖出日收盘
+                ])
+
+                # 匹配买单 → 聚合为一行
+                if symbol in self.buy_info:
+                    info = self.buy_info.pop(symbol)
+
+                    holding_days = (dt.date() - info["buy_date"].date()).days
+                    pnl = (order.executed.price - info["buy_price"]) * order.executed.size
+                    ret = order.executed.price / info["buy_price"] - 1
+
+                    self.trade_logs.append({
+                        "symbol": symbol,
+                        "buy_date": info["buy_date"].isoformat(),
+                        "buy_price": info["buy_price"],
+                        "buy_open_price": info["buy_open"],
+                        "buy_close_price": info["buy_close"],
+                        "buy_size": info["buy_size"],
+                        "sell_date": dt.isoformat(),
+                        "sell_price": order.executed.price,
+                        "sell_open_price": cur_open,
+                        "sell_close_price": cur_close,
+                        "sell_size": order.executed.size,
+                        "holding_days": holding_days,
+                        "pnl": pnl,
+                        "return": ret,
+                        "buy_comm": info["buy_comm"],
+                        "sell_comm": order.executed.comm,
+                    })
+
+        elif order.status in [order.Margin, order.Rejected, order.Canceled]:
+            # 写入失败订单
+            self.log_raw([dt.isoformat(), symbol, "REJECT", None, None, None, None, cur_open, cur_close])
+
+    # -----------------------------
+    # ✔️  回测结束保存 trade_summary.csv
+    # -----------------------------
+    def stop(self):
+        self.log("策略结束")
+
+        if self.trade_logs:
+            df = pd.DataFrame(self.trade_logs)
+            df.to_csv("trade_summary.csv", index=False, encoding="utf-8")
+            print("\ntrade_summary.csv saved:")
+            print(df.head())
+
 
     def log(self, txt):
         dt = self.datas[0].datetime.datetime(0)
@@ -132,8 +257,19 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         # 4 → 星期五（Friday）
         # 5 → 星期六（Saturday）
         # 6 → 星期日（Sunday）
+        '''
+        在 next_open 方法中调用:
+        self.close(data) 会以当天的开盘价执行卖出操作
+        这是因为启用了 cheat_on_open=True 模式，允许基于当日开盘价进行交易决策
+        在 next 方法中调用:
+        self.close(data) 会以下一个可用价格（通常是下一周期的开盘价）执行
+        '''
 
         hold_num = len({d for d, pos in self.positions.items() if pos.size > 0})
+        if hold_num == 0:
+            self.close_days = self.close_days+1
+        else:
+            self.close_days = 0
         self.log(f'next_open 账户净值: {self.broker.getvalue()}, 可用资金: {self.broker.getcash()}, 持仓个数:  {hold_num}')
         # 个股止盈止损
         self.check_individual_stop()
@@ -169,7 +305,8 @@ class RebalanceTuesdayStrategy(bt.Strategy):
             return
 
 
-        if is_momentum_ok and ( ( weekday == self.p.rebalance_weekday and self.rebalance_date != dt.date() ) or hold_num == 0 ):
+        # if is_momentum_ok and ( ( weekday == self.p.rebalance_weekday and self.rebalance_date != dt.date() ) or (hold_num == 0 and self.close_days>3) ):
+        if is_momentum_ok and ( ( weekday == self.p.rebalance_weekday and self.rebalance_date != dt.date() )  ):
             self.rebalance_date = dt.date()
             self.log("next_open 触发调仓日，准备先卖后买")
             self.log("next_open 当前持仓如下：")
@@ -242,11 +379,6 @@ class RebalanceTuesdayStrategy(bt.Strategy):
             self.to_buy_list = []
         self.log("next，持仓如下：")
         self.print_positions()
-
-    def stop(self):
-        print('\n\n')
-
-        self.log("策略结束")
 
 
     def check_stop_conditions(self, dt):

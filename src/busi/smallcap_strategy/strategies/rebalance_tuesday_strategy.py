@@ -421,7 +421,10 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         print('\n\n')
 
         self.log("next")
-        is_momentum_ok = self.check_momentum_rank(top_k=1)
+        score = self.get_small_mem_return(window_size=5)
+        slope = get_momentum(score, method='slope', days=5)
+        self.log(f"get_small_mem_return score: {score}, slope: {slope}")
+        # is_momentum_ok = self.check_momentum_rank(top_k=1)
         # if self.rebalance_flag and self.to_buy_list:
         #     self.rebalance_flag = False
         #
@@ -535,23 +538,64 @@ class RebalanceTuesdayStrategy(bt.Strategy):
 
         if np.any(np.isnan(prices)) or prices[-1] == 0:
             return -999
-        prices = prices[:-1] # 去掉最后一天 当天的 close 价格应该不可见
+        prices = prices[:-1]  # 去掉最后一天 当天的 close 价格应该不可见
         # print('get_index_return:' , name, prices)
         momentum_log = get_momentum(prices, method='log', days=days)
         momentum_slope = get_momentum(prices, method='return', days=days)
         # 组合方式（例如加权平均）
         combo_score = 0.5 * momentum_log + 0.5 * momentum_slope
-        # print('get_index_return:', name, combo_score, momentum_log, momentum_slope)
-        # combo_score = momentum_log # 0.4848
-        # combo_score = momentum_slope #
-
-        # 将 slope_r2 限制在合理范围（剪枝）
-        # momentum_slope = np.clip(momentum_slope, -3, 3)
-        # 组合
-        # combo_score = 0.3 * momentum_log + 0.7 * momentum_slope
         return combo_score
-        # return get_momentum(prices, method="log", days=days)
-        # return get_momentum(prices, method="slope_r2", days=days)
+
+    def get_small_mem_return(self, window_size=5):
+
+        scores = []
+        for name in self.p.smallcap_index:
+            d = self.getdatabyname(name)
+            if len(d) < self.p.momentum_days:
+                continue
+            prices = d.close.get(size=self.p.momentum_days + window_size)
+            if prices is None or len(prices) < self.p.momentum_days + window_size:
+                continue
+            if np.any(np.isnan(prices)) or prices[-1] == 0:
+                continue
+
+            mems = []
+            prices = prices[:-1]  # 去掉最后一天 当天的 close 价格应该不可见
+            # print('get_index_return:' , name, prices)
+            for i in range(window_size):
+                prices1 = prices[i:self.p.momentum_days+i]
+                # print('get_index_return:', i, name, prices1)
+                momentum_log = get_momentum(prices1, method='log', days=self.p.momentum_days)
+                momentum_slope = get_momentum(prices1, method='return', days=self.p.momentum_days)
+                # 组合方式（例如加权平均）
+                combo_score = 0.5 * momentum_log + 0.5 * momentum_slope
+                mems.append(combo_score)
+            if len(mems) > 0:
+                scores.append(mems)
+        # print(f'📊 小市值动量get_small_mem_return: {scores} ')
+
+        if len(scores) > 0:
+            # return np.mean(scores, axis=0)
+
+            # 转成 numpy 并匹配长度
+            arrays = [np.array(a, dtype=float) for a in scores]
+
+            length_set = {len(a) for a in arrays}
+            if len(length_set) != 1:
+                raise ValueError("所有数组长度必须一致")
+
+            # 加权相加
+            weighted_sum = np.zeros_like(arrays[0])
+            for arr, w in zip(arrays, self.p.smallcap_weight):
+                weighted_sum += arr * w
+
+            # 求均值（对加权后的 N 组求平均）
+            result = weighted_sum / len(scores)
+            return result
+        return []
+
+
+
 
     def get_combined_smallcap_momentum(self):
         scores = [self.get_index_return(name, self.p.momentum_days) for name in self.p.smallcap_index]

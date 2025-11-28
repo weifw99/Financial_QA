@@ -13,7 +13,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         min_mv=10e8,  # 最小市值 10亿，0.2376； 13/14亿 0.2464
         min_profit=0,  # 最小净利润
         min_revenue=1e8,  # 最小营业收入
-        rebalance_weekday=0,  # 每周调仓日（0 = 周一数据）周二早上开盘买入
+        rebalance_weekday=2,  # 每周调仓日（0 = 周一数据）周二早上开盘买入
         # 1 0.21
         # 2 0.12
         # 3 0.06
@@ -287,16 +287,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
             self.close_days = self.close_days+1
         else:
             self.close_days = 0
-        self.log(f'next_open 账户净值: {self.broker.getvalue()}, 可用资金: {self.broker.getcash()}, 持仓个数:  {hold_num}')
-        # 个股止盈止损
-        self.check_individual_stop()
-
-        pct = self.smallcap_price_change(days=3)
-
-        # if pct < self.p.trend_threshold:
-        #     self.log(f"next_open 触发止损，卖出所有, 小市值 3日涨跌幅 {pct} 小于 {self.p.trend_threshold}，触发止损")
-        #     self.sell_all()
-        #     return
+        self.log(f'next_open 账户净值: {self.broker.getvalue()}, 可用资金: {self.broker.getcash()}, 持仓个数:  {hold_num}, 空仓天数: {self.close_days}')
 
         # 全局熔断，卖出所有
         is_momentum_ok = self.check_momentum_rank(top_k=1)
@@ -329,11 +320,31 @@ class RebalanceTuesdayStrategy(bt.Strategy):
             return
 
 
+        pct_1 = self.smallcap_price_change(days=1)
+        pct_2 = self.smallcap_price_change(days=2)
+        pct_3 = self.smallcap_price_change(days=3)
+
+        self.log(f"next_open 小市值指数涨跌幅: 1日：{pct_1}, 2日：{pct_2}, 3日：{pct_3}")
+
+        if pct_1 <= -0.045:
+            self.log(f"next_open 触发止损，卖出所有, 小市值指数涨跌幅: 1日：{pct_1}, 2日：{pct_2}, 3日：{pct_3}")
+            self.sell_all()
+            return
+
+        # 个股止盈止损
+        self.check_individual_stop()
+
+        hold_num = len({d for d, pos in self.positions.items() if pos.size > 0})
+        if hold_num == 0:
+            self.close_days = self.close_days + 1
+        else:
+            self.close_days = 0
+
         # if is_momentum_ok and ( ( weekday == self.p.rebalance_weekday and self.rebalance_date != dt.date() ) or hold_num == 0 ):
         if is_momentum_ok and ( ( weekday == self.p.rebalance_weekday and self.rebalance_date != dt.date() ) or (hold_num == 0 and self.close_days>3) ):
         # if is_momentum_ok and ( ( weekday == self.p.rebalance_weekday and self.rebalance_date != dt.date() )  ):
             self.rebalance_date = dt.date()
-            self.log("next_open 触发调仓日，准备先卖后买")
+            self.log(f"next_open 触发调仓日，准备先卖后买, weekday={weekday}, hold_num={hold_num}, close_days={self.close_days}")
             self.log("next_open 当前持仓如下：")
             self.print_positions()
 
@@ -350,9 +361,9 @@ class RebalanceTuesdayStrategy(bt.Strategy):
             candidates = self.filter_stocks()
 
             is_momentum_ok = self.check_momentum_rank(top_k=1)
-            hold_num = self.p.hold_count_high if is_momentum_ok else self.p.hold_count_low
+            # hold_num = self.p.hold_count_high if is_momentum_ok else self.p.hold_count_low
 
-            to_hold = set(candidates[:hold_num])
+            to_hold = set(candidates[:self.p.hold_count_high])
             self.log(f"next_open 待持仓：{[d._name for d in to_hold]}")
             current_hold = {d for d, pos in self.positions.items() if pos.size > 0}
 
@@ -586,7 +597,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                 )
 
 
-    # 计算小市值组合指数的最近几天跌幅，求最大值
+    # 计算小市值组合指数的最近几天跌幅，求最大值，days=1 ，计算昨日的涨跌幅
     def smallcap_price_change(self, days=3):
         pcts = []
         for name in self.p.smallcap_index:
@@ -597,12 +608,16 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                 continue
             if len(d) < days:
                 continue
-            prices = d.close.get(size=days + 1)
-            if prices is None or len(prices) < days:
-                continue
-            prices = prices[:-1]  # 去掉最后一天 当天的 close 价格应该不可见
-            pct = (prices[-1] - prices[0]) / prices[0]
-            pcts.append(pct)
+            if days == 1:
+                pct = (d.close[-1] - d.open[-1]) / d.open[-1]
+                pcts.append(pct)
+            else:
+                prices = d.close.get(size=days + 1)
+                if prices is None or len(prices) < days:
+                    continue
+                prices = prices[:-1]  # 去掉最后一天 当天的 close 价格应该不可见
+                pct = (prices[-1] - prices[0]) / prices[0]
+                pcts.append(pct)
         if len(pcts) > 0:
             return np.min(pcts)
         return 0
@@ -916,7 +931,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
     def sell_all(self):
         self.log('💰 清仓 - sell_all')
         for data, pos in self.positions.items():
-            if pos.size != 0:
+            if pos.size > 0:
                 self.log(f'💰 清仓 - sell_all - code: {data._name}, size: {pos.size}')
                 self.close(data)
 

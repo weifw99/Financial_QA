@@ -117,7 +117,8 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         # 日志缓存
         self.buy_info = {}  # 每个标的的买入信息 {symbol: {...}}
         self.trade_logs = []  # 聚合后的交易
-        self.signal_logs = []  # 信号后的交易
+        self.signal_logs = []  # 调仓生成的信号
+        self.stop_loss_logs = []  # 止损数据
         self.close_days = 0 # 空仓的天数
 
         # 写入 RAW 日志表头
@@ -243,6 +244,12 @@ class RebalanceTuesdayStrategy(bt.Strategy):
             df = pd.DataFrame(self.signal_logs).sort_values("signal_date")
             df.to_csv("signal_summary.csv", index=False, encoding="utf-8")
             print("\nsignal_summary.csv saved:")
+            print(df.head())
+
+        if self.stop_loss_logs:
+            df = pd.DataFrame(self.stop_loss_logs).sort_values("date")
+            df.to_csv("stop_loss_summary.csv", index=False, encoding="utf-8")
+            print("\nstop_loss_summary.csv saved:")
             print(df.head())
 
 
@@ -430,6 +437,12 @@ class RebalanceTuesdayStrategy(bt.Strategy):
             if change_pct >= self.p.take_profit_pct:
                 print(f"✅ 止盈触发：{data._name} 涨幅 {change_pct:.2%}")
                 self.close(data)
+                self.stop_loss_logs.append({
+                    "symbol": data._name,
+                    "date": data.datetime.date(0).strftime('%Y-%m-%d'),
+                    "pos_size": pos.size,
+                    "action_type": 'stop_profit',
+                })
                 if hasattr(self, "entry_dates"):
                     if data._name in self.entry_dates:
                         self.entry_dates.pop(data._name)
@@ -438,6 +451,12 @@ class RebalanceTuesdayStrategy(bt.Strategy):
             if change_pct <= -self.p.stop_loss_pct:
                 print(f"⛔ 止损触发：{data._name} 跌幅 {change_pct:.2%}")
                 self.close(data)
+                self.stop_loss_logs.append({
+                    "symbol": data._name,
+                    "date": data.datetime.date(0).strftime('%Y-%m-%d'),
+                    "pos_size": pos.size,
+                    "action_type": 'stop_loss',
+                })
                 if hasattr(self, "entry_dates"):
                     if data._name in self.entry_dates:
                         self.entry_dates.pop(data._name)
@@ -838,6 +857,13 @@ class RebalanceTuesdayStrategy(bt.Strategy):
             if pos.size != 0:
                 self.log(f'💰 清仓 - sell_all - code: {data._name}, size: {pos.size}')
                 self.close(data)
+
+                self.stop_loss_logs.append({
+                    "symbol": data._name,
+                    "date": data.datetime.date(0).strftime('%Y-%m-%d'),
+                    "pos_size": pos.size,
+                    "action_type": 'sell_all',
+                })
 
         self.entry_dates = {}
 

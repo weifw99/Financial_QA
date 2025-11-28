@@ -12,6 +12,7 @@ from utils.data_loader import load_stock_data
 def run():
     config = load_config()
     cerebro = bt.Cerebro(cheat_on_open=True)
+    # cerebro = bt.Cerebro()
 
     # 设置滑点和佣金
     cerebro.broker.set_slippage_perc(perc=0.00015)  # 买卖滑点各 0.015%

@@ -326,7 +326,8 @@ class RebalanceTuesdayStrategy(bt.Strategy):
 
         self.log(f"next_open 小市值指数涨跌幅: 1日：{pct_1}, 2日：{pct_2}, 3日：{pct_3}")
 
-        if pct_1 <= -0.045:
+        # if pct_1 <= -0.045 or pct_2 <= -0.055 or pct_3 <= -0.065:
+        if pct_1 <= -0.045 :
             self.log(f"next_open 触发止损，卖出所有, 小市值指数涨跌幅: 1日：{pct_1}, 2日：{pct_2}, 3日：{pct_3}")
             self.sell_all()
             return
@@ -608,16 +609,19 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                 continue
             if len(d) < days:
                 continue
-            if days == 1:
-                pct = (d.close[-1] - d.open[-1]) / d.open[-1]
-                pcts.append(pct)
-            else:
-                prices = d.close.get(size=days + 1)
-                if prices is None or len(prices) < days:
-                    continue
-                prices = prices[:-1]  # 去掉最后一天 当天的 close 价格应该不可见
-                pct = (prices[-1] - prices[0]) / prices[0]
-                pcts.append(pct)
+            pct = (d.close[-1] - d.open[-days]) / d.open[-days]
+            # print(f'📊 {name}  pct: {pct}  open : {d.open.get(size=days + 1)}  close : {d.close.get(size=days + 1)}')
+            pcts.append(pct)
+            # if days == 1:
+            #     pct = (d.close[-1] - d.open[-days]) / d.open[-days]
+            #     pcts.append(pct)
+            # else:
+            #     prices = d.close.get(size=days + 1)
+            #     if prices is None or len(prices) < days:
+            #         continue
+            #     prices = prices[:-1]  # 去掉最后一天 当天的 close 价格应该不可见
+            #     pct = (prices[-1] - prices[0]) / prices[0]
+            #     pcts.append(pct)
         if len(pcts) > 0:
             return np.min(pcts)
         return 0

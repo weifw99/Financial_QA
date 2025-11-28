@@ -23,7 +23,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         hold_count_low=5,  # 行情差时持股数（分散）
         hight_price=100,  # 个股最高限价
         momentum_days=16,  # 动量观察窗口
-        trend_threshold=-0.05,  # 快速熔断阈值（小市值单日下跌5%）
+        trend_threshold=-0.02,  # 快速熔断阈值（小市值单日下跌5%）
         stop_loss_pct=0.06,  # 个股止损线（跌幅超过6%）
         take_profit_pct=0.5,  # 个股止盈线（涨幅超过50%）
         null_index='etf_SZ511880',  # 空仓期备选 etf
@@ -222,10 +222,13 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                         "buy_comm": info["buy_comm"],
                         "sell_comm": order.executed.comm,
                     })
-
         elif order.status in [order.Margin, order.Rejected, order.Canceled]:
+            reason = "资金不足" if order.status == order.Margin else \
+                "被拒绝" if order.status == order.Rejected else "被取消"
             # 写入失败订单
-            self.log_raw([dt.strftime('%Y-%m-%d'), symbol, "REJECT", None, None, None, None, cur_open, cur_close])
+            self.log_raw([dt.strftime('%Y-%m-%d'), symbol, f"REJECT-{reason}",
+                          order.price, order.size, None, None, cur_open, cur_close])
+
 
     # -----------------------------
     # ✔️  回测结束保存 trade_summary.csv
@@ -281,6 +284,13 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         # 个股止盈止损
         self.check_individual_stop()
 
+        pct = self.smallcap_price_change(days=3)
+
+        # if pct < self.p.trend_threshold:
+        #     self.log(f"next_open 触发止损，卖出所有, 小市值 3日涨跌幅 {pct} 小于 {self.p.trend_threshold}，触发止损")
+        #     self.sell_all()
+        #     return
+
         # 全局熔断，卖出所有
         is_momentum_ok = self.check_momentum_rank(top_k=1)
         is_momentum_ok_3 = self.check_momentum_rank(top_k=3)
@@ -312,8 +322,9 @@ class RebalanceTuesdayStrategy(bt.Strategy):
             return
 
 
-        # if is_momentum_ok and ( ( weekday == self.p.rebalance_weekday and self.rebalance_date != dt.date() ) or (hold_num == 0 and self.close_days>3) ):
-        if is_momentum_ok and ( ( weekday == self.p.rebalance_weekday and self.rebalance_date != dt.date() )  ):
+        # if is_momentum_ok and ( ( weekday == self.p.rebalance_weekday and self.rebalance_date != dt.date() ) or hold_num == 0 ):
+        if is_momentum_ok and ( ( weekday == self.p.rebalance_weekday and self.rebalance_date != dt.date() ) or (hold_num == 0 and self.close_days>3) ):
+        # if is_momentum_ok and ( ( weekday == self.p.rebalance_weekday and self.rebalance_date != dt.date() )  ):
             self.rebalance_date = dt.date()
             self.log("next_open 触发调仓日，准备先卖后买")
             self.log("next_open 当前持仓如下：")
@@ -361,21 +372,17 @@ class RebalanceTuesdayStrategy(bt.Strategy):
             self.log(f"next_open ✅ 待买入：{self.to_buy_list}")
 
             self.rebalance_flag = True
-
-    def next(self):
-        print('\n\n')
-
-        self.log("next")
+        # 原来 next 方法中的逻辑，一到 next_open中， 执行购买逻辑可以使用当天 open价格，在 next buy 中，使用下一周期的开盘价
         if self.rebalance_flag and self.to_buy_list:
             self.rebalance_flag = False
 
             total_cash = self.broker.getcash()
-            cash_per_stock = total_cash / max(len(self.to_buy_list), 1)
+            cash_per_stock = total_cash*0.99 / max(len(self.to_buy_list), 1)
 
             self.log(f"next 📥 开始买入，账户现金: {total_cash:.2f}")
 
             for d in self.to_buy_list:
-                price = d.close[0]
+                price = d.open[0]
                 if price is None or np.isnan(price) or price <= 0:
                     continue
                 size = int(cash_per_stock // price)
@@ -390,6 +397,36 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                     self.log(f"next ⚠️ 资金不足，跳过买入：{d._name} size={size}")
 
             self.to_buy_list = []
+
+    def next(self):
+        print('\n\n')
+
+        self.log("next")
+        is_momentum_ok = self.check_momentum_rank(top_k=1)
+        # if self.rebalance_flag and self.to_buy_list:
+        #     self.rebalance_flag = False
+        #
+        #     total_cash = self.broker.getcash()
+        #     cash_per_stock = total_cash / max(len(self.to_buy_list), 1)
+        #
+        #     self.log(f"next 📥 开始买入，账户现金: {total_cash:.2f}")
+        #
+        #     for d in self.to_buy_list:
+        #         price = d.close[0]
+        #         if price is None or np.isnan(price) or price <= 0:
+        #             continue
+        #         size = int(cash_per_stock // price)
+        #         size = (size // 100) * 100
+        #         self.log(f"next 📥 准备买入：{d._name} size={size} cash_per_stock: {cash_per_stock}, price: {price}, mv: {d.mv[0]}")
+        #         if size >= 100:
+        #             self.log(f"next 📥 买入：{d._name} size={size}")
+        #             self.buy(d, size=size)
+        #             if hasattr(self, "entry_dates"):
+        #                 self.entry_dates[d._name] = self.datas[0].datetime.date(0)
+        #         else:
+        #             self.log(f"next ⚠️ 资金不足，跳过买入：{d._name} size={size}")
+        #
+        #     self.to_buy_list = []
         self.log("next，持仓如下：")
         self.print_positions()
 
@@ -461,12 +498,13 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         if len(d) < days:
             return -999
 
-        prices = d.close.get(size=days)
+        prices = d.close.get(size=days + 1)
         if prices is None or len(prices) < days:
             return -999
 
         if np.any(np.isnan(prices)) or prices[-1] == 0:
             return -999
+        prices = prices[:-1] # 去掉最后一天 当天的 close 价格应该不可见
         # print('get_index_return:' , name, prices)
         momentum_log = get_momentum(prices, method='log', days=days)
         momentum_slope = get_momentum(prices, method='return', days=days)
@@ -527,6 +565,29 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                      and recovery_scores[0] > recovery_scores[2] > recovery_scores[3]
                      )
                 )
+
+
+    # 计算小市值组合指数的最近几天跌幅，求最大值
+    def smallcap_price_change(self, days=3):
+        pcts = []
+        for name in self.p.smallcap_index:
+            try:
+                d = self.getdatabyname(name)
+            except Exception as e:
+                print(f"⚠️ 指数 {name} 获取失败: {e}")
+                continue
+            if len(d) < days:
+                continue
+            prices = d.close.get(size=days + 1)
+            if prices is None or len(prices) < days:
+                continue
+            prices = prices[:-1]  # 去掉最后一天 当天的 close 价格应该不可见
+            pct = (prices[-1] - prices[0]) / prices[0]
+            pcts.append(pct)
+        if len(pcts) > 0:
+            return np.min(pcts)
+        return 0
+
 
 
     def check_momentum_rank(self, top_k=1):
@@ -737,26 +798,27 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                 # 使用 pd.merge_asof 实现按时间向前填充匹配
                 # profit_ttm 归属母公司股东的净利润TTM
 
-                is_st = d.is_st[0]
-                turn = d.turn[0]
-                close = d.close[0]
-                amount = d.amount[0]
+                # 获取前一天的数据
+                is_st = d.is_st[-1]
+                turn = d.turn[-1]
+                close = d.close[-1]
+                amount = d.amount[-1]
 
-                mv = d.mv[0]
-                lt_mv = d.lt_mv[0]
-                lt_share_rate = d.lt_share_rate[0]
+                mv = d.mv[-1]
+                lt_mv = d.lt_mv[-1]
+                lt_share_rate = d.lt_share_rate[-1]
 
                 # 年度数据
-                profit_y = d.profit_y[0]
-                revenue_y = d.revenue_y[0]
-                roeAvg_y = d.roeAvg_y[0]
-                profit_ttm_y = d.profit_ttm_y[0]
+                profit_y = d.profit_y[-1]
+                revenue_y = d.revenue_y[-1]
+                roeAvg_y = d.roeAvg_y[-1]
+                profit_ttm_y = d.profit_ttm_y[-1]
 
                 # 季度数据
-                profit_q = d.profit_q[0]
-                revenue_single_q = d.revenue_single_q[0]  # 季度可能为 null
-                roeAvg_q = d.roeAvg_q[0]
-                profit_ttm_q = d.profit_ttm_q[0]
+                profit_q = d.profit_q[-1]
+                revenue_single_q = d.revenue_single_q[-1]  # 季度可能为 null
+                roeAvg_q = d.roeAvg_q[-1]
+                profit_ttm_q = d.profit_ttm_q[-1]
 
                 if (lt_mv > self.p.min_mv
                         and lt_share_rate >= 0.8
@@ -925,7 +987,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
             self.entry_dates[name] = self.datas[0].datetime.date(0)
 
         today = self.datas[0].datetime.date(0)
-        return (today - self.entry_dates[name]).days
+        return (today - self.entry_dates[name]).days + 1
 
     def get_pos_holding_num(self):
         days = [self.get_holding_days(d) for d in self.datas]

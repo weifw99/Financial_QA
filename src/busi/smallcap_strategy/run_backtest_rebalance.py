@@ -15,8 +15,8 @@ def run():
     # cerebro = bt.Cerebro()
 
     # 设置滑点和佣金
-    cerebro.broker.set_slippage_perc(perc=0.00015)  # 买卖滑点各 0.015%
-    cerebro.broker.setcommission(commission=0.00025)  # 万 2.5 的佣金
+    cerebro.broker.set_slippage_perc(perc=0.001)  # 买卖滑点各 0.1%
+    cerebro.broker.setcommission(commission=0.0001)  # 万 1 的佣金
     # cerebro.broker.setcash(1000000)  # 初始资金
     cerebro.broker.setcash(100000)  # 初始资金
 

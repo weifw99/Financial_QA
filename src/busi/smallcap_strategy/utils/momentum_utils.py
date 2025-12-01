@@ -26,8 +26,10 @@ def calc_regression_slope(prices, days=20):
     """线性拟合斜率"""
     if len(prices) < days:
         return np.nan
-    y = np.log(prices[-(days):])  # 使用 log(price)
+    # y = np.log(prices[-(days):])  # 使用 log(price)
+    y = prices[-(days):]  # 使用 log(price)
     x = np.arange(len(y))
+    # print('calc_regression_slope', x, y)
     slope, _, _, _, _ = linregress(x, y)
     return slope
 

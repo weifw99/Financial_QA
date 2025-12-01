@@ -8,7 +8,8 @@ config = dict(
     # smallcap_index=['csi932000', 'sz399101', 'BK1158'],
     smallcap_index=['csi932000', 'BK1158'],
     smallcap_weight=[0.9, 1.1],
-    large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'sh000905'],
+    # large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'sh000905'],
+    large_indices=['sh.000300', 'sh.000016', 'sh000905'],
     min_mv=10e8,
     min_profit=0,
     min_revenue=1e8,
@@ -40,6 +41,9 @@ def main():
     signal = generator.generate_signals(current_hold=current_hold)
 
     execute_date = datetime.today()
+    signal['execute_date'] = execute_date.date().strftime('%Y-%m-%d')
+    signal['date_date'] = generator.stock_data_date.date().strftime('%Y-%m-%d')
+
     print(f"📅 执行日期: {execute_date.date()}")
     print(f"📅 数据截止日期: {generator.stock_data_date.date()}")
     print(f"🚨 趋势熔断: {signal['trend_crash']}")
@@ -56,9 +60,11 @@ def main():
 
     print(content)
 
+    print(signal)
+
     # 发送
-    # send_email("【小市值策略信号】", content, "your_friend@example.com")
-    send_wechat_smsg("小市值策略信号", content)
+    send_email("小市值策略信号", str(signal), "18910770963@163.com")
+    # send_wechat_smsg("小市值策略信号", content)
 
 
 if __name__ == '__main__':

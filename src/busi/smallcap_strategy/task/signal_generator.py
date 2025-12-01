@@ -157,6 +157,31 @@ class SmallCapSignalGenerator:
         else:
             return True, ranks, ranks_comp, recovery_scores, top_n
 
+    def smallcap_price_change(self, days=3):
+        """
+        计算小市值组合指数最近 days 天的涨跌幅，返回最小值
+        使用 pandas DataFrame 数据计算
+        """
+        pcts = []
+
+        for name in self.config['smallcap_index']:
+            df = self.stock_data.get(name)
+            if df is None or len(df) < days + 1:
+                print(f"⚠️ {name} 数据缺失或不足 {days + 1} 行")
+                continue
+            # 取最近 days + 1 天的数据
+            recent_df = df.iloc[-(days):]
+            print(f"{name}: {recent_df}")
+            print(recent_df[['close', 'open']].head())
+            # 昨日收盘 vs days 天前开盘
+            pct = (recent_df['close'].iloc[-1] - recent_df['open'].iloc[0]) / recent_df['open'].iloc[0]
+            pcts.append(pct)
+            # 可选打印调试
+            print(f"{name}: pct={pct:.4f}, open0={recent_df['open'].iloc[0]}, close_last={recent_df['close'].iloc[-1]}")
+        if pcts:
+            return np.min(pcts)  # 返回最小跌幅
+        return 0
+
     def filter_candidates(self):
         results = []
         for name, df in self.stock_data.items():
@@ -206,6 +231,10 @@ class SmallCapSignalGenerator:
         # trend_crash = self.check_trend_crash()
         trend_crash = self.check_combo_trend_crash()
         momentum_ok, momentum_rank, ranks_comp, recovery_scores, top_n = self.check_momentum_rank(top_k=1)
+        momentum_ok2, _ ,_, _, _= self.check_momentum_rank(top_k=2)
+
+        pct_1 = self.smallcap_price_change(days=1)
+        pct_2 = self.smallcap_price_change(days=2)
 
         candidates = self.filter_candidates()
 
@@ -228,10 +257,13 @@ class SmallCapSignalGenerator:
             'trend_crash': trend_crash,
             'recovery_scores': recovery_scores,
             'momentum_ok': momentum_ok,
+            'momentum_ok2': momentum_ok2,
+            'small_pct_1': pct_1,
+            'small_pct_2': pct_2,
             'top_n': top_n,
-            'momentum_rank': momentum_rank,
-            'ranks_comp': ranks_comp,
-            'buy': to_buy,
+            'momentum_rank': [list(t) for t in momentum_rank],
+            'ranks_comp': [list(t) for t in ranks_comp],
+            'buy': [list(t) for t in to_buy],
             'current_hold': list(current_hold or []),
             'sell': list(current_hold or []),
         }

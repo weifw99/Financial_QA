@@ -103,7 +103,8 @@ class RebalanceTuesdayStrategy(bt.Strategy):
 
         # smallcap_index=[ 'csi932000', 'sz399005', 'sz399401'],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
         # large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'etf_SZ510880', 'sh000905']
-        large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'sh000905']
+        # large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'sh000905']
+        large_indices=['sh.000300', 'sh.000016', 'sh000905']
         # large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'etf_SZ510880','sh000132' ]
         # '000132','000133','000010','000009'
     )
@@ -119,6 +120,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         self.trade_logs = []  # 聚合后的交易
         self.signal_logs = []  # 调仓生成的信号
         self.stop_loss_logs = []  # 止损数据
+        self.slope_logs = []  # 斜率数据
         self.close_days = 0 # 空仓的天数
 
         # 写入 RAW 日志表头
@@ -255,6 +257,12 @@ class RebalanceTuesdayStrategy(bt.Strategy):
             print("\nstop_loss_summary.csv saved:")
             print(df.head())
 
+        if self.slope_logs:
+            df = pd.DataFrame(self.slope_logs).sort_values("date")
+            df.to_csv("slope_summary.csv", index=False, encoding="utf-8")
+            print("\nslope_summary.csv saved:")
+            print(df.head())
+
 
     def log(self, txt):
         dt = self.datas[0].datetime.datetime(0)
@@ -291,7 +299,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
 
         # 全局熔断，卖出所有
         is_momentum_ok = self.check_momentum_rank(top_k=1)
-        is_momentum_ok_3 = self.check_momentum_rank(top_k=3)
+        is_momentum_ok_3 = self.check_momentum_rank(top_k=2)
         # is_check_trend = self.check_trend_crash()
         is_check_trend = self.check_combo_trend_crash()
         self.log(f'next_open SmallCapStrategy.next stop loss result, is_check_trend：{is_check_trend}, is_momentum_ok： {is_momentum_ok}')
@@ -304,7 +312,8 @@ class RebalanceTuesdayStrategy(bt.Strategy):
             self.log(self.entry_dates)
 
         # if (is_check_trend or not is_momentum_ok) and (not is_momentum_ok_3 or min_days >  1):
-        if (not is_momentum_ok) and (not is_momentum_ok_3 or min_days > 1): # 两个条件的回测结果一样
+        # if (not is_momentum_ok) and (not is_momentum_ok_3 or min_days > 2 ): # 两个条件的回测结果一样
+        if (not is_momentum_ok and min_days > 2 ) or (not is_momentum_ok_3): # 两个条件的回测结果一样
             self.log(f"next_open 触发止损，卖出所有, 最小持仓 {min_days} 天, 检查持仓天数，至少要持仓两天，进一步检查动量的强度")
             # 继续检查动量的强度， 如果跌出 top3，直接清仓
 
@@ -326,14 +335,33 @@ class RebalanceTuesdayStrategy(bt.Strategy):
 
         self.log(f"next_open 小市值指数涨跌幅: 1日：{pct_1}, 2日：{pct_2}, 3日：{pct_3}")
 
-        # if pct_1 <= -0.045 or pct_2 <= -0.055 or pct_3 <= -0.065:
-        if pct_1 <= -0.045 :
+        # if pct_1 <= -0.045 or pct_2 <= -0.06 or pct_3 <= -0.075 :
+        if pct_1 <= -0.045 or pct_2 <= -0.06 :
+        # if pct_2 <= -0.055 :
             self.log(f"next_open 触发止损，卖出所有, 小市值指数涨跌幅: 1日：{pct_1}, 2日：{pct_2}, 3日：{pct_3}")
             self.sell_all()
             return
 
+        score = self.get_small_mem_return(window_size=6)
+        slope4 = get_momentum(score[:-1], method='slope', days=5)
+        slope = get_momentum(score[1:], method='slope', days=5)
+        self.log(f"get_small_mem_return score: {score}, slope: {slope}")
+        self.slope_logs.append({
+            "date": dt.strftime('%Y-%m-%d'),
+            "slope": slope,
+            "score": score[-1] if len(score)>0 else 0,
+        })
+        # if slope4 > slope and (slope4 - slope > 0.01 ):
+        # 0.0101, -0.0097
+        # if  slope < -0.0097 and (slope4 - slope > 0.015 ):
+        #     self.log(f"next_open 触发调仓日，准备先卖后买, slope={slope}")
+        #     self.log("next_open 当前持仓如下：")
+        #     self.sell_all()
+        #     return
+
         # 个股止盈止损
         self.check_individual_stop()
+        # self.check_individual()
 
         hold_num = len({d for d, pos in self.positions.items() if pos.size > 0})
         if hold_num == 0:
@@ -341,6 +369,9 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         else:
             self.close_days = 0
 
+        temp_score = 0.0001
+        if len(score)>0:
+            temp_score = score[-1]
         # if is_momentum_ok and ( ( weekday == self.p.rebalance_weekday and self.rebalance_date != dt.date() ) or hold_num == 0 ):
         if is_momentum_ok and ( ( weekday == self.p.rebalance_weekday and self.rebalance_date != dt.date() ) or (hold_num == 0 and self.close_days>3) ):
         # if is_momentum_ok and ( ( weekday == self.p.rebalance_weekday and self.rebalance_date != dt.date() )  ):
@@ -361,7 +392,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
 
             candidates = self.filter_stocks()
 
-            is_momentum_ok = self.check_momentum_rank(top_k=1)
+            # is_momentum_ok = self.check_momentum_rank(top_k=1)
             # hold_num = self.p.hold_count_high if is_momentum_ok else self.p.hold_count_low
 
             to_hold = set(candidates[:self.p.hold_count_high])
@@ -421,9 +452,10 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         print('\n\n')
 
         self.log("next")
-        score = self.get_small_mem_return(window_size=5)
-        slope = get_momentum(score, method='slope', days=5)
-        self.log(f"get_small_mem_return score: {score}, slope: {slope}")
+
+        # 个股止盈止损
+        # self.check_individual_stop()
+
         # is_momentum_ok = self.check_momentum_rank(top_k=1)
         # if self.rebalance_flag and self.to_buy_list:
         #     self.rebalance_flag = False
@@ -478,8 +510,13 @@ class RebalanceTuesdayStrategy(bt.Strategy):
             if pos.size <= 0:
                 continue
 
+            hold_num = self.get_holding_days( data)
+            # 当天不可以卖出，当天买入的股票算持有一天，第二天才能卖
+            if hold_num < 2:
+                continue
+
             buy_price = pos.price
-            current_price = data.close[0]
+            current_price = data.open[0]
 
             if np.isnan(current_price) or current_price == 0:
                 continue
@@ -493,6 +530,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                     "symbol": data._name,
                     "date": data.datetime.date(0).strftime('%Y-%m-%d'),
                     "pos_size": pos.size,
+                    "hold_num": hold_num,
                     "action_type": 'stop_profit',
                 })
                 if hasattr(self, "entry_dates"):
@@ -507,11 +545,60 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                     "symbol": data._name,
                     "date": data.datetime.date(0).strftime('%Y-%m-%d'),
                     "pos_size": pos.size,
+                    "hold_num": hold_num,
                     "action_type": 'stop_loss',
                 })
                 if hasattr(self, "entry_dates"):
                     if data._name in self.entry_dates:
                         self.entry_dates.pop(data._name)
+
+    def check_individual(self):
+        for data in self.datas:
+            pos = self.getposition(data)
+            if pos.size <= 0:
+                continue
+
+            buy_price = pos.price
+            current_price = data.open[0]
+
+            if np.isnan(current_price) or current_price == 0:
+                continue
+            hold_num = self.get_holding_days(data)
+            # 当天不可以卖出，当天买入的股票算持有一天，第二天才能卖
+            if hold_num < 2:
+                continue
+            if hold_num > 20:
+
+                change_pct = (current_price - buy_price) / buy_price
+
+                if change_pct >= 0.08:
+                    print(f"✅ 止盈触发：{data._name} 涨幅 {change_pct:.2%}")
+                    self.close(data)
+                    self.stop_loss_logs.append({
+                        "symbol": data._name,
+                        "date": data.datetime.date(0).strftime('%Y-%m-%d'),
+                        "pos_size": pos.size,
+                        "hold_num": hold_num,
+                        "action_type": 'stop_profit',
+                    })
+                    if hasattr(self, "entry_dates"):
+                        if data._name in self.entry_dates:
+                            self.entry_dates.pop(data._name)
+                    continue
+
+                # if change_pct <= -self.p.stop_loss_pct:
+                #     print(f"⛔ 止损触发：{data._name} 跌幅 {change_pct:.2%}")
+                #     self.close(data)
+                #     self.stop_loss_logs.append({
+                #         "symbol": data._name,
+                #         "date": data.datetime.date(0).strftime('%Y-%m-%d'),
+                #         "pos_size": pos.size,
+                #         "hold_num": hold_num,
+                #         "action_type": 'stop_loss',
+                #     })
+                #     if hasattr(self, "entry_dates"):
+                #         if data._name in self.entry_dates:
+                #             self.entry_dates.pop(data._name)
 
 
     def validate_index_data(self):

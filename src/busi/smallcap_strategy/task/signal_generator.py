@@ -186,7 +186,7 @@ class SmallCapSignalGenerator:
         results = []
         for name, df in self.stock_data.items():
             row = df.iloc[-1]
-
+            print(f"{name} , mv:{row['mv']}, lt_share_rate:{row['lt_share_rate']}, is_st:{row['is_st']}, amount:{row['amount']}, turn:{row['turn']}, profit_y:{row['profit_y']}, roeAvg_y:{row['roeAvg_y']}, profit_ttm_y:{row['profit_ttm_y']}, revenue_y:{row['revenue_y']}")
             try:
                 if (
                     # ['date', 'open', 'high', 'low', 'close',
@@ -215,6 +215,8 @@ class SmallCapSignalGenerator:
                 ):
                     results.append((name, row['lt_mv'], row['mv']))
                     # results.append((name, row['mv']))
+                    print(f"✅ {name} 通过过滤")
+
             except:
                 continue
         results.sort(key=lambda x: x[2], reverse=False)

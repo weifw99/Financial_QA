@@ -22,8 +22,8 @@ def run():
 
     from_idx = datetime(2015, 2, 15)  # 记录行情数据的开始时间和结束时间
     from_idx = datetime(2024, 2, 10)  # 记录行情数据的开始时间和结束时间
-    # from_idx = datetime(2025, 2, 15)  # 记录行情数据的开始时间和结束时间
-    to_idx = datetime(2025, 11, 30)
+    # from_idx = datetime(2025, 3, 1)  # 记录行情数据的开始时间和结束时间
+    to_idx = datetime(2025, 12, 30)
 
     # from_idx = datetime(2014, 1, 1)  # 记录行情数据的开始时间和结束时间
     # to_idx = datetime(2025, 6, 26)

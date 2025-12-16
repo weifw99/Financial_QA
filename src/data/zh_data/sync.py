@@ -142,6 +142,7 @@ class DataSync:
                 print(f"[WARN] 获取{index_type}成分股失败")
         
         # 获取股票列表
+        '''
         stock_list = self.market_api.get_stock_list()
         if stock_list.empty:
             print("获取股票列表失败")
@@ -150,6 +151,15 @@ class DataSync:
         stock_list = stock_list[stock_list['type'].isin(['1', '2', ])]
         # 获取所有股票代码并随机打乱顺序
         stock_codes = stock_list['code'].tolist()
+'''
+        zz_code_data_path = '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中小综指-399101.csv'
+        zz_code_df = pd.read_csv(zz_code_data_path)
+        stock_codes = zz_code_df['type'].tolist() + ['sh.000300', 'sh.000016', 'sh.000905', 'sz.399101', 'sh.000905',
+                                                    'sh.000852', 'sh.000046', 'sz.399005', 'sz.399008', 'sz.399401',
+                                                    'sz.399649', 'sz.399663', 'sz.399377', 'sh.000046', 'sz.399408',
+                                                    'sz.399401', 'sh.000991', 'sh.000852', 'sz.399004', 'sh.000905',
+                                                    'sz.399006',
+                                                    'sz.399693']
         import random
         random.shuffle(stock_codes)
         

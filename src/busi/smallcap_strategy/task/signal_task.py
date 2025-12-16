@@ -9,12 +9,13 @@ config = dict(
     smallcap_index=['csi932000', 'BK1158'],
     smallcap_weight=[0.9, 1.1],
     # large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'sh000905'],
-    large_indices=['sh.000300', 'sh.000016', 'sh000905'],
+    large_indices=['sh.000300', 'sh.000016', 'sh.000905'],
     min_mv=10e8,
     min_profit=0,
     min_revenue=1e8,
     hight_price=100,
-    momentum_days=16,
+    momentum_days=15,
+    momentum_days_short=10,
     hold_count_high=15,
 )
 
@@ -48,7 +49,9 @@ def main():
     print(f"📅 数据截止日期: {generator.stock_data_date.date()}")
     print(f"🚨 趋势熔断: {signal['trend_crash']}")
     print(f"🚨 趋势动量: {signal['recovery_scores']}")
-    print(f"📊 动量领先: {signal['momentum_ok']}")
+    print(f"📊 动量领先top1: {signal['momentum_ok']}")
+    print(f"📊 动量领先top2: {signal['momentum_ok2']}")
+    print(f"📊 动量领先(short top2): {signal['momentum_ok2_short']}")
     print(f"🔁 所有动量结果: {signal['momentum_rank']}")
     print(f"🔁 动量排名结果: {signal['ranks_comp']}")
     print(f"📊 小市值动量排名: {signal['top_n']}")
@@ -64,7 +67,9 @@ def main():
 
     # 发送
     send_email("小市值策略信号", str(signal), "18910770963@163.com")
-    # send_wechat_smsg("小市值策略信号", content)
+    send_email("小狮子明细", content, "837602401@qq.com", is_md= True)
+    # send_email("小狮子明细", content, "77946997@qq.com", is_md= True)
+    send_wechat_smsg("小市值策略信号", content)
 
 
 if __name__ == '__main__':

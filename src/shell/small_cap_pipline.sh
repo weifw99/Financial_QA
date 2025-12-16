@@ -39,8 +39,8 @@ python -m src.data.zh_data.zh_run_sync
 log "开始执行 指数成分股拉取任务 src.data.zh_data.index.component_stock_pull ..."
 python -m src.data.zh_data.index.component_stock_pull
 
-log "开始执行 etf数据同步任务 src.busi.etf_.etf_data..."
-python -m src.busi.etf_.etf_data_code
+#log "开始执行 etf数据同步任务 src.busi.etf_.etf_data..."
+#python -m src.busi.etf_.etf_data_code
 
 log "开始执行 重要指数数据任务 src.data.zh_data.index.important_indices_sh_sz ..."
 python -m src.data.zh_data.index.important_indices_sh_sz_by_code

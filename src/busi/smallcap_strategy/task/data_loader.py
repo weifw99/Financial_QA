@@ -25,7 +25,7 @@ def load_recent_data():
     result = {}
 
     # 统一时间索引基准（用上证指数）
-    calendar_df = pd.read_csv(f'{zh_data_dir}/sh.000001/daily.csv')
+    calendar_df = pd.read_csv(f'{zh_data_dir}/sh.000300/daily.csv')
     calendar_df['date'] = pd.to_datetime(calendar_df['date'])
     calendar_df = calendar_df[calendar_df['date'] >= from_date]
     data_index = pd.DataFrame(index=calendar_df['date'].sort_values().unique())

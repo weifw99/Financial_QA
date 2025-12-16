@@ -291,7 +291,7 @@ def load_stock_data(from_idx, to_idx):
     industry_df = industry_df[['code', 'name', 'industry_code', 'industry_name']]
 
     # 获取所有时间数据， 使用000001.csv
-    pdf = pd.read_csv(f'{zh_data_dir}/sh.000001/daily.csv')
+    pdf = pd.read_csv(f'{zh_data_dir}/sh.000300/daily.csv')
     pdf['date'] = pd.to_datetime(pdf['date'])
 
     from_date = from_idx - timedelta(days=40)

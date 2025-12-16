@@ -115,15 +115,27 @@ def receive_latest_email(sender_filter=None, subject_filter=None):
 
 
 
-def send_email(subject, body, to_email):
+def send_email(subject, body, to_email, is_md= False):
     from_email = "837602401@qq.com"
     from_name = "837602401"
     password = "uuwfzpsylmcqbgac"  # 注意是邮箱的"应用专用密码"
 
-    msg = MIMEText(body, 'plain', 'utf-8')
-    msg['From'] = formataddr((from_name, from_email))
-    msg['To'] = to_email
-    msg['Subject'] = subject
+    if is_md:
+        # 将Markdown转换为HTML
+        import markdown
+        html_content = markdown.markdown(body)
+        import re
+        html_content = re.sub(r'\n+', '<br>', html_content)
+        msg = MIMEText(html_content, 'html', 'utf-8')
+        msg['From'] = formataddr((from_name, from_email))
+        msg['To'] = to_email
+        msg['Subject'] = subject
+
+    else:
+        msg = MIMEText(body, 'plain', 'utf-8')
+        msg['From'] = formataddr((from_name, from_email))
+        msg['To'] = to_email
+        msg['Subject'] = subject
 
     try:
         server = smtplib.SMTP_SSL("smtp.qq.com", 465)  # 根据邮箱服务提供商填写
@@ -152,16 +164,13 @@ def send_wechat_smsg(title, content):
 def format_signal_message(signal, exe_date, data_date):
     header = f"""\
 ### 📈 小市值策略信号
-
 - **执行日期**：{exe_date.strftime('%Y-%m-%d')}
 - **数据截止**：{data_date.strftime('%Y-%m-%d')}
-- **趋势熔断**：{'🚨 是' if signal['trend_crash'] else '✅ 否'} （最近 3 天至少 2 天跌超 2.5%，或者平均跌超 3%。且波动率较低。）
+- **趋势熔断**：{'🚨 是' if signal['small_pct_1'] <= -0.045 or signal['small_pct_2'] <= -0.06 else '✅ 否'} （最近 1 天跌超 4.5% 或者最近 2 天跌超 6%）
 - **动量排名**：{signal['top_n']}
-- **动量领先**：{'🚀 是' if signal['momentum_ok'] else '📉 否'} （领先：小市值组合动量排名在top1，或则跌出top1，但是最近四天的动量趋势向上，今天>昨天>前天>大前天or今天>昨天>[前天/大前天]or今天>[昨天/前天]>大前天）
-
-- **最近四天的动量（顺序-今天/昨天/前天/大前天）**：{signal['recovery_scores']}
-
-- **回测逻辑**：调仓/开仓逻辑：每周二或者持仓为 0；并且小市值动量排名第一。 每日止损逻辑： 迭出 top1 并且 迭出 top3 或者股票的最小持仓天数大于 1  （每日止损逻辑比调仓逻辑要松一点）全部清仓。个股每天止损，跌破 6% 卖出
+- **动量是否top1**：{'🚀 是' if signal['momentum_ok'] else '📉 否'} （领先：小市值组合动量排名在top1，或则跌出top1，但是最近四天的动量趋势向上）
+- **动量是否top2**：{'🚀 是' if signal['momentum_ok2'] else '📉 否'} （领先：小市值组合动量排名在top2，或则跌出top2，但是最近四天的动量趋势向上）
+- **动量是否top2[short]**：{'🚀 是' if signal['momentum_ok2_short'] else '📉 否'} （领先：short 小市值组合动量排名在top2，）
 """
 
     # 动量排名表格
@@ -183,17 +192,21 @@ def format_signal_message(signal, exe_date, data_date):
         buy_md = "无"
 
     # 当前持仓列表
-    if signal['current_hold']:
-        hold_md = "\n".join([f"- {stock}" for stock in signal['current_hold']])
-    else:
-        hold_md = "无"
+    # if signal['current_hold']:
+    #     hold_md = "\n".join([f"- {stock}" for stock in signal['current_hold']])
+    # else:
+    #     hold_md = "无"
 
     action_md = f"""\
 **📥 建议买入：**\n
 {buy_md}
-
-**💼 当前持仓：**\n
-{hold_md}
+**💼 附加信息：**\n
+- **最近四天的动量（顺序-今天/昨天/前天/大前天）**：{signal['recovery_scores']}
+    今天>昨天>前天>大前天or今天>昨天>[前天/大前天]or今天>[昨天/前天]>大前天
+- **回测逻辑**：
+    调仓/开仓逻辑：(每周三或者 持仓为 0) AND 小市值动量排名第一。 
+    每日全局止损逻辑： 短期动量跌出 top2  AND （长期动量迭出 top2 OR 长期动量迭出 top1 并且股票的最小持仓天数大于 2）  （**每日止损逻辑比调仓逻辑要松一点**）全部清仓。
+    个股每天止损：跌破 6% 卖出（止损时检测下，避免被刷下去）
 """
 
     return header + "\n" + momentum_md + "\n" + action_md

@@ -81,7 +81,7 @@ class SmallCapSignalGenerator:
             return True
 
         return False
-    def check_recent_recovery(self):
+    def check_recent_recovery(self, momentum_days=15):
         recovery_scores = []
 
         for i in range(4):
@@ -93,19 +93,19 @@ class SmallCapSignalGenerator:
                     return False
 
                 # 要求数据长度至少为 momentum_days + i + 1
-                if len(df) < self.config['momentum_days'] + i + 1:
-                    print(f"⚠️ {name} 数据不足 {self.config['momentum_days'] + i + 1} 行")
+                if len(df) < momentum_days + i + 1:
+                    print(f"⚠️ {name} 数据不足 {momentum_days + i + 1} 行")
                     return False
 
                 # 取对应的价格区间，注意 pandas 的 index 是正向递增的
                 end = -i if i != 0 else None
-                price_slice = df['close'].iloc[-(self.config['momentum_days'] + i ):end]
+                price_slice = df['close'].iloc[-(momentum_days + i ):end]
 
                 if price_slice.isnull().any():
                     print(f"⚠️ {name} 包含缺失值")
                     return False
 
-                score = get_momentum(price_slice.values, method="log", days=self.config['momentum_days'])
+                score = get_momentum(price_slice.values, method="log", days=momentum_days)
                 day_scores.append(score)
 
             # 每天所有小市值指数动量均值
@@ -121,19 +121,19 @@ class SmallCapSignalGenerator:
                      and recovery_scores[0] > recovery_scores[2] > recovery_scores[3]
                      )
                 ) , recovery_scores
-    def check_momentum_rank(self, top_k=2):
+    def check_momentum_rank(self, top_k=2, momentum_days=15):
         ranks = []
         for name in self.config['smallcap_index'] + self.config['large_indices']:
             df = self.stock_data.get(name)
-            if df is None or len(df) < self.config['momentum_days'] + 1:
-                print(f"⚠️ {name} 数据缺失或不足 {self.config['momentum_days'] + 1} 行")
+            if df is None or len(df) < momentum_days + 1:
+                print(f"⚠️ {name} 数据缺失或不足 {momentum_days + 1} 行")
                 continue
-            # prices = df['close'].values[-(self.config['momentum_days'] + 1):]
-            prices = df['close'].values[-(self.config['momentum_days']):]
+            # prices = df['close'].values[-(momentum_days + 1):]
+            prices = df['close'].values[-(momentum_days):]
             # print('get_index_return:', name, prices)
-            score = get_momentum(prices, method='log', days=self.config['momentum_days'])
-            momentum_log = get_momentum(prices, method='log', days=self.config['momentum_days'])
-            momentum_slope = get_momentum(prices, method='return', days=self.config['momentum_days'])
+            score = get_momentum(prices, method='log', days=momentum_days)
+            momentum_log = get_momentum(prices, method='log', days=momentum_days)
+            momentum_slope = get_momentum(prices, method='return', days=momentum_days)
             # 组合方式（例如加权平均）
             combo_score = 0.5 * momentum_log + 0.5 * momentum_slope
             # print('get_index_return:', name, combo_score, momentum_log, momentum_slope)
@@ -149,7 +149,7 @@ class SmallCapSignalGenerator:
         ranks.sort(key=lambda x: x[1], reverse=True)
         in_top_k = '__smallcap_combo__' in [x[0] for x in ranks_comp[:top_k]]
         top_n = [x[0] for x in ranks_comp].index('__smallcap_combo__') + 1
-        is_recovering, recovery_scores = self.check_recent_recovery()
+        is_recovering, recovery_scores = self.check_recent_recovery(momentum_days=momentum_days)
 
         if not in_top_k and not is_recovering:
         # if not in_top_k :
@@ -187,6 +187,11 @@ class SmallCapSignalGenerator:
         for name, df in self.stock_data.items():
             row = df.iloc[-1]
             print(f"{name} , mv:{row['mv']}, lt_share_rate:{row['lt_share_rate']}, is_st:{row['is_st']}, amount:{row['amount']}, turn:{row['turn']}, profit_y:{row['profit_y']}, roeAvg_y:{row['roeAvg_y']}, profit_ttm_y:{row['profit_ttm_y']}, revenue_y:{row['revenue_y']}")
+            # sz.003003 , mv:2320333600.0,
+            # lt_share_rate:0.6665704221367135,
+            # is_st:0.0, amount:41451396.92, turn:2.7083,
+            # profit_y:46398355.85, roeAvg_y:0.040917,
+            # profit_ttm_y:50131100.384399995, revenue_y:1416582813.52
             try:
                 if (
                     # ['date', 'open', 'high', 'low', 'close',
@@ -196,7 +201,7 @@ class SmallCapSignalGenerator:
                         # 'openinterest', ]
                     row['mv'] > self.config['min_mv']
                     # and row['lt_mv'] > self.config['min_mv']
-                    and row['lt_share_rate'] >= 0.8
+                    and row['lt_share_rate'] >= 0.85  # 流通市值占比
                     and row['is_st'] == 0
                     and 5 < row['close'] < self.config['hight_price']
                     and row['amount'] > 4000000
@@ -232,8 +237,9 @@ class SmallCapSignalGenerator:
         """
         # trend_crash = self.check_trend_crash()
         trend_crash = self.check_combo_trend_crash()
-        momentum_ok, momentum_rank, ranks_comp, recovery_scores, top_n = self.check_momentum_rank(top_k=1)
-        momentum_ok2, _ ,_, _, _= self.check_momentum_rank(top_k=2)
+        momentum_ok, momentum_rank, ranks_comp, recovery_scores, top_n = self.check_momentum_rank(top_k=1, momentum_days=self.config['momentum_days'])
+        momentum_ok2, _ ,_, _, _= self.check_momentum_rank(top_k=2, momentum_days=self.config['momentum_days'])
+        momentum_ok2_short, _ ,_, _, _= self.check_momentum_rank(top_k=2, momentum_days=self.config['momentum_days_short'])
 
         pct_1 = self.smallcap_price_change(days=1)
         pct_2 = self.smallcap_price_change(days=2)
@@ -260,6 +266,7 @@ class SmallCapSignalGenerator:
             'recovery_scores': recovery_scores,
             'momentum_ok': momentum_ok,
             'momentum_ok2': momentum_ok2,
+            'momentum_ok2_short': momentum_ok2_short,
             'small_pct_1': pct_1,
             'small_pct_2': pct_2,
             'top_n': top_n,

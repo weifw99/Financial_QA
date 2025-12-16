@@ -32,7 +32,7 @@ SYNC_CONFIG = {
     'incremental_days': 3,  # 增量同步时的时间范围（天）
     'financial_years': 5,  # 财务数据同步的年限范围
     'news_days': 365,  # 新闻数据同步的时间范围（天）
-    'process_num': 4,  # 并行处理的进程数
+    'process_num': 5,  # 并行处理的进程数
 }
 
 # 其他配置参数

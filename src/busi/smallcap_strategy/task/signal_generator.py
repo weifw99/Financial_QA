@@ -224,7 +224,8 @@ class SmallCapSignalGenerator:
 
             except:
                 continue
-        results.sort(key=lambda x: x[2], reverse=False)
+        # results.sort(key=lambda x: x[2], reverse=False)
+        results.sort(key=lambda x: (x[2], x[1], id(x[0]) ), reverse=False)
         return [(x[0], x[2]) for x in results[:self.config['hold_count_high']]]
 
     def generate_signals(self, current_hold=None):

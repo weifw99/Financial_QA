@@ -105,7 +105,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         # smallcap_index=[ 'csi932000', 'sz399005', 'sz399401'],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
         # large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'etf_SZ510880', 'sh000905']
         # large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'sh000905']
-        large_indices=['sh.000300', 'sh.000016', 'sh000905']
+        large_indices=['sh.000300', 'sh.000016', 'sh.000905']
         # large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'etf_SZ510880','sh000132' ]
         # '000132','000133','000010','000009'
     )

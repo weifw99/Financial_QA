@@ -353,7 +353,7 @@ def load_stock_data(from_idx, to_idx):
                                        name=index_code)
         datas.append(pandas_data)
 
-    temp_stock_list = ['sh.000300',  'sh.000016', 'sh.000852', 'BK1158', ]
+    temp_stock_list = ['sh.000300',  'sh.000016', 'sh.000852', 'BK1158', 'sh.000905', ]
     for i, stock_file in enumerate(os.listdir(zh_data_dir)):
         # if i > 500:
         #     break

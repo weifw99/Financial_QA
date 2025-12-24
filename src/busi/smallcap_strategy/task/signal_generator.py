@@ -151,8 +151,8 @@ class SmallCapSignalGenerator:
         top_n = [x[0] for x in ranks_comp].index('__smallcap_combo__') + 1
         is_recovering, recovery_scores = self.check_recent_recovery(momentum_days=momentum_days)
 
-        if not in_top_k and not is_recovering:
-        # if not in_top_k :
+        # if not in_top_k and not is_recovering:
+        if not in_top_k :
             return False, ranks, ranks_comp, recovery_scores, top_n
         else:
             return True, ranks, ranks_comp, recovery_scores, top_n

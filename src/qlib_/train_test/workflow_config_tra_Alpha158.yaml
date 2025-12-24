@@ -2,8 +2,6 @@ qlib_init:
   provider_uri: "~/.qlib/qlib_data/cn_data"
   region: cn
 
-logdir: null
-
 market: &market csi300
 benchmark: &benchmark SH000300
 
@@ -89,7 +87,7 @@ task:
       n_epochs: 40
       max_steps_per_epoch:
       early_stop: 20
-      logdir: output/Alpha158
+      logdir: output/Alpha1581
       seed: 0
       lamb: 1.0
       rho: 0.99

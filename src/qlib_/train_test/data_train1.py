@@ -71,16 +71,23 @@ def train_model_alpha158(config_path, output_dir):
     model = init_instance_by_config(model_cfg)
 
     # start exp
-    with R.start(experiment_name="workflow"):
+    with R.start(experiment_name="workflow") as rec:
+        print("当前 record_id:", rec.id)  # ✅ record_id 就在这里
         # train
         R.log_params(**flatten_dict(cfg["task"]))
         model.fit(dataset)
+
+        recorder = R.get_recorder()
+        # ✅ 显式保存模型
+        recorder.save_objects(model=model)
 
         # prediction
         recorder = R.get_recorder()
         sr = SignalRecord(model, dataset, recorder)
         sr.generate()
 
+        # record = R.get_recorder(recorder_id="<record_id>")
+        # model = record.load_object("model")
 
 
 if __name__ == "__main__":

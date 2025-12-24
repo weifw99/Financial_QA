@@ -7,7 +7,7 @@ from src.busi.smallcap_strategy.task.data_loader import load_recent_data
 config = dict(
     # smallcap_index=['csi932000', 'sz399101', 'BK1158'],
     smallcap_index=['csi932000', 'BK1158'],
-    smallcap_weight=[0.9, 1.1],
+    smallcap_weight=[0.9, 1],
     # large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'sh000905'],
     large_indices=['sh.000300', 'sh.000016', 'sh.000905'],
     min_mv=10e8,

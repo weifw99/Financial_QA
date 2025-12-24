@@ -25,7 +25,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         momentum_days=15,  # 动量观察窗口
         momentum_days_short=10,  # 动量观察窗口
         trend_threshold=-0.02,  # 快速熔断阈值（小市值单日下跌5%）
-        stop_loss_pct=0.08,  # 个股止损线（跌幅超过6%）
+        stop_loss_pct=0.09,  # 个股止损线（跌幅超过6%）
         take_profit_pct=0.5,  # 个股止盈线（涨幅超过50%）
         null_index='etf_SZ511880',  # 空仓期备选 etf
         # smallcap_index=['csi932000', 'sz399101', 'sh000852'],  # 小市值指数列表（中证2000 + 中小综指 + 中证 1000）
@@ -67,7 +67,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         # smallcap_index=['csi932000', 'sz399101', 'BK1158'], # 0.53
         # smallcap_weight=[1, 1.1, 1.2], #
         # smallcap_weight=[1, 1], # 1.6687
-        smallcap_weight=[0.9, 1.1], # 1.6716
+        smallcap_weight=[0.9, 1], # 1.6716
         # smallcap_weight=[0.8, 1.2], # 1.6716
         # smallcap_weight=[0.7, 1.3], # 1.6395
         # smallcap_weight=[0.5, 1.5],  # 1.4806
@@ -340,6 +340,23 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         if hasattr(self, "entry_dates"):
             self.log(self.entry_dates)
 
+
+        pct_1 = self.smallcap_price_change(days=1)
+        pct_2 = self.smallcap_price_change(days=2)
+        pct_3 = self.smallcap_price_change(days=3)
+
+        self.log(f"next_open 小市值指数涨跌幅: 1日：{pct_1}, 2日：{pct_2}, 3日：{pct_3}")
+
+        score = self.get_small_mem_return(window_size=6, momentum_days=3)
+        slope4 = get_momentum(score[:-1], method='slope', days=5)
+        slope = get_momentum(score[1:], method='slope', days=5)
+        self.log(f"get_small_mem_return score: {score}, slope: {slope}")
+        self.slope_logs.append({
+            "date": dt.strftime('%Y-%m-%d'),
+            "slope": slope,
+            "score": score[-1] if len(score)>0 else 0,
+        })
+
         # score = self.get_small_mem_return(window_size=6, momentum_days=self.p.momentum_days)
         # if not is_momentum_ok_3:
         #     self.not_mom_3 = self.not_mom_3 + 1
@@ -357,40 +374,22 @@ class RebalanceTuesdayStrategy(bt.Strategy):
             self.log(f"next_open 触发止损，卖出所有, 最小持仓 {min_days} 天, 检查持仓天数，至少要持仓两天，进一步检查动量的强度")
             # 继续检查动量的强度， 如果跌出 top3，直接清仓
 
-            # if not is_momentum_ok_3 or min_days >  1:
-            #     self.log(f"next_open 触发止损，卖出所有, 最小持仓 {min_days} 天, 检查动量的强度，跌出 top3")
+            # if pct_1 <= -0.045 or pct_2 <= -0.06 :
+            #     self.log(f"next_open 触发止损，卖出所有, 小市值指数涨跌幅: 1日：{pct_1}, 2日：{pct_2}, 3日：{pct_3}")
             #     self.sell_all()
             #     return
-            # if min_days >  1:
-            #     self.log( f"next_open 触发止损，卖出所有, 最小持仓 {min_days} 天")
-            #     self.sell_all()
-            #     return
-            self.sell_all()
-            return
-
-
-        pct_1 = self.smallcap_price_change(days=1)
-        pct_2 = self.smallcap_price_change(days=2)
-        pct_3 = self.smallcap_price_change(days=3)
-
-        self.log(f"next_open 小市值指数涨跌幅: 1日：{pct_1}, 2日：{pct_2}, 3日：{pct_3}")
+            # if  slope < -0.0012:
+            if  slope < -0.0012:
+                self.log(f"next_open 触发止损，卖出所有, slope={slope}")
+                self.sell_all()
+                return
 
         # if pct_1 <= -0.045 or pct_2 <= -0.06 or pct_3 <= -0.075 :
-        if pct_1 <= -0.045 or pct_2 <= -0.06 :
-        # if pct_2 <= -0.055 :
-            self.log(f"next_open 触发止损，卖出所有, 小市值指数涨跌幅: 1日：{pct_1}, 2日：{pct_2}, 3日：{pct_3}")
-            self.sell_all()
-            return
+        # if pct_1 <= -0.045 or pct_2 <= -0.06 :
+        #     self.log(f"next_open 触发止损，卖出所有, 小市值指数涨跌幅: 1日：{pct_1}, 2日：{pct_2}, 3日：{pct_3}")
+        #     self.sell_all()
+        #     return
 
-        score = self.get_small_mem_return(window_size=6, momentum_days=self.p.momentum_days)
-        slope4 = get_momentum(score[:-1], method='slope', days=5)
-        slope = get_momentum(score[1:], method='slope', days=5)
-        self.log(f"get_small_mem_return score: {score}, slope: {slope}")
-        self.slope_logs.append({
-            "date": dt.strftime('%Y-%m-%d'),
-            "slope": slope,
-            "score": score[-1] if len(score)>0 else 0,
-        })
         # if slope4 > slope and (slope4 - slope > 0.01 ):
         # 0.0101, -0.0097
         # if  slope < -0.0097 and (slope4 - slope > 0.015 ):
@@ -413,7 +412,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                 self.close_days = 0
         else:
             self.close_days = 0
-        if is_momentum_ok and ( ( weekday == self.p.rebalance_weekday and self.rebalance_date != dt.date() ) or hold_num == 0 ):
+        if (is_momentum_ok) and ( ( weekday == self.p.rebalance_weekday and self.rebalance_date != dt.date() ) or hold_num == 0 ):
         # if is_momentum_ok and ( ( weekday == self.p.rebalance_weekday and self.rebalance_date != dt.date() ) or (hold_num == 0 and self.close_days>3) ):
         # if is_momentum_ok and ( ( weekday == self.p.rebalance_weekday and self.rebalance_date != dt.date() )  ):
             self.rebalance_date = dt.date()
@@ -693,7 +692,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         if np.any(np.isnan(prices)) or prices[-1] == 0:
             return -999
         prices = prices[:-1]  # 去掉最后一天 当天的 close 价格应该不可见
-        # print('get_index_return:' , name, prices)
+        print('get_index_return:' , name, prices)
         momentum_log = get_momentum(prices, method='log', days=days)
         momentum_slope = get_momentum(prices, method='return', days=days)
         # 组合方式（例如加权平均）
@@ -764,15 +763,21 @@ class RebalanceTuesdayStrategy(bt.Strategy):
 
     def check_recent_recovery(self):
         # momentum_days = int(self.p.momentum_days_short/3)
-        momentum_days = self.p.momentum_days
+        # momentum_days = self.p.momentum_days
+        momentum_days = 10
         recovery_scores = []
+        recovery_slopes = []
         for i in range(4):
             day_scores = []
+            day_slopes = []
             for name in self.p.smallcap_index:
                 d = self.getdatabyname(name)
                 if len(d) < momentum_days + i + 1:
                     return False
-                prices = d.close.get(size=momentum_days + i)
+                prices = d.close.get(size=momentum_days + 1 + i)
+                prices = prices[:-1]
+                print('check_recent_recovery:', i , name, prices)
+
                 if np.any(np.isnan(prices)):
                     return False
                 # 修改切片操作，确保获取的数据长度为 momentum_days
@@ -782,20 +787,29 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                 else:
                     # 当 i>0 时，获取倒数第 i+1 天之前 momentum_days 个数据点
                     selected_prices = prices[-(momentum_days + i):-i]
+                print('check_recent_recovery selected_prices:', i, name, selected_prices)
                 score = get_momentum(selected_prices, method="log", days=momentum_days)
                 day_scores.append(score)
+                slope = get_momentum(recovery_scores, method='slope', days=4)
+                day_slopes.append(slope)
             day_scores = [s * w for s, w in zip(day_scores, self.p.smallcap_weight)]
             recovery_scores.append(np.mean(day_scores))
+            recovery_slopes.append(np.max(day_slopes))
             # recovery_scores.append(np.mean(day_scores))
         print(f'📊 最近几个动量: {recovery_scores}')
-        return (recovery_scores[0] > recovery_scores[1] > recovery_scores[2] > recovery_scores[3]
-                or (recovery_scores[0] > recovery_scores[1] > recovery_scores[2]
-                    and recovery_scores[0] > recovery_scores[1] > recovery_scores[3]
-                    )
-                or (recovery_scores[0] > recovery_scores[1] > recovery_scores[3]
-                    and recovery_scores[0] > recovery_scores[2] > recovery_scores[3]
-                    )
-                )
+        recovery_scores.sort(reverse=True)
+        slope = get_momentum(recovery_scores[1:], method='slope', days=4)
+        print(f'🚨 趋势动量 slope: {slope}')
+        return slope >= 0
+        # return recovery_slopes[0] >= 0
+        # return (recovery_scores[0] > recovery_scores[1] > recovery_scores[2] > recovery_scores[3]
+        #         or (recovery_scores[0] > recovery_scores[1] > recovery_scores[2]
+        #             and recovery_scores[0] > recovery_scores[1] > recovery_scores[3]
+        #             )
+        #         or (recovery_scores[0] > recovery_scores[1] > recovery_scores[3]
+        #             and recovery_scores[0] > recovery_scores[2] > recovery_scores[3]
+        #             )
+        #         )
         # return (recovery_scores[0] > recovery_scores[1] > recovery_scores[2]
         #             and recovery_scores[0] > recovery_scores[1] > recovery_scores[3]
         #             ) or (recovery_scores[0] > recovery_scores[1] > recovery_scores[3]
@@ -845,8 +859,8 @@ class RebalanceTuesdayStrategy(bt.Strategy):
         in_top_k = '__smallcap_combo__' in [x[0] for x in sorted_returns[:top_k]]
         is_recovering = self.check_recent_recovery()
 
-        if not in_top_k and not is_recovering :
-        # if not in_top_k :
+        # if not in_top_k and not is_recovering :
+        if not in_top_k :
             print(f"⚠️ 小市值组合动量跌出第一，未回升，且分数不高 -> 止损, in_top_k:{in_top_k}, is_recover:{is_recovering},  combo_score: {combo_score}")
             return False
         return True
@@ -1231,7 +1245,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                 buy_price = pos.price
                 current_price = d.close[0]
                 open_price = d.open[0]
-                if (current_price/open_price-1) >= 0.095:
+                if (current_price/(open_price+0.0001)-1) >= 0.095:
                     self.log(f"{d._name:<12}️ 涨停: {d._name}, 幅度:{current_price/open_price-1}")
                 # self.log(f"{d._name:<12} 持仓: {pos.size:>6} 购买价: {buy_price:.2f} 开仓价: {open_price:.2f}, 幅度:{current_price/open_price-1}")
                 market_value = pos.size * current_price

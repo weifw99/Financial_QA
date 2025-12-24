@@ -1,6 +1,13 @@
 qlib_init:
   provider_uri: "~/.qlib/qlib_data/cn_data"
   region: cn
+  exp_manager:
+    class: "MLflowExpManager"
+    module_path: "qlib.workflow.expm"
+    kwargs:
+      uri: "file:/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/mlruns"
+      default_exp_name: "Experiment"
+
 
 market: &market csi300
 benchmark: &benchmark SH000300

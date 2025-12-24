@@ -1,6 +1,8 @@
 
 import os
 import pickle
+from pathlib import Path
+
 import yaml
 import qlib
 from qlib.config import REG_CN
@@ -24,6 +26,15 @@ def train_model_alpha158(config_path, output_dir):
     qlib.init(
         provider_uri=qlib_init.get("provider_uri", "~/.qlib/qlib_data/cn_data"),
         region=REG_CN if qlib_init.get("region") == "cn" else None,
+        exp_manager=qlib_init.get("exp_manager", {
+
+            "class": "MLflowExpManager",
+            "module_path": "qlib.workflow.expm",
+            "kwargs": {
+                "uri": "file:" + str(Path(os.getcwd()).resolve() / "mlruns"),
+                "default_exp_name": "Experiment",
+            },
+        })
     )
 
 
@@ -70,12 +81,15 @@ def train_model_alpha158(config_path, output_dir):
     print(model_cfg)
     model = init_instance_by_config(model_cfg)
 
+    recorder_id = ''
     # start exp
     with R.start(experiment_name="workflow") as rec:
         print("当前 record_id:", rec.id)  # ✅ record_id 就在这里
+        recorder_id = rec.id
         # train
         R.log_params(**flatten_dict(cfg["task"]))
         model.fit(dataset)
+        print("model:", model)
 
         recorder = R.get_recorder()
         # ✅ 显式保存模型
@@ -89,25 +103,20 @@ def train_model_alpha158(config_path, output_dir):
         # record = R.get_recorder(recorder_id="<record_id>")
         # model = record.load_object("model")
 
+    # start exp
+    with R.start(experiment_name="workflow") as rec:
+        print("当前 record_id:", rec.id)  # ✅ record_id 就在这里
+
+        record = R.get_recorder(recorder_id=recorder_id)
+        model = record.load_object("model")
+
+        print("model:", model)
+
 
 if __name__ == "__main__":
 
     train_model_alpha158("./workflow_config_tra_Alpha158.yaml", "data")
 
 
-    import pickle
-    import pandas as pd
-
-    with open("../data/feature.pkl", "rb") as f:
-        features = pickle.load(f)
-
-    print("Feature shape:", features.shape)
-    print("Feature columns:", features.columns)
-
-    print(features.head())  # 查看前几行特征
-
-    columns = [col for col in features.columns]
-    for c in columns:
-        print(c)
 
 

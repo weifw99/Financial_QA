@@ -5,7 +5,8 @@ qlib_init:
     class: "MLflowExpManager"
     module_path: "qlib.workflow.expm"
     kwargs:
-      uri: "file:/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/mlruns"
+      # uri: "file:/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/mlruns"
+      uri: "file:/Users/dabai/liepin/study/llm/Financial_QA/data/qlib_exp/mlruns"
       default_exp_name: "Experiment"
 
 
@@ -15,7 +16,7 @@ benchmark: &benchmark SH000300
 data_handler_config: &data_handler_config
   start_time: 2021-01-01
   end_time: 2025-05-15
-  fit_start_time: 2021-01-01
+  fit_start_time: 2021-01-01 # 特征处理器（Processor）的拟合区间 主要用于：RobustZScoreNorm ZScoreNorm CSRankNorm Fillna
   fit_end_time: 2025-05-15
   instruments: *market
   infer_processors:

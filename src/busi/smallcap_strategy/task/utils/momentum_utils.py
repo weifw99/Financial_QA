@@ -13,22 +13,19 @@ def get_momentum(prices: list | np.ndarray, method: str = 'log', days: int = 20)
     - r2: 回归拟合 R²（趋势强度）
     - slope_r2: 斜率 * R² 组合动量指标
     """
-    prices = np.array(prices)
     if len(prices) < days:
         return np.nan
 
     prices = prices[-(days):]
-    if np.any(prices <= 0):
-        return np.nan
 
     if method == 'log':
         return np.log(prices[-1] / prices[0])
     elif method == 'return':
         return (prices[-1] - prices[0]) / prices[0]
     elif method in ['slope', 'r2', 'slope_r2']:
-        x = np.arange(len(prices))
-        log_prices = np.log(prices)
-        slope, intercept, r_value, p_value, std_err = linregress(x, log_prices)
+        y = prices
+        x = np.arange(len(y))
+        slope, intercept, r_value, p_value, std_err = linregress(x, y)
         if method == 'slope':
             return slope
         elif method == 'r2':

@@ -385,10 +385,10 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                 return
 
         # if pct_1 <= -0.045 or pct_2 <= -0.06 or pct_3 <= -0.075 :
-        # if pct_1 <= -0.045 or pct_2 <= -0.06 :
-        #     self.log(f"next_open 触发止损，卖出所有, 小市值指数涨跌幅: 1日：{pct_1}, 2日：{pct_2}, 3日：{pct_3}")
-        #     self.sell_all()
-        #     return
+        if pct_1 <= -0.045 or pct_2 <= -0.06 :
+            self.log(f"next_open 触发止损，卖出所有, 小市值指数涨跌幅: 1日：{pct_1}, 2日：{pct_2}, 3日：{pct_3}")
+            self.sell_all()
+            return
 
         # if slope4 > slope and (slope4 - slope > 0.01 ):
         # 0.0101, -0.0097
@@ -714,7 +714,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
 
             mems = []
             prices = prices[:-1]  # 去掉最后一天 当天的 close 价格应该不可见
-            # print('get_index_return:' , name, prices)
+            print('get_small_mem_return:' , name, prices)
             for i in range(window_size):
                 prices1 = prices[i:momentum_days+i]
                 # print('get_index_return:', i, name, prices1)

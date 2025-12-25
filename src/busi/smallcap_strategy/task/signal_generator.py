@@ -157,6 +157,49 @@ class SmallCapSignalGenerator:
         else:
             return True, ranks, ranks_comp, recovery_scores, top_n
 
+    def get_small_mem_return(self, window_size=5, momentum_days=15):
+        scores = []
+        for name in self.config['smallcap_index']:
+            df = self.stock_data.get(name)
+            if df is None or len(df) < momentum_days + 1:
+                print(f"⚠️ {name} 数据缺失或不足 {momentum_days + 1} 行")
+                continue
+            # prices = df['close'].values[-(momentum_days + 1):]
+            mems = []
+            prices = df['close'].values[-(momentum_days+window_size-1):]
+            print('get_small_mem_return:', name, prices)
+            for i in range(window_size):
+                prices1 = prices[i:momentum_days + i]
+                # print('get_index_return:', i, name, prices1)
+                momentum_log = get_momentum(prices1, method='log', days=momentum_days)
+                momentum_slope = get_momentum(prices1, method='return', days=momentum_days)
+                # 组合方式（例如加权平均）
+                combo_score = 0.5 * momentum_log + 0.5 * momentum_slope
+                mems.append(combo_score)
+            if len(mems) > 0:
+                scores.append(mems)
+        print(f'📊 小市值动量get_small_mem_return: {scores} ')
+        if len(scores) > 0:
+            # return np.mean(scores, axis=0)
+
+            # 转成 numpy 并匹配长度
+            arrays = [np.array(a, dtype=float) for a in scores]
+
+            length_set = {len(a) for a in arrays}
+            if len(length_set) != 1:
+                raise ValueError("所有数组长度必须一致")
+
+            # 加权相加
+            weighted_sum = np.zeros_like(arrays[0])
+            for arr, w in zip(arrays, self.config['smallcap_weight']):
+                weighted_sum += arr * w
+
+            # 求均值（对加权后的 N 组求平均）
+            result = weighted_sum / len(scores)
+            return result
+        return []
+
+
     def smallcap_price_change(self, days=3):
         """
         计算小市值组合指数最近 days 天的涨跌幅，返回最小值
@@ -236,6 +279,11 @@ class SmallCapSignalGenerator:
             - 建议买入列表（包含：股票名、市值、是否已持仓、收盘价）
             - 建议卖出列表（为当前持仓列表）
         """
+
+        score = self.get_small_mem_return(window_size=6, momentum_days=3)
+        slope = get_momentum(score[1:], method='slope', days=5)
+        print(f"get_small_mem_return score: {score}, slope: {slope}")
+
         # trend_crash = self.check_trend_crash()
         trend_crash = self.check_combo_trend_crash()
         momentum_ok, momentum_rank, ranks_comp, recovery_scores, top_n = self.check_momentum_rank(top_k=1, momentum_days=self.config['momentum_days'])
@@ -270,6 +318,7 @@ class SmallCapSignalGenerator:
             'momentum_ok2_short': momentum_ok2_short,
             'small_pct_1': pct_1,
             'small_pct_2': pct_2,
+            'slope': slope,
             'top_n': top_n,
             'momentum_rank': [list(t) for t in momentum_rank],
             'ranks_comp': [list(t) for t in ranks_comp],

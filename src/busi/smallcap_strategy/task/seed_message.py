@@ -168,9 +168,9 @@ def format_signal_message(signal, exe_date, data_date):
 - **数据截止**：{data_date.strftime('%Y-%m-%d')}
 - **趋势熔断**：{'🚨 是' if signal['small_pct_1'] <= -0.045 or signal['small_pct_2'] <= -0.06 else '✅ 否'} （最近 1 天跌超 4.5% 或者最近 2 天跌超 6%）
 - **动量排名**：{signal['top_n']}
-- **动量是否top1**：{'🚀 是' if signal['momentum_ok'] else '📉 否'} （领先：小市值组合动量排名在top1，或则跌出top1，但是最近四天的动量趋势向上）
-- **动量是否top2**：{'🚀 是' if signal['momentum_ok2'] else '📉 否'} （领先：小市值组合动量排名在top2，或则跌出top2，但是最近四天的动量趋势向上）
-- **动量是否top2[short]**：{'🚀 是' if signal['momentum_ok2_short'] else '📉 否'} （领先：short 小市值组合动量排名在top2，）
+- **动量是否top1**：{'🚀 是' if signal['momentum_ok'] else '📉 否'} （领先：小市值组合动量排名在top1）
+- **动量是否top2**：{'🚀 是' if signal['momentum_ok2'] else '📉 否'} （领先：小市值组合动量排名在top2）
+- **动量是否top2[short]**：{'🚀 是' if signal['momentum_ok2_short'] else '📉 否'} （领先：short 小市值组合动量排名在top2）
 """
 
     # 动量排名表格
@@ -201,12 +201,12 @@ def format_signal_message(signal, exe_date, data_date):
 **📥 建议买入：**\n
 {buy_md}
 **💼 附加信息：**\n
-- **最近四天的动量（顺序-今天/昨天/前天/大前天）**：{signal['recovery_scores']}
-    今天>昨天>前天>大前天or今天>昨天>[前天/大前天]or今天>[昨天/前天]>大前天
 - **回测逻辑**：
     调仓/开仓逻辑：(每周三或者 持仓为 0) AND 小市值动量排名第一。 
     每日全局止损逻辑： 短期动量跌出 top2  AND （长期动量迭出 top2 OR 长期动量迭出 top1 并且股票的最小持仓天数大于 2）  （**每日止损逻辑比调仓逻辑要松一点**）全部清仓。
     个股每天止损：跌破 6% 卖出（止损时检测下，避免被刷下去）
+    
+    slope：{signal['slope']}
 """
 
     return header + "\n" + momentum_md + "\n" + action_md

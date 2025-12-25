@@ -30,7 +30,7 @@ def main():
 
         # data_date = today - timedelta(days=3)
     data_date = today
-    # data_date = today - timedelta(days=3)
+    # data_date = today - timedelta(days=1)
     # 2. 初始化生成器
     generator = SmallCapSignalGenerator(config)
     generator.load_data(stock_data_dict, data_date)
@@ -55,6 +55,7 @@ def main():
     print(f"🔁 所有动量结果: {signal['momentum_rank']}")
     print(f"🔁 动量排名结果: {signal['ranks_comp']}")
     print(f"📊 小市值动量排名: {signal['top_n']}")
+    print(f"📊 止损slope: {signal['slope']}")
     print(f"📥 建议买入: {signal['buy']}")
     print(f"💸 持仓: {signal['current_hold']}")
 

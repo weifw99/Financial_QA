@@ -19,7 +19,13 @@ from qlib.workflow import R
 from qlib.workflow.record_temp import SignalRecord, PortAnaRecord, SigAnaRecord
 
 
-def init_qlib(config_path='') -> tuple[Any, Path]:
+def init_qlib(config_path='') -> tuple[Any, Path, str]:
+    """
+    qlib init
+    返回配置文件、工作目录、env_name
+    :param config_path:
+    :return:
+    """
     # 1. 读取配置
     with open(config_path, "r") as f:
         cfg = yaml.safe_load(f)
@@ -27,6 +33,7 @@ def init_qlib(config_path='') -> tuple[Any, Path]:
     # 2. 初始化 Qlib
     qlib_init = cfg.get("qlib_init", {})
 
+    exp_name = qlib_init.get("exp_manager").get("kwargs").get('default_exp_name')
     base_dir = qlib_init.get("exp_manager").get("kwargs").get('uri').replace('file:', '')
     base_dir_path = Path(base_dir)
     work_dir = base_dir_path.parent
@@ -41,7 +48,6 @@ def init_qlib(config_path='') -> tuple[Any, Path]:
             provider_uri=qlib_init.get("provider_uri", "~/.qlib/qlib_data/cn_data"),
             region=REG_CN if qlib_init.get("region") == "cn" else None,
             exp_manager=qlib_init.get("exp_manager", {
-
                 "class": "MLflowExpManager",
                 "module_path": "qlib.workflow.expm",
                 "kwargs": {
@@ -50,12 +56,12 @@ def init_qlib(config_path='') -> tuple[Any, Path]:
                 },
             })
         )
-    return cfg, work_dir
+    return cfg, work_dir, exp_name
 
 
 def train_model_alpha158(config_path=''):
 
-    cfg, work_dir = init_qlib(config_path)
+    cfg, work_dir, exp_name = init_qlib(config_path)
 
     # 3. 初始化 MTSDatasetH
     dataset_cfg = cfg["task"]["dataset"]
@@ -97,11 +103,11 @@ def train_model_alpha158(config_path=''):
     model = init_instance_by_config(model_cfg)
 
     ''' '''
-    experiment_name = "workflow"
-    recorder_info_file = f"{work_dir}/recorder_info_{datetime.now().strftime('%Y-%m-%d')}.json"
+    # experiment_name = "workflow"
+    recorder_info_file = f"{work_dir}/{exp_name}_recorder_info_{datetime.now().strftime('%Y-%m-%d')}.json"
     # start exp
     train_model = None
-    with R.start(experiment_name=experiment_name) as rec:
+    with R.start(experiment_name=exp_name) as rec:
         print("当前 record_id:", rec.id)  # ✅ record_id 就在这里
         # 当前的工作 record
         active_recorder = rec.active_recorder
@@ -116,13 +122,11 @@ def train_model_alpha158(config_path=''):
         print("model:", model)
         train_model = model
 
-        recorder = R.get_recorder(recorder_id=active_recorder.id, experiment_name=experiment_name)
-        recorder1 = R.get_recorder()
+        recorder = R.get_recorder(recorder_id=active_recorder.id, experiment_id=active_recorder.experiment_id)
+        # recorder1 = R.get_recorder()
         # ✅ 显式保存模型
         recorder.save_objects(model=model)
 
-        # prediction
-        # recorder = R.get_recorder()
         # 预测 + 评估
         sr = SignalRecord(model, dataset, recorder)
         sr.generate()
@@ -142,37 +146,13 @@ def train_model_alpha158(config_path=''):
         ).generate()
         '''
 
-        # record = R.get_recorder(recorder_id="<record_id>")
-        # model = record.load_object("model")
-
-        # 保存 info 到 JSON 文件
-        with open(recorder_info_file, "w", encoding="utf-8") as f:
-            json.dump(active_recorder.info, f, indent=4, ensure_ascii=False)
-        print(f"active_recorder_info: {json.dumps(active_recorder.info, indent=4)}")
-
-    # 加载阶段
-    try:
-        with open(recorder_info_file, "r", encoding="utf-8") as f:
-            loaded_info_text = json.load(f)
-        print("从文件加载的 recorder_info 内容:")
-        recorder_info_str = json.dumps(loaded_info_text, indent=4)
-        recorder_info = json.loads(recorder_info_str)
-        print( type(recorder_info) , recorder_info )
-    except FileNotFoundError:
-        print("文件不存在，请先运行保存部分的代码")
-
-    # 获取 recorder,
-    recorder = R.get_recorder(recorder_id=recorder_info['id'], experiment_id=recorder_info['experiment_id'])
-    # record = get_recorder("workflow")
-    model = recorder.load_object("model")
-    print("model:", model)
 
 def predict_data_model(config_path='', recorder_file=None):
-    cfg, work_dir = init_qlib(config_path)
+    cfg, work_dir, exp_name = init_qlib(config_path)
     if recorder_file:
-        recorder_info_file = recorder_file
+        recorder_info_file = f"{work_dir}/{recorder_file}"
     else:
-        recorder_info_file = f"{work_dir}/recorder_info_{datetime.now().strftime('%Y-%m-%d')}.json"
+        recorder_info_file = f"{work_dir}/{exp_name}_recorder_info_{datetime.now().strftime('%Y-%m-%d')}.json"
     # 加载阶段
     try:
         with open(recorder_info_file, "r", encoding="utf-8") as f:
@@ -211,6 +191,8 @@ def predict_data_model(config_path='', recorder_file=None):
     dataset = init_instance_by_config(dataset_cfg)
 
     print("dataset:", dataset)
+    ds_feature_names = dataset.handler.get_cols()
+    print("dataset feature_names:", ds_feature_names)
 
     SignalRecord(
         model=model,
@@ -220,8 +202,37 @@ def predict_data_model(config_path='', recorder_file=None):
 
     pred = recorder.load_object("pred.pkl")
 
-    print("pred type:", type(pred))
-    print("pred:", pred)
+    # 重置索引，将 datetime 和 instrument 变为普通列
+    df_normal = pred.reset_index()
+    print("pred type:", type(df_normal))
+    print("pred:", df_normal)
+
+
+    if isinstance(model, LGBModel):
+        model: LGBModel = model
+        # 获取特征名称
+        feature_names = model.model.feature_name()
+
+        print("feature_names len:", len(feature_names))
+        print("ds_feature_names len:", len(ds_feature_names))
+        # 提取 Column_x 中的数字并映射到真实特征名
+        real_feature_names = []
+        for col_name in feature_names:
+            index = int(col_name.replace('Column_', ''))
+            real_feature_names.append(ds_feature_names[index])
+        # 获取基于增益的重要性
+        importance = model.model.feature_importance(importance_type='gain')
+
+        # 创建特征重要性 DataFrame
+        import pandas as pd
+        importance_df = pd.DataFrame({
+            'feature': real_feature_names,
+            'importance': importance
+        }).sort_values('importance', ascending=False)
+
+        print(importance_df)
+
+
 
 
 
@@ -229,10 +240,16 @@ def predict_data_model(config_path='', recorder_file=None):
 
 
 if __name__ == "__main__":
-    config_path = "./workflow_config_tra_Alpha158.yaml"
-    # train_model_alpha158(config_path=config_path)
+    config_path = "config/workflow_config_tra_Alpha158.yaml" # 0.064
+    config_path = "config/workflow_config_lgb_Alpha158.yaml" # 0.068
+    config_path = "config/workflow_config_lgb_Alpha158_all.yaml" # 0.074
+    # config_path = "config/workflow_config_lgb_Alpha158_tree_import.yaml" # 0.076
+    config_path = "config/workflow_config_tra_Alpha158_tree_import.yaml" # 0.073
+    train_model_alpha158(config_path=config_path)
 
-    predict_data_model(config_path=config_path)
+    # predict_data_model(config_path=config_path, recorder_file='recorder_info_2025-12-25.json')
+    # predict_data_model(config_path=config_path)
+    # predict_data_model(config_path=config_path, recorder_file='lgb_exp_all_recorder_info_2025-12-26.json')
 
 
 

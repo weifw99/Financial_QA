@@ -5,9 +5,8 @@ qlib_init:
     class: "MLflowExpManager"
     module_path: "qlib.workflow.expm"
     kwargs:
-      # uri: "file:/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/mlruns"
       uri: "file:/Users/dabai/liepin/study/llm/Financial_QA/data/qlib_exp/mlruns"
-      default_exp_name: "Experiment"
+      default_exp_name: "tra_exp"
 
 
 market: &market csi300
@@ -23,9 +22,16 @@ data_handler_config: &data_handler_config
     - class: FilterCol
       kwargs:
         fields_group: feature
-        col_list: ["RESI5", "WVMA5", "RSQR5", "KLEN", "RSQR10", "CORR5", "CORD5", "CORR10",
-                   "ROC60", "RESI10", "VSTD5", "RSQR60", "CORR60", "WVMA60", "STD5",
-                   "RSQR20", "CORD60", "CORD10", "CORR20", "KLOW"]
+        col_list: ["KLEN","MIN60","RESI5","STD60","MAX5","MAX30","IMAX60",
+                   "CNTN60","CORR10","KUP","KLOW","QTLD60","RSQR5","MIN5",
+                   "CORR60","IMIN30","VMA60","MA5","CORD10","LOW0","VSTD60",
+                   "CORD20","RESI60","RSQR20","CORD60","STD30","MAX60","MAX20",
+                   "RESI10","IMIN60","QTLD5","KLOW2","WVMA60","RSQR30","OPEN0",
+                   "VSUMP60","VSTD10","CORR5","KMID","VSTD20","SUMD10","KMID2",
+                   "CORD30","IMAX20","WVMA20","BETA20","CNTN20","RANK60","SUMP10",
+                   "VMA5","STD10","STD20","IMXD60","BETA5","KSFT","IMIN20","VSUMP20",
+                   "HIGH0","SUMP30","WVMA30","RESI30","VSUMD60","RSV10","RSQR10","VSTD30",
+                   "KUP2","CORD5","VSTD5","CORR30"]
     - class: RobustZScoreNorm
       kwargs:
         fields_group: feature
@@ -56,7 +62,7 @@ tra_config: &tra_config
   # src_info: TPE # memory_mode daily
 
 model_config: &model_config
-  input_size: 20
+  input_size: 69
   hidden_size: 64
   num_layers: 2
   rnn_arch: LSTM
@@ -95,7 +101,7 @@ task:
       n_epochs: 40
       max_steps_per_epoch:
       early_stop: 20
-      logdir: output/Alpha1581
+      logdir: output/Alpha1582
       seed: 0
       lamb: 1.0
       rho: 0.99

@@ -24,12 +24,16 @@ from qlib.tests.config import CSI100_RECORD_LGB_TASK_CONFIG, CSI100_RECORD_XGBOO
 
 from qlib_.train_test.data_train import load_config_yaml
 
+import gc
+
 
 class RollingTaskExample:
     def __init__(
         self,
         provider_uri="~/.qlib/qlib_data/cn_data",
         region=REG_CN,
+        task_url="mongodb://10.0.0.4:27017/",
+        task_db_name="rolling_db",
         experiment_name="rolling_exp",
         task_pool=None,  # if user want to  "rolling_task"
         task_config=None,
@@ -39,8 +43,11 @@ class RollingTaskExample:
         # TaskManager config
         if task_config is None:
             task_config = [CSI100_RECORD_XGBOOST_TASK_CONFIG, CSI100_RECORD_LGB_TASK_CONFIG]
-
-        qlib.init(provider_uri=provider_uri, region=region)
+        mongo_conf = {
+            "task_url": task_url,
+            "task_db_name": task_db_name,
+        }
+        qlib.init(provider_uri=provider_uri, region=region, mongo=mongo_conf)
         self.experiment_name = experiment_name
         if task_pool is None:
             self.trainer = TrainerR(experiment_name=self.experiment_name)
@@ -75,17 +82,25 @@ class RollingTaskExample:
         for task in tasks:
             task['record'][2]['kwargs']['config']['backtest']['start_time'] = task['dataset']['kwargs']['segments']['test'][0]
             task['record'][2]['kwargs']['config']['backtest']['end_time'] = task['dataset']['kwargs']['segments']['test'][1]
+            task['dataset']['kwargs']['handler']['kwargs']['fit_start_time'] = task['dataset']['kwargs']['segments']['train'][0]
+            task['dataset']['kwargs']['handler']['kwargs']['fit_end_time'] = task['dataset']['kwargs']['segments']['train'][1]
         pprint(tasks)
         print(f"========== update_task_backtest {len(tasks)} ==========")
         return tasks
 
     def task_training(self, tasks):
         print("========== task_training ==========")
-        record_list: List[Recorder] = self.trainer.train(tasks)
-        print(f"========== task_training {len(record_list)} ==========")
-        print(record_list)
-        for record in record_list:
-            print(record.load_object("task"))
+        chunk_size = 10
+        task_split = [tasks[i:i + chunk_size] for i in range(0, len(tasks), chunk_size)]
+        for chunk in task_split:
+            record_list: List[Recorder] = self.trainer.train(chunk)
+            print(f"========== task_training {len(record_list)} ==========")
+            print(record_list)
+            for record in record_list:
+                print(record.load_object("task"))
+            # 🔥 关键：显式释放
+            del record_list
+            gc.collect()
 
     def worker(self):
         # NOTE: this is only used for TrainerRM
@@ -139,5 +154,7 @@ if __name__ == "__main__":
 
     RollingTaskExample(
         task_config=[cfg["task"] ],
+        task_pool='rolling_exp',
+        experiment_name="rolling_exp",
         rolling_step=21,
         rolling_type=RollingGen.ROLL_SD).main()

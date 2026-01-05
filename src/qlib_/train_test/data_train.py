@@ -5,10 +5,16 @@ import qlib
 from qlib.config import REG_CN
 from qlib.utils import init_instance_by_config
 
-def dump_dataset_to_static(config_path, output_dir):
-    # 1. 读取配置
+
+def load_config_yaml(config_path):
     with open(config_path, "r") as f:
         cfg = yaml.safe_load(f)
+    return cfg
+
+
+def dump_dataset_to_static(config_path, output_dir):
+    # 1. 读取配置
+    cfg = load_config_yaml(config_path)
 
     # 2. 初始化 Qlib
     qlib_init = cfg.get("qlib_init", {})

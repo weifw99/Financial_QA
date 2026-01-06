@@ -87,16 +87,33 @@ class RollingTaskExample:
         print(f"========== task_generating {len(tasks)} ==========")
         return tasks
 
-    def update_task_backtest(self, tasks):
+    def check_update_task_backtest(self, tasks):
         print("========== update_task_backtest ==========")
+
+        from qlib.data import D
+        calendar = D.calendar()
+        safe_end = calendar[-2]  # 永远留一个 buffer
+        print("safe_end:", safe_end)
+        temp_tasks = []
         for task in tasks:
+            # 获取测试时间
+            test_start = task['dataset']['kwargs']['segments']['test'][0]
+            test_end = task['dataset']['kwargs']['segments']['test'][1]
+
+            if test_end is None:
+                task['dataset']['kwargs']['segments']['test'] = (test_start, safe_end)
+
             task['record'][2]['kwargs']['config']['backtest']['start_time'] = task['dataset']['kwargs']['segments']['test'][0]
             task['record'][2]['kwargs']['config']['backtest']['end_time'] = task['dataset']['kwargs']['segments']['test'][1]
             task['dataset']['kwargs']['handler']['kwargs']['fit_start_time'] = task['dataset']['kwargs']['segments']['train'][0]
             task['dataset']['kwargs']['handler']['kwargs']['fit_end_time'] = task['dataset']['kwargs']['segments']['train'][1]
-        pprint(tasks)
-        print(f"========== update_task_backtest {len(tasks)} ==========")
-        return tasks
+
+            if test_start <= safe_end and test_end is not None:
+                temp_tasks.append(task)
+
+        pprint(temp_tasks)
+        print(f"========== update_task_backtest {len(temp_tasks)} ==========")
+        return temp_tasks
 
     def task_training(self, tasks):
         print("========== task_training ==========")
@@ -339,7 +356,7 @@ class RollingTaskExample:
     def main(self):
         self.reset()
         tasks_org = self.task_generating()
-        tasks = self.update_task_backtest(tasks_org)
+        tasks = self.check_update_task_backtest(tasks_org)
         self.task_training(tasks)
 
         self.query_task()

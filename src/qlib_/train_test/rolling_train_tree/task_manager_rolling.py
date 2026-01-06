@@ -354,8 +354,8 @@ if __name__ == "__main__":
 
     RollingTaskExample(
         task_config=[cfg["task"] ],
-        task_pool='rolling_exp_tree',
-        experiment_name="rolling_exp_tree",
+        task_pool='rolling_exp_tree_import',
+        experiment_name="rolling_exp_tree_import",
         rolling_step=21,
         rolling_type=RollingGen.ROLL_EX
         # rolling_type=RollingGen.ROLL_SD

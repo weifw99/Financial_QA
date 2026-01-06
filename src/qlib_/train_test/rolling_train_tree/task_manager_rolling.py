@@ -160,7 +160,8 @@ class RollingTaskExample:
             result = pred_df.join(lab_df, how='inner').reset_index()
             list_result.append(result)
 
-            if params['model.class'] == 'LGBModel' and 'params.pkl' in rec.list_artifacts():
+            if (params['model.class'] == 'LGBModel' and 'params.pkl' in rec.list_artifacts()
+                    and 'dataset.kwargs.handler.kwargs.infer_processors' in params):
                 model_params = rec.load_object('params.pkl')  # 获取标签
                 model_params: LGBModel
                 infer_processors = json.loads(
@@ -367,13 +368,44 @@ if __name__ == "__main__":
     ## to see the whole process with your own parameters, use the command below
     # python task_manager_rolling.py main --experiment_name="your_exp_name"
 
+    config_task_exps = [
+        ("./config/workflow_config_lgb_Alpha158_tree_import.yaml", 'rolling_exp_tree_import'),
+        ("./config/workflow_config_lgb_Alpha158_all.yaml", 'rolling_exp_tree_all'),
+        ("./config/workflow_config_lgb_Alpha158_rec_tree.yaml", 'rolling_exp_rec_tree'),
+        ("./config/workflow_config_tra_Alpha158_rec.yaml", 'rolling_exp_rec_tra'),
+        ("./config/workflow_config_tra_Alpha158_rec_tree.yaml", 'rolling_exp_rec_tree_tra'),
+    ]
+    rolling_types = [RollingGen.ROLL_EX, RollingGen.ROLL_SD]
+
+    for config_path, task_exp1 in config_task_exps:
+        for rolling_type in rolling_types:
+            print(f"========== {task_exp1}_{rolling_type} ==========")
+            cfg = load_config_yaml(config_path=config_path)
+            task_exp = f'{task_exp1}_{rolling_type}'
+
+            RollingTaskExample(
+                task_config=[cfg["task"] ],
+                task_pool=task_exp,
+                experiment_name=task_exp,
+                rolling_step=21,
+                rolling_type=rolling_type
+            ).main()
+
+
+    '''
     cfg = load_config_yaml(config_path="./config/workflow_config_lgb_Alpha158_tree_import.yaml")
+    task_exp = 'rolling_exp_tree_import'
+
+    cfg = load_config_yaml(config_path="./config/workflow_config_lgb_Alpha158_all.yaml")
+    task_exp = 'rolling_exp_tree_all'
 
     RollingTaskExample(
         task_config=[cfg["task"] ],
-        task_pool='rolling_exp_tree_import',
-        experiment_name="rolling_exp_tree_import",
+        task_pool=task_exp,
+        experiment_name=task_exp,
         rolling_step=21,
         rolling_type=RollingGen.ROLL_EX
         # rolling_type=RollingGen.ROLL_SD
     ).main()
+    '''
+

@@ -19,13 +19,12 @@ from qlib.constant import REG_CN
 from qlib.contrib.evaluate import risk_analysis, indicator_analysis
 from qlib.contrib.model import LGBModel
 from qlib.model.ens.ensemble import RollingEnsemble
-from qlib.utils import fill_placeholder, get_date_by_shift, flatten_dict
+from qlib.utils import fill_placeholder, get_date_by_shift
 from qlib.utils.time import Freq
 from qlib.workflow import R, Recorder
 from qlib.workflow.task.gen import RollingGen, task_generator
 from qlib.workflow.task.manage import TaskManager, run_task
 from qlib.workflow.task.collect import RecorderCollector
-from qlib.model.ens.group import RollingGroup
 from qlib.model.trainer import TrainerR, TrainerRM, task_train
 from qlib.tests.config import CSI100_RECORD_LGB_TASK_CONFIG, CSI100_RECORD_XGBOOST_TASK_CONFIG
 
@@ -33,7 +32,7 @@ from qlib_.train_test.data_train import load_config_yaml
 
 import gc
 
-from qlib_.train_test.rolling_train.qlib_html_report import generate_html_report
+from qlib_.train_test.rolling_train_tree.qlib_html_report import generate_html_report
 
 
 class RollingTaskExample:
@@ -102,19 +101,6 @@ class RollingTaskExample:
     def task_training(self, tasks):
         print("========== task_training ==========")
         self.trainer.train(tasks)
-        '''
-        chunk_size = 10
-        task_split = [tasks[i:i + chunk_size] for i in range(0, len(tasks), chunk_size)]
-        for chunk in task_split:
-            record_list: List[Recorder] = self.trainer.train(chunk)
-            print(f"========== task_training {len(record_list)} ==========")
-            print(record_list)
-            for record in record_list:
-                print(record.load_object("task"))
-            # 🔥 关键：显式释放
-            del record_list
-            gc.collect()
-        '''
 
     def query_task(self):
         print("========== task_training ==========")
@@ -312,6 +298,8 @@ class RollingTaskExample:
                              output_dir=f"data/{self.experiment_name}/report_output",
                              )
 
+
+
     def worker(self):
         # NOTE: this is only used for TrainerRM
         # train tasks by other progress or machines for multiprocessing. It is same as TrainerRM.worker.
@@ -349,10 +337,10 @@ class RollingTaskExample:
         print(len( res))
 
     def main(self):
-        # self.reset()
+        self.reset()
         tasks_org = self.task_generating()
         tasks = self.update_task_backtest(tasks_org)
-        # self.task_training(tasks)
+        self.task_training(tasks)
 
         self.query_task()
         # self.task_collecting()
@@ -362,11 +350,13 @@ if __name__ == "__main__":
     ## to see the whole process with your own parameters, use the command below
     # python task_manager_rolling.py main --experiment_name="your_exp_name"
 
-    cfg = load_config_yaml(config_path="../config/workflow_config_lgb_Alpha158_tree_import.yaml")
+    cfg = load_config_yaml(config_path="./config/workflow_config_lgb_Alpha158_tree_import.yaml")
 
     RollingTaskExample(
         task_config=[cfg["task"] ],
-        task_pool='rolling_exp',
-        experiment_name="rolling_exp",
+        task_pool='rolling_exp_tree',
+        experiment_name="rolling_exp_tree",
         rolling_step=21,
-        rolling_type=RollingGen.ROLL_SD).main()
+        rolling_type=RollingGen.ROLL_EX
+        # rolling_type=RollingGen.ROLL_SD
+    ).main()

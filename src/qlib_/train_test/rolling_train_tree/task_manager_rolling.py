@@ -22,6 +22,7 @@ from qlib.model.ens.ensemble import RollingEnsemble
 from qlib.utils import fill_placeholder, get_date_by_shift
 from qlib.utils.time import Freq
 from qlib.workflow import R, Recorder
+from qlib.workflow.record_temp import SigAnaRecord, PortAnaRecord
 from qlib.workflow.task.gen import RollingGen, task_generator
 from qlib.workflow.task.manage import TaskManager, run_task
 from qlib.workflow.task.collect import RecorderCollector
@@ -117,10 +118,28 @@ class RollingTaskExample:
 
     def task_training(self, tasks):
         print("========== task_training ==========")
+        running_res = []
+        while( True):
+            running_task = self.task_manager.fetch_task(status=TaskManager.STATUS_RUNNING)
+
+            if running_task is None:
+                break
+            # 通过底层 collection 安全地 update_one
+            _id = running_task["_id"]
+            running_res.append(running_task['res'])
+            res = self.task_manager.task_pool.update_one({"_id": _id, "status": TaskManager.STATUS_RUNNING},
+                                          {"$set": {"status": TaskManager.STATUS_WAITING}})
+            print(f"[RECOVER] reset task {_id} result: matched={res.matched_count}, modified={res.modified_count}")
+
+        if len(running_res) > 0:
+            exp = R.get_exp(experiment_name=self.experiment_name)
+            for res in running_res:
+                exp.delete_recorder(res.id)
+
         self.trainer.train(tasks)
 
     def query_task(self):
-        print("========== task_training ==========")
+        print("========== query_task ==========")
 
         _id_list = [r["_id"] for r in self.task_manager.query()]
 
@@ -130,8 +149,36 @@ class RollingTaskExample:
         port_analysis = []
         feature_importances = []
         for _id in _id_list:
-            rec = self.task_manager.re_query(_id)["res"]
+            task_r: dict = self.task_manager.re_query(_id)
+            status = task_r['status']
+            if not status == TaskManager.STATUS_DONE:
+                print(f"[SKIP] task {_id} is not done")
+                continue
+
+            rec = task_r["res"]
             rec: Recorder
+
+            '''
+            metrics1 = rec.list_metrics()  # 获取指标
+            # 2️⃣ 保存 IC / ICIR 等指标（关键）
+            SigAnaRecord(
+                recorder=rec,
+                ana_long_short=False,
+                ann_scaler=252,
+            ).generate()
+
+            # 测试
+            port_analysis_config = None
+            for record_ in self.task_record_config[0]:
+                if record_['class'] == 'PortAnaRecord':
+                    port_analysis_config = record_['kwargs']['config']
+            if port_analysis_config is not None:
+                PortAnaRecord(
+                    recorder=rec,
+                    config=port_analysis_config,
+                ).generate()
+            '''
+
             metrics = rec.list_metrics()  # 获取指标
 
             params = rec.list_params()  # 获取参数
@@ -146,6 +193,16 @@ class RollingTaskExample:
             rec.load_object('dataset')
             rec.load_object('sig_analysis/ic.pkl')
             rec.load_object('sig_analysis/ric.pkl')
+
+            positions_normals = rec.load_object('portfolio_analysis/positions_normal_1day.pkl')
+            position_list = []
+            for k, v in positions_normals.items():
+                print(k)
+                print(v)
+                position_list.append([k, v.init_cash, v.position['now_account_value'], str(v.position)])
+
+            position_pd = pd.DataFrame(position_list)
+            position_pd.columns = ['date', 'init_cash', 'now_account_value', 'position']
 
             report_normal_1day = rec.load_object('portfolio_analysis/report_normal_1day.pkl').reset_index()  # 获取回测结果
             report_normals.append(report_normal_1day)
@@ -307,6 +364,17 @@ class RollingTaskExample:
         port_analysis_1day.to_csv(f"data/{self.experiment_name}/port_analysis_1day_all.csv", index=False)
         print(report_normal_1day)
 
+        positions_normals = artifact_objects['positions_normal_1day.pkl']
+        position_list = []
+        for k, v in positions_normals.items():
+            print(k)
+            print(v)
+            position_list.append([k, v.init_cash, v.position['now_account_value'], str(v.position)])
+
+        position_pd = pd.DataFrame(position_list)
+        position_pd.columns = ['date', 'init_cash', 'now_account_value', 'position']
+        position_pd.to_csv(f"data/{self.experiment_name}/positions_normal_1day_all.csv", index=False)
+
         # 生成 回测报表 HTML 报表
         pred_label_df = df_all.reset_index()
         pred_label_df = pred_label_df.set_index(['datetime', 'instrument'])
@@ -355,7 +423,7 @@ class RollingTaskExample:
         print(len( res))
 
     def main(self):
-        self.reset()
+        # self.reset()
         tasks_org = self.task_generating()
         tasks = self.check_update_task_backtest(tasks_org)
         self.task_training(tasks)
@@ -369,13 +437,14 @@ if __name__ == "__main__":
     # python task_manager_rolling.py main --experiment_name="your_exp_name"
 
     config_task_exps = [
-        ("./config/workflow_config_lgb_Alpha158_tree_import.yaml", 'rolling_exp_tree_import'),
-        ("./config/workflow_config_lgb_Alpha158_all.yaml", 'rolling_exp_tree_all'),
-        ("./config/workflow_config_lgb_Alpha158_rec_tree.yaml", 'rolling_exp_rec_tree'),
-        ("./config/workflow_config_tra_Alpha158_rec.yaml", 'rolling_exp_rec_tra'),
-        ("./config/workflow_config_tra_Alpha158_rec_tree.yaml", 'rolling_exp_rec_tree_tra'),
+        ("./config/workflow_config_lgb_Alpha158_tree_import.yaml", 'rolling_exp_tree_import1'),
+        # ("./config/workflow_config_lgb_Alpha158_all.yaml", 'rolling_exp_tree_all'),
+        # ("./config/workflow_config_lgb_Alpha158_rec_tree.yaml", 'rolling_exp_rec_tree'),
+        # ("./config/workflow_config_tra_Alpha158_rec.yaml", 'rolling_exp_rec_tra'),
+        # ("./config/workflow_config_tra_Alpha158_rec_tree.yaml", 'rolling_exp_rec_tree_tra'),
     ]
-    rolling_types = [RollingGen.ROLL_EX, RollingGen.ROLL_SD]
+    # rolling_types = [RollingGen.ROLL_EX, RollingGen.ROLL_SD]
+    rolling_types = [RollingGen.ROLL_EX]
 
     for config_path, task_exp1 in config_task_exps:
         for rolling_type in rolling_types:

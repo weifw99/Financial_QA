@@ -68,8 +68,9 @@ port_analysis_config: &port_analysis_config
         module_path: qlib.contrib.strategy
         kwargs:
             signal: <PRED>
-            topk: 50
+            topk: 5
             n_drop: 5
+            hold_thresh: 5  # 周频 label 对齐
     backtest:
         start_time: 2017-03-02
         end_time: 2025-12-30

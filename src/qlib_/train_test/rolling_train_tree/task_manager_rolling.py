@@ -213,7 +213,10 @@ class RollingTaskExample:
 
             pred_df = rec.load_object('pred.pkl')  # 获取预测结果
             lab_df = rec.load_object('label.pkl')  # 获取标签
-            lab_df.columns = ['label']
+            if 'label' in pred_df.columns:
+                lab_df.columns = ['orig_label']
+            else:
+                lab_df.columns = ['label']
             result = pred_df.join(lab_df, how='inner').reset_index()
             list_result.append(result)
 
@@ -424,6 +427,7 @@ class RollingTaskExample:
 
     def main(self):
         # self.reset()
+
         tasks_org = self.task_generating()
         tasks = self.check_update_task_backtest(tasks_org)
         self.task_training(tasks)
@@ -437,11 +441,12 @@ if __name__ == "__main__":
     # python task_manager_rolling.py main --experiment_name="your_exp_name"
 
     config_task_exps = [
-        ("./config/workflow_config_lgb_Alpha158_tree_import.yaml", 'rolling_exp_tree_import1'),
+        # ("./config/workflow_config_lgb_Alpha158_tree_import.yaml", 'rolling_exp_tree_import'),
         # ("./config/workflow_config_lgb_Alpha158_all.yaml", 'rolling_exp_tree_all'),
         # ("./config/workflow_config_lgb_Alpha158_rec_tree.yaml", 'rolling_exp_rec_tree'),
         # ("./config/workflow_config_tra_Alpha158_rec.yaml", 'rolling_exp_rec_tra'),
         # ("./config/workflow_config_tra_Alpha158_rec_tree.yaml", 'rolling_exp_rec_tree_tra'),
+        ("./config/workflow_config_tra_Alpha158_tree_import.yaml", 'rolling_exp_tree_import_tra'),
     ]
     # rolling_types = [RollingGen.ROLL_EX, RollingGen.ROLL_SD]
     rolling_types = [RollingGen.ROLL_EX]

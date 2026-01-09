@@ -33,6 +33,7 @@ from qlib_.train_test.data_train import load_config_yaml
 
 import gc
 
+from qlib_.train_test.rolling_train_tree.export_feature_import import tree_frature_import_alpha1581_by_task
 from qlib_.train_test.rolling_train_tree.qlib_html_report import generate_html_report
 
 
@@ -46,9 +47,11 @@ class RollingTaskExample:
         experiment_name="rolling_exp",
         task_pool=None,  # if user want to  "rolling_task"
         task_config=None,
+        feature_task_config=None,
         rolling_step=550,
         rolling_type=RollingGen.ROLL_SD,
     ):
+        self.feature_task_config = feature_task_config
         # TaskManager config
         if task_config is None:
             task_config = [CSI100_RECORD_XGBOOST_TASK_CONFIG, CSI100_RECORD_LGB_TASK_CONFIG]
@@ -136,7 +139,26 @@ class RollingTaskExample:
             for res in running_res:
                 exp.delete_recorder(res.id)
 
-        self.trainer.train(tasks)
+        for task in tasks:
+            print(f"[START] task  train {task}")
+            print(f"task config {task}")
+
+            if self.feature_task_config is not None:
+                # 特征筛选  tree train
+                importance_df: pd.DataFrame = tree_frature_import_alpha1581_by_task(config_path=self.feature_task_config, task_info= task)
+
+                infer_processors = task['dataset']['kwargs']['handler']['kwargs']['infer_processors']
+                for processor in infer_processors:
+                    if processor['class'] == 'FilterCol':
+                        # 筛选一半的特征
+                        processor['kwargs']['col_list'] = importance_df['feature'].tolist()[:74]
+
+                print(f"[EDIT]task config {task}")
+
+            self.trainer.train([task])
+            print(f"[END] task train")
+
+        # self.trainer.train(tasks)
 
     def query_task(self):
         print("========== query_task ==========")
@@ -446,7 +468,7 @@ if __name__ == "__main__":
         # ("./config/workflow_config_lgb_Alpha158_rec_tree.yaml", 'rolling_exp_rec_tree'),
         # ("./config/workflow_config_tra_Alpha158_rec.yaml", 'rolling_exp_rec_tra'),
         # ("./config/workflow_config_tra_Alpha158_rec_tree.yaml", 'rolling_exp_rec_tree_tra'),
-        ("./config/workflow_config_tra_Alpha158_tree_import.yaml", 'rolling_exp_tree_import_tra'),
+        ("./config/csi300/workflow_config_tra_Alpha158_tree_import.yaml", 'rolling_exp_tree_import_tra11'),
     ]
     # rolling_types = [RollingGen.ROLL_EX, RollingGen.ROLL_SD]
     rolling_types = [RollingGen.ROLL_EX]
@@ -459,6 +481,7 @@ if __name__ == "__main__":
 
             RollingTaskExample(
                 task_config=[cfg["task"] ],
+                feature_task_config='./config/import_c/csi300_lgb_Alpha158_all.yaml',
                 task_pool=task_exp,
                 experiment_name=task_exp,
                 rolling_step=21,

@@ -117,7 +117,7 @@ if __name__ == '__main__':
     }
     all_stock_path = '/Users/dabai/liepin/study/llm/Financial_QA/data/qlib_data/cn_data/instruments/all.txt'
     all_stock_df = pd.read_csv(all_stock_path, sep='\t')
-    all_stock_df.columns = ['code','start_time','end_time']
+    all_stock_df.columns = ['code', 'start_time', 'end_time']
 
     for k, v in ins_map.items():
         if not os.path.exists(base_data_path + k):
@@ -125,7 +125,20 @@ if __name__ == '__main__':
         data = pd.read_csv(base_data_path + k, sep=',')[['code']]
 
         data = pd.merge(all_stock_df, data, on='code', how='inner')
-
         # 过滤不存在的股票
+        data.to_csv(qlib_data_dir + v, sep='\t', index=False, header=False)
 
+    ins_map = {
+        '/raw/index/中小综指-399101.csv': '/instruments/zxzz399101.txt',
+        '/raw/index/微盘股-BK1158.csv': '/instruments/wpgbk1158.txt',
+    }
+
+    for k, v in ins_map.items():
+        if not os.path.exists(base_data_path + k):
+            continue
+        data = pd.read_csv(base_data_path + k, sep=',')[['type']]
+        data['code'] = data['type'].str.replace('.', '').str.upper()
+        data = data[['code']]
+
+        data = pd.merge(all_stock_df, data, on='code', how='inner')
         data.to_csv(qlib_data_dir + v, sep='\t', index=False, header=False)

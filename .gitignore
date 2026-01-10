@@ -22,3 +22,4 @@ Users
 
 /src/qlib_/train_test/rolling_train/data/
 /src/qlib_/train_test/rolling_train_tree/data/
+/src/qlib_/train_test/rolling_train_tree/feature_selection/

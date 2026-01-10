@@ -152,6 +152,10 @@ class RollingTaskExample:
                     if processor['class'] == 'FilterCol':
                         # 筛选一半的特征
                         processor['kwargs']['col_list'] = importance_df['feature'].tolist()[:74]
+                        if 'TRAModel' == task['model']['class']:
+                            # 修改模型输入大小
+                            # processor['kwargs']['col_list'] = importance_df['feature'].tolist()[:74]
+                            pass
 
                 print(f"[EDIT]task config {task}")
 
@@ -219,8 +223,8 @@ class RollingTaskExample:
             positions_normals = rec.load_object('portfolio_analysis/positions_normal_1day.pkl')
             position_list = []
             for k, v in positions_normals.items():
-                print(k)
-                print(v)
+                # print(k)
+                # print(v)
                 position_list.append([k, v.init_cash, v.position['now_account_value'], str(v.position)])
 
             position_pd = pd.DataFrame(position_list)
@@ -462,18 +466,24 @@ if __name__ == "__main__":
     ## to see the whole process with your own parameters, use the command below
     # python task_manager_rolling.py main --experiment_name="your_exp_name"
 
+    csi300_feature_task_config = './config/import_c/csi300_lgb_Alpha158_all.yaml'
+    zxzz399101_feature_task_config = './config/import_c/zxzz399101_lgb_Alpha158_all.yaml'
+
     config_task_exps = [
-        # ("./config/workflow_config_lgb_Alpha158_tree_import.yaml", 'rolling_exp_tree_import'),
-        # ("./config/workflow_config_lgb_Alpha158_all.yaml", 'rolling_exp_tree_all'),
-        # ("./config/workflow_config_lgb_Alpha158_rec_tree.yaml", 'rolling_exp_rec_tree'),
-        # ("./config/workflow_config_tra_Alpha158_rec.yaml", 'rolling_exp_rec_tra'),
-        # ("./config/workflow_config_tra_Alpha158_rec_tree.yaml", 'rolling_exp_rec_tree_tra'),
-        ("./config/csi300/workflow_config_tra_Alpha158_tree_import.yaml", 'rolling_exp_tree_import_tra11'),
+        # ("./config/csi300/workflow_config_lgb_Alpha158_tree_import.yaml", 'rolling_exp_tree_import', None),
+        # ("./config/csi300/workflow_config_lgb_Alpha158_all.yaml", 'rolling_exp_tree_all', None),
+        # ("./config/csi300/workflow_config_lgb_Alpha158_rec_tree.yaml", 'rolling_exp_rec_tree', None),
+        # ("./config/csi300/workflow_config_lgb_Alpha158_rec_tree.yaml", 'rolling_exp_tree_select', csi300_feature_task_config),
+        ("./config/csi300/workflow_config_lgb_Alpha158_rec_tree1.yaml", 'rolling_exp_tree_select1', None),
+        # ("./config/csi300/workflow_config_tra_Alpha158_rec.yaml", 'rolling_exp_rec_tra', csi300_feature_task_config),
+        # ("./config/csi300/workflow_config_tra_Alpha158_rec_tree.yaml", 'rolling_exp_rec_tree_tra', csi300_feature_task_config),
+        # ("./config/csi300/workflow_config_tra_Alpha158_tree_import.yaml", 'rolling_exp_tree_import_tra11', csi300_feature_task_config),
     ]
     # rolling_types = [RollingGen.ROLL_EX, RollingGen.ROLL_SD]
+    # ROLL_EX 效果优于 ROLL_SD
     rolling_types = [RollingGen.ROLL_EX]
 
-    for config_path, task_exp1 in config_task_exps:
+    for config_path, task_exp1, feature_task_config in config_task_exps:
         for rolling_type in rolling_types:
             print(f"========== {task_exp1}_{rolling_type} ==========")
             cfg = load_config_yaml(config_path=config_path)
@@ -481,7 +491,7 @@ if __name__ == "__main__":
 
             RollingTaskExample(
                 task_config=[cfg["task"] ],
-                feature_task_config='./config/import_c/csi300_lgb_Alpha158_all.yaml',
+                feature_task_config=feature_task_config,
                 task_pool=task_exp,
                 experiment_name=task_exp,
                 rolling_step=21,

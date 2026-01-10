@@ -72,11 +72,12 @@ def tree_frature_import_alpha1581_by_task(config_path='', task_info=None):
     cfg["task"]['dataset']['kwargs']['segments'] = task_info["dataset"]["kwargs"]["segments"]
     import pandas as pd
 
-    # 设置训练时间，为两年， 设置valid 和 test时间一致
-    cfg["task"]['dataset']['kwargs']['segments']['train'] = ( task_info['dataset']['kwargs']['segments']['train'][1] - pd.DateOffset(years=2), task_info['dataset']['kwargs']['segments']['train'][1])
-    cfg["task"]['dataset']['kwargs']['segments']['valid'] = ( task_info['dataset']['kwargs']['segments']['valid'][0] - pd.DateOffset(years=2), task_info['dataset']['kwargs']['segments']['test'][1])
-    cfg["task"]['dataset']['kwargs']['segments']['test'] = ( task_info['dataset']['kwargs']['segments']['valid'][0] - pd.DateOffset(years=2), task_info['dataset']['kwargs']['segments']['test'][1])
+    # 设置训练时间，为三年， 设置valid 默认是两个月，扩充到四个月
+    cfg["task"]['dataset']['kwargs']['segments']['train'] = ( task_info['dataset']['kwargs']['segments']['train'][1] - pd.DateOffset(years=2, months=2), task_info['dataset']['kwargs']['segments']['train'][1] - pd.DateOffset(months=2) )
+    cfg["task"]['dataset']['kwargs']['segments']['valid'] = ( task_info['dataset']['kwargs']['segments']['valid'][0] - pd.DateOffset(months=2), task_info['dataset']['kwargs']['segments']['valid'][1])
+    cfg["task"]['dataset']['kwargs']['segments']['test'] = ( task_info['dataset']['kwargs']['segments']['test'][0], task_info['dataset']['kwargs']['segments']['test'][1])
 
+    print(f"[EDIT] config feature import {cfg["task"]}")
     # task['record'][2]['kwargs']['config']['backtest']['start_time'] = task['dataset']['kwargs']['segments']['test'][0]
     # task['record'][2]['kwargs']['config']['backtest']['end_time'] = task['dataset']['kwargs']['segments']['test'][1]
     # task['dataset']['kwargs']['handler']['kwargs']['fit_start_time'] = task['dataset']['kwargs']['segments']['train'][0]

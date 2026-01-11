@@ -479,9 +479,20 @@ if __name__ == "__main__":
         # ("./config/csi300/workflow_config_tra_Alpha158_rec_tree.yaml", 'rolling_exp_rec_tree_tra', csi300_feature_task_config),
         # ("./config/csi300/workflow_config_tra_Alpha158_tree_import.yaml", 'rolling_exp_tree_import_tra11', csi300_feature_task_config),
     ]
+
+    config_task_exps = [
+        ("./config/zxzz399101/workflow_config_lgb_Alpha158_tree_import.yaml", 'zxzz399101_tree_import', None),
+        ("./config/zxzz399101/workflow_config_lgb_Alpha158_all.yaml", 'zxzz399101_tree_all', None),
+        ("./config/zxzz399101/workflow_config_lgb_Alpha158_rec_tree.yaml", 'zxzz399101_rec_tree', None),
+        ("./config/zxzz399101/workflow_config_lgb_Alpha158_rec_tree1.yaml", 'zxzz399101_tree_select1', None),
+    ]
     # rolling_types = [RollingGen.ROLL_EX, RollingGen.ROLL_SD]
     # ROLL_EX 效果优于 ROLL_SD
     rolling_types = [RollingGen.ROLL_EX]
+    rolling_types = [RollingGen.ROLL_SD]
+    config_task_exps = [
+        ("./config/zxzz399101/workflow_config_lgb_Alpha158_all.yaml", 'zxzz399101_tree_all11', None),
+    ]
 
     for config_path, task_exp1, feature_task_config in config_task_exps:
         for rolling_type in rolling_types:

@@ -268,7 +268,7 @@ class RebalanceTuesdayStrategy1(bt.Strategy):
                 score = d.score[-1]
 
                 if (lt_mv > self.p.min_mv
-                        and lt_share_rate >= 0.85
+                        and lt_share_rate >= 0.8
                         and mv > self.p.min_mv
                         and is_st == 0
                         and turn > 1.5

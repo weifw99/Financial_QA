@@ -455,6 +455,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
             for d in to_sell:
                 self.log(f"next_open 💸 清仓：{d._name}")
                 self.close(d)  # 以开盘价卖出
+                # self.sell(d, price=d.close[0]) # 以收盘价卖出
                 if hasattr(self, "entry_dates"):
                     if d._name in self.entry_dates:
                         self.entry_dates.pop(d._name)
@@ -829,7 +830,7 @@ class RebalanceTuesdayStrategy(bt.Strategy):
                 continue
             if len(d) < days:
                 continue
-            pct = (d.close[-1] - d.open[-days]) / d.open[-days]
+            pct = (d.close[-1] - d.open[-days]) / (d.open[-days] + 0.0001)
             # print(f'📊 {name}  pct: {pct}  open : {d.open.get(size=days + 1)}  close : {d.close.get(size=days + 1)}')
             pcts.append(pct)
             # if days == 1:

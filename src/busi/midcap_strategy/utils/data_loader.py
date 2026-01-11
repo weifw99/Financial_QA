@@ -8,13 +8,16 @@ import numpy as np
 import pandas as pd
 import backtrader as bt
 
+from busi.midcap_strategy.utils.code_util import normalize_code
+
+
 class CustomPandasData(bt.feeds.PandasData):
     """
     自定义数据类，包含：市值、市盈率、利润、营收、是否ST标记等基本面数据
     需要保证df中有以下字段：datetime, open, high, low, close, volume, mv, profit, revenue, is_st
     """
 
-    lines = ('amount', 'turn', 'mv', 'lt_mv', 'lt_share_rate',  'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q',)
+    lines = ('amount', 'turn', 'mv', 'lt_mv', 'lt_share_rate',  'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q','score')
     params = (# 'datetime', 'open', 'high', 'low', 'close', 'volume', 'mv', 'lt_mv', 'lt_share_rate',  'profit', 'revenue', 'is_st'
 
         ('amount', -1),
@@ -32,6 +35,7 @@ class CustomPandasData(bt.feeds.PandasData):
         ('profit_q', -1),
         ('revenue_single_q', -1),
         ('roeAvg_q', -1),  #
+        ('score', -1),  #
 
         ('dtformat', '%Y-%m-%d'),
     )
@@ -248,7 +252,7 @@ def merge_stock_with_industry(stock_df: pd.DataFrame, industry_df: pd.DataFrame)
     return merged_df
 
 
-def load_stock_data(from_idx, to_idx):
+def load_stock_data(from_idx, to_idx, model_result_path:list):
     """
     批量加载 data_dir 下的所有 CSV 文件，返回数据列表
     文件名将作为数据名称注入，如 '600000.csv' -> data._name = '600000'
@@ -271,6 +275,17 @@ def load_stock_data(from_idx, to_idx):
         zz_code_list += zz_code_df['type'].tolist()
 
     datas = []
+
+    model_result = []
+    for result_path in model_result_path:
+        result_pd = pd.read_csv(result_path)[['datetime','instrument','score']]
+        result_pd["instrument"] = result_pd["instrument"].map(normalize_code)
+        result_pd.columns =['date', 'code', 'score']
+        result_pd['date'] = pd.to_datetime(result_pd['date'])
+        model_result.append(result_pd)
+
+    # model_result_pd = pd.concat(model_result)
+    model_result_pd = pd.concat(model_result).groupby(['date', 'code'])['score'].mean().reset_index()
 
     base_data_path = '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data'
     zh_data_dir = Path(base_data_path) / 'market'
@@ -300,7 +315,7 @@ def load_stock_data(from_idx, to_idx):
     data = data.sort_index()
 
     select_cols = ['date', 'open', 'high', 'low', 'close', 'volume', 'amount', ]
-    add_cols = ['industry_name', 'amount', 'turn', 'mv', 'lt_mv', 'lt_share_rate',   'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q', 'openinterest', ]
+    add_cols = ['industry_name', 'amount', 'turn', 'mv', 'lt_mv', 'lt_share_rate',   'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q', 'openinterest', 'score']
     # 加载 SZ510880 SH159300
     etf_list = ['SZ510880', 'SH159919', 'SZ510050', 'SZ588000', 'SZ511880']
     etf_path = '/Users/dabai/liepin/study/llm/Financial_QA/src/busi/etf_/data/etf_trading/daily'
@@ -442,8 +457,10 @@ def load_stock_data(from_idx, to_idx):
                 df['openinterest'] = 0
                 df['date'] = pd.to_datetime(df['date'])
 
+                df = pd.merge(df, model_result_pd, how='left', left_on=['date', 'code'], right_on=['date', 'code'])
+
                 # 选择需要的列
-                df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn', 'mv', 'lt_mv', 'lt_share_rate',   'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q', 'openinterest',]]
+                df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn', 'mv', 'lt_mv', 'lt_share_rate',   'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q', 'openinterest', 'score']]
 
                 df.set_index('date', inplace=True)  # 设置 datetime 为索引
                 df = df.sort_index()

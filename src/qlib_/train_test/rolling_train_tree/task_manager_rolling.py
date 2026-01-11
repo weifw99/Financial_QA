@@ -396,8 +396,8 @@ class RollingTaskExample:
         positions_normals = artifact_objects['positions_normal_1day.pkl']
         position_list = []
         for k, v in positions_normals.items():
-            print(k)
-            print(v)
+            # print(k)
+            # print(v)
             position_list.append([k, v.init_cash, v.position['now_account_value'], str(v.position)])
 
         position_pd = pd.DataFrame(position_list)

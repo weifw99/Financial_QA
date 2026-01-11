@@ -11,7 +11,7 @@ def load_config(path='config/config.yaml'):
         return yaml.safe_load(f)
 
 
-def cerebro_show(cerebro):
+def cerebro_show(cerebro, stat_tietle):
 
     start_portfolio_value = cerebro.broker.getvalue()
     print(f'初始本金: {start_portfolio_value:.2f}')
@@ -58,7 +58,7 @@ def cerebro_show(cerebro):
 
     print(type(returns))
     print(returns)
-    quantstats.reports.html(returns, output=f'data/小市值策略{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}.html', title='小市值策略')
+    quantstats.reports.html(returns, output=f'data/{stat_tietle}{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}.html', title='小市值策略')
 
     # print('-- RETURNS')
     # print(returns)

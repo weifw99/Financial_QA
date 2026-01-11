@@ -1,21 +1,22 @@
 import backtrader as bt
 import datetime
 import numpy as np
-from busi.midcap_strategy.utils.momentum_utils import get_momentum
 
 
-class RebalanceTuesdayStrategy1(bt.Strategy):
+class SmallRebalanceTuesdayStrategy(bt.Strategy):
 
     params = dict(
         min_mv=10e8,  # 最小市值 10亿，0.2376； 13/14亿 0.2464
         min_profit=0,  # 最小净利润
         min_revenue=1e8,  # 最小营业收入
-        rebalance_weekday=0,  # 每周调仓日（0 = 周一数据）周二早上开盘买入
-        # 1 0.21
-        # 2 0.12
-        # 3 0.06
-        # 4 0.14
-        # 5 0.08
+        rebalance_weekday=2,  # 每周调仓日（0 = 周一数据）周二早上开盘买入
+        # 0 → 星期一（Monday）
+        # 1 → 星期二（Tuesday）
+        # 2 → 星期三（Wednesday）
+        # 3 → 星期四（Thursday）
+        # 4 → 星期五（Friday）
+        # 5 → 星期六（Saturday）
+        # 6 → 星期日（Sunday）
         hold_count_high=10,  # 行情好时持股数（集中）
         hold_count_low=5,  # 行情差时持股数（分散）
         hight_price=50,  # 个股最高限价
@@ -23,9 +24,6 @@ class RebalanceTuesdayStrategy1(bt.Strategy):
         trend_threshold=-0.05,  # 快速熔断阈值（小市值单日下跌5%）
         stop_loss_pct=0.06,  # 个股止损线（跌幅超过6%）
         take_profit_pct=0.5,  # 个股止盈线（涨幅超过50%）
-        null_index='etf_SZ511880',  # 空仓期备选 etf
-        smallcap_index=['csi932000', 'sz399101', 'BK1158'],  # 到 7 月 4 号， 0.2028 中小综指-399101成分股 20亿限制
-        large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'etf_SZ510880', 'sh000905']
     )
 
     def __init__(self):
@@ -61,19 +59,11 @@ class RebalanceTuesdayStrategy1(bt.Strategy):
         # 个股止盈止损
         self.check_individual_stop()
 
-
-
         if weekday == self.p.rebalance_weekday and self.rebalance_date != dt.date():
             self.rebalance_date = dt.date()
             self.log("next_open 触发调仓日，准备先卖后买")
             self.log("next_open 当前持仓如下：")
             self.print_positions()
-
-            if not self.validate_index_data():
-                self.log("next_open ⚠️ 指数数据不足，跳过调仓")
-                return
-
-            # print(f"✅ 本轮建议持股数量为: {hold_num}")
 
             candidates = self.filter_stocks()
 
@@ -138,61 +128,21 @@ class RebalanceTuesdayStrategy1(bt.Strategy):
                 else:
                     self.log(f"next ⚠️ 资金不足，跳过买入：{d._name} size={add_size}")
 
-            # for d in self.to_buy_list:
-            #     price = d.open[0]
-            #     if price is None or np.isnan(price) or price <= 0:
-            #         continue
-            #     size = int(cash_per_stock // price)
-            #     size = (size // 100) * 100
-            #     self.log(f"next 📥 准备买入：{d._name} size={size} cash_per_stock: {cash_per_stock}, price: {price}, mv: {d.mv[0]}")
-            #     if size >= 100:
-            #         self.log(f"next 📥 买入：{d._name} size={size}")
-            #         self.buy(d, size=size)
-            #         if hasattr(self, "entry_dates"):
-            #             self.entry_dates[d._name] = self.datas[0].datetime.date(0)
-            #     else:
-            #         self.log(f"next ⚠️ 资金不足，跳过买入：{d._name} size={size}")
-
             self.to_buy_list = []
 
     def next(self):
         print('\n\n')
-
         # if self.to_sell_list and len(self.to_sell_list) >0:
         #     for d in self.to_sell_list:
         #         self.log(f"next 💸 清仓：{d._name}")
         #         self.close(d)
         #     self.to_sell_list = []
 
-        self.log("next")
-        # if self.rebalance_flag and self.to_buy_list:
-        #     self.rebalance_flag = False
-        #
-        #     total_cash = self.broker.getcash()
-        #     cash_per_stock = total_cash / max(len(self.to_buy_list), 1)
-        #
-        #     self.log(f"next 📥 开始买入，账户现金: {total_cash:.2f}")
-        #
-        #     for d in self.to_buy_list:
-        #         price = d.close[0]
-        #         if price is None or np.isnan(price) or price <= 0:
-        #             continue
-        #         size = int(cash_per_stock // price)
-        #         size = (size // 100) * 100
-        #         self.log(f"next 📥 准备买入：{d._name} size={size} cash_per_stock: {cash_per_stock}, price: {price}, mv: {d.mv[0]}")
-        #         if size >= 100:
-        #             self.log(f"next 📥 买入：{d._name} size={size}")
-        #             self.buy(d, size=size)
-        #         else:
-        #             self.log(f"next ⚠️ 资金不足，跳过买入：{d._name} size={size}")
-        #
-        #     self.to_buy_list = []
         self.log("next，持仓如下：")
         self.print_positions()
 
     def stop(self):
         print('\n\n')
-
         self.log("策略结束")
 
 
@@ -220,20 +170,10 @@ class RebalanceTuesdayStrategy1(bt.Strategy):
                 self.close(data)
 
 
-    def validate_index_data(self):
-        names = self.p.smallcap_index + self.p.large_indices
-        for name in names:
-            d = self.getdatabyname(name)
-            if len(d) < self.p.momentum_days + 1 or np.isnan(d.close[0]):
-                return False
-        return True
-
     def filter_stocks(self):
         candidates = []
 
         for d in self.datas:
-            if d._name in self.p.smallcap_index + self.p.large_indices:
-                continue
             try:
 
                 # pubDate	公司发布财报的日期
@@ -323,6 +263,6 @@ class RebalanceTuesdayStrategy1(bt.Strategy):
                 cost = pos.size * buy_price
                 profit = market_value - cost
                 pnl_pct = 100 * profit / cost if cost else 0
-                print(f"{d._name:<12} 持仓: {pos.size:>6} 购买价: {buy_price:.2f} 当前价: {current_price:.2f} 盈亏: {profit:.2f} ({pnl_pct:.2f}%)")
+                print(f"{d._name:<12} 持仓: {pos.size:>6} 总价值：{market_value:,.2f}购买价: {buy_price:.2f} 当前价: {current_price:.2f} 盈亏: {profit:.2f} ({pnl_pct:.2f}%)")
 
 

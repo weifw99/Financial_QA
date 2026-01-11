@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import backtrader as bt
 
-from busi.midcap_strategy.utils.code_util import normalize_code
+from busi.model_result_test_strategy.utils.code_util import normalize_code
 
 
 class CustomPandasData(bt.feeds.PandasData):
@@ -17,7 +17,7 @@ class CustomPandasData(bt.feeds.PandasData):
     需要保证df中有以下字段：datetime, open, high, low, close, volume, mv, profit, revenue, is_st
     """
 
-    lines = ('amount', 'turn', 'mv', 'lt_mv', 'lt_share_rate',  'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q','score')
+    lines = ('amount', 'turn', 'mv', 'lt_mv', 'lt_share_rate',  'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q','score', 'class_p', 'source_')
     params = (# 'datetime', 'open', 'high', 'low', 'close', 'volume', 'mv', 'lt_mv', 'lt_share_rate',  'profit', 'revenue', 'is_st'
 
         ('amount', -1),
@@ -36,6 +36,8 @@ class CustomPandasData(bt.feeds.PandasData):
         ('revenue_single_q', -1),
         ('roeAvg_q', -1),  #
         ('score', -1),  #
+        ('class_p', -1),  #
+        ('source_', -1),  #
 
         ('dtformat', '%Y-%m-%d'),
     )
@@ -252,58 +254,85 @@ def merge_stock_with_industry(stock_df: pd.DataFrame, industry_df: pd.DataFrame)
     return merged_df
 
 
-def load_stock_data(from_idx, to_idx, model_result_path:list):
+def load_stock_data(from_idx, to_idx, extend_datas:dict[int, tuple[list, list]] ):
     """
     批量加载 data_dir 下的所有 CSV 文件，返回数据列表
     文件名将作为数据名称注入，如 '600000.csv' -> data._name = '600000'
     :param data_dir: 包含CSV的路径
+    extend_datas = {
+        'csi300': (rank_model_result_path, class_model_result_path)
+    }
     :return: list of data feeds
     """
-    zz_code_data_paths = [
-        # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中小板指数-中小100-399005.csv',
-        '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中小综指-399101.csv',
-        # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中证1000-000852.csv',
-        # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/中证2000-932000.csv',
-        # '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data/raw/index/微盘股-BK1158.csv',
-    ]
-    zz_code_list = []
-    for zz_code_data_path in zz_code_data_paths:
-        if not os.path.exists(zz_code_data_path):
-            print(f'{zz_code_data_path} 不存在')
-            continue
-        zz_code_df = pd.read_csv(zz_code_data_path)
-        zz_code_list += zz_code_df['type'].tolist()
 
     datas = []
 
     model_result = []
-    for result_path in model_result_path:
-        result_pd = pd.read_csv(result_path)[['datetime','instrument','score']]
-        result_pd["instrument"] = result_pd["instrument"].map(normalize_code)
-        result_pd.columns =['date', 'code', 'score']
-        result_pd['date'] = pd.to_datetime(result_pd['date'])
-        model_result.append(result_pd)
+    class_model_result = []
+    for name_type, (rank_model_result_path, class_model_result_path) in extend_datas.items():
+        model_result_temp = []
+        for result_path in rank_model_result_path:
+            result_pd = pd.read_csv(result_path)[['datetime','instrument','score']]
+            result_pd["instrument"] = result_pd["instrument"].map(normalize_code)
+            result_pd.columns =['date', 'code', 'score']
+            result_pd['date'] = pd.to_datetime(result_pd['date'])
+            model_result_temp.append(result_pd)
 
-    # model_result_pd = pd.concat(model_result)
-    model_result_pd = pd.concat(model_result).groupby(['date', 'code'])['score'].mean().reset_index()
+        model_result_pd_temp = pd.concat(model_result_temp).groupby(['date', 'code'])['score'].mean().reset_index()
+        model_result_pd_temp['source_'] = name_type
+        model_result.append(model_result_pd_temp)
+
+        # class_model_result = []
+        # for class_result_path in class_model_result_path:
+        #     class_result_pd = pd.read_csv(class_result_path)[['datetime','instrument','score']]
+        #     class_result_pd["instrument"] = class_result_pd["instrument"].map(normalize_code)
+        #     class_result_pd.columns =['date', 'code', 'class_p']
+        #     class_result_pd['date'] = pd.to_datetime(class_result_pd['date'])
+        #     class_model_result.append(class_result_pd)
+        #
+        # if len(class_model_result)>0:
+        #     class_model_result_pd = pd.concat(class_model_result).groupby(['date', 'code'])['class_p'].mean().reset_index()
+        # else:
+        #     class_model_result_pd = None
+
+        class_model_result_temp = []
+        for class_result_path in class_model_result_path[:3]:  # 取前三个文件
+            class_result_pd_temp = pd.read_csv(class_result_path)[['datetime', 'instrument', 'score']]
+            class_result_pd_temp["instrument"] = class_result_pd_temp["instrument"].map(normalize_code)
+            class_result_pd_temp.columns = ['date', 'code', 'score']
+            class_result_pd_temp['date'] = pd.to_datetime(class_result_pd_temp['date'])
+            class_model_result_temp.append(class_result_pd_temp)
+
+        if len(class_model_result_temp) > 0:
+            # 合并所有结果
+            combined_result = pd.concat(class_model_result_temp)
+
+            # 定义投票机制函数
+            def voting_mechanism_agg(scores):
+                high_scores = scores[scores > 0.52]
+                if len(high_scores) > len(scores) / 2:
+                    return high_scores.mean()
+                else:
+                    return 0.5
+
+            # 使用agg方法一次性完成分组计算
+            class_model_result_pd_temp = combined_result.groupby(['date', 'code'])['score'].agg(
+                voting_mechanism_agg).reset_index()
+            class_model_result_pd_temp.rename(columns={'score': 'class_p'}, inplace=True)
+
+            class_model_result.append(class_model_result_pd_temp)
+
+    model_result_pd = pd.concat(model_result)
+    model_codes = model_result_pd['code'].tolist()
+
+    if len(class_model_result)>0:
+        class_model_result_pd = pd.concat(class_model_result)
+    else:
+        class_model_result_pd = None
 
     base_data_path = '/Users/dabai/liepin/study/llm/Financial_QA/data/zh_data'
     zh_data_dir = Path(base_data_path) / 'market'
     financial_data_dir = Path(base_data_path).parent / 'zh_data/financial'
-    board_industry_dir = Path(base_data_path).parent / 'zh_data/industry/board_industry'
-
-
-    # 1. 找到行业目录中最新的CSV文件
-    files = [f for f in os.listdir(board_industry_dir) if f.endswith('.csv')]
-    if not files:
-        raise FileNotFoundError(f"⚠️ 行业目录中没有找到CSV文件: {board_industry_dir}")
-    files.sort(key=lambda f: os.path.getmtime(os.path.join(board_industry_dir, f)), reverse=True)
-    latest_file = os.path.join(board_industry_dir, files[0])
-    print(f"📄 使用行业文件: {latest_file}")
-
-    # 2. 读取行业数据
-    industry_df = pd.read_csv(latest_file, dtype={'code': str})
-    industry_df = industry_df[['code', 'name', 'industry_code', 'industry_name']]
 
     # 获取所有时间数据， 使用000001.csv
     pdf = pd.read_csv(f'{zh_data_dir}/sh.000001/daily.csv')
@@ -315,30 +344,7 @@ def load_stock_data(from_idx, to_idx, model_result_path:list):
     data = data.sort_index()
 
     select_cols = ['date', 'open', 'high', 'low', 'close', 'volume', 'amount', ]
-    add_cols = ['industry_name', 'amount', 'turn', 'mv', 'lt_mv', 'lt_share_rate',   'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q', 'openinterest', 'score']
-    # 加载 SZ510880 SH159300
-    etf_list = ['SZ510880', 'SH159919', 'SZ510050', 'SZ588000', 'SZ511880']
-    etf_path = '/Users/dabai/liepin/study/llm/Financial_QA/src/busi/etf_/data/etf_trading/daily'
-    for etf_code in etf_list:
-        etf_df = pd.read_csv(f'{etf_path}/{etf_code}.csv')
-        # 选择需要的列
-        etf_df = etf_df[select_cols]
-        for col in add_cols:
-            if col not in etf_df.columns:
-                etf_df[col] = 0
-        etf_df['date'] = pd.to_datetime(etf_df['date'])
-        etf_df.set_index('date', inplace=True)  # 设置 datetime 为索引
-        etf_df = etf_df.sort_index()
-        data_ = pd.merge(data, etf_df, left_index=True, right_index=True, how='left')
-        data_.fillna(0, inplace=True)
-        data_ = data_.sort_index()  # ✅ 强制升序
-        pandas_data = CustomPandasData(dataname=data_,
-                                       fromdate=from_idx,
-                                       todate=to_idx,
-                                       timeframe=bt.TimeFrame.Days,
-                                       name=f'etf_{etf_code}')
-        datas.append(pandas_data)
-
+    add_cols = ['industry_name', 'amount', 'turn', 'mv', 'lt_mv', 'lt_share_rate',   'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q', 'openinterest', 'score', 'class_p', 'source_']
 
     index_list =['csi932000', 'sz399101' , 'sh000905', 'sh000852', 'sh000046', 'sz399005', 'sz399008', 'sz399401',
                  'sz399649','sz399663','sz399377','sh000046','sz399408','sz399401','sh000991' ,
@@ -373,20 +379,10 @@ def load_stock_data(from_idx, to_idx, model_result_path:list):
         # if i > 500:
         #     break
 
-        # 测试
-        # if len(datas) >100 and stock_file  not in temp_stock_list:
-        #     continue
-
         # 使用指数成分股股票回测
-        if stock_file not in zz_code_list and stock_file not in temp_stock_list:
+        if stock_file not in model_codes and stock_file not in temp_stock_list:
             print(f'过滤非指数成分股股票: {stock_file}')
-            continue # 0.1945 sz399101成分股,
-            # 指数的成分股数据 0.10   中证1000-000852，中证2000-932000
-            # 指数的成分股数据 0.158  中小综指-399101,中证1000-000852，中证2000-932000
-            # 指数的成分股数据 0.1945  中小综指-399101,中证1000-000852
-            # 指数的成分股数据 0.158  中小综指-399101,中证2000-932000
-            # 指数的成分股数据 0.10,中证2000-932000
-        # 0.2137，全部数据
+            continue #
         # 过滤创业板/科创板/北交所股票
         if ('.30' in stock_file
                 or '.68' in stock_file
@@ -459,8 +455,13 @@ def load_stock_data(from_idx, to_idx, model_result_path:list):
 
                 df = pd.merge(df, model_result_pd, how='left', left_on=['date', 'code'], right_on=['date', 'code'])
 
+                if class_model_result_pd is not None and not class_model_result_pd.empty:
+                    df = pd.merge(df, class_model_result_pd, how='left', left_on=['date', 'code'], right_on=['date', 'code'])
+                else:
+                    df['class_p'] = 0
+
                 # 选择需要的列
-                df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn', 'mv', 'lt_mv', 'lt_share_rate',   'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q', 'openinterest', 'score']]
+                df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn', 'mv', 'lt_mv', 'lt_share_rate',   'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q', 'openinterest', 'score', 'class_p',  'source_']]
 
                 df.set_index('date', inplace=True)  # 设置 datetime 为索引
                 df = df.sort_index()

@@ -489,10 +489,6 @@ if __name__ == "__main__":
     # rolling_types = [RollingGen.ROLL_EX, RollingGen.ROLL_SD]
     # ROLL_EX 效果优于 ROLL_SD
     rolling_types = [RollingGen.ROLL_EX]
-    rolling_types = [RollingGen.ROLL_SD]
-    config_task_exps = [
-        ("./config/zxzz399101/workflow_config_lgb_Alpha158_all.yaml", 'zxzz399101_tree_all11', None),
-    ]
 
     for config_path, task_exp1, feature_task_config in config_task_exps:
         for rolling_type in rolling_types:

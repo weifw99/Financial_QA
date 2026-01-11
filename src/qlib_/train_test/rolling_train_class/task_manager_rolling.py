@@ -19,9 +19,9 @@ if __name__ == "__main__":
 
     config_task_exps = [
         ("./config/csi300/workflow_config_lgb_Alpha158_all.yaml", 'rolling_exp_tree_all', None),
-        # ("./config/csi300/workflow_config_lgb_Alpha158_rec_tree.yaml", 'rolling_exp_rec_tree', None),
+        ("./config/csi300/workflow_config_lgb_Alpha158_rec_tree.yaml", 'rolling_exp_rec_tree', None),
         # ("./config/csi300/workflow_config_lgb_Alpha158_rec_tree1.yaml", 'rolling_exp_rec_tree1', None),
-        # ("./config/csi300/workflow_config_lgb_Alpha158_tree_import.yaml", 'rolling_exp_tree_import', None),
+        ("./config/csi300/workflow_config_lgb_Alpha158_tree_import.yaml", 'rolling_exp_tree_import', None),
     ]
     # rolling_types = [RollingGen.ROLL_EX, RollingGen.ROLL_SD]
     # ROLL_EX 效果优于 ROLL_SD

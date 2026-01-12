@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 
-from src.busi.midcap_strategy.utils.data_loader import process_financial_data, merge_with_stock
+from src.busi.model_result_test_strategy.utils.data_loader import process_financial_data, merge_with_stock
 
 
 def load_recent_data():
@@ -25,7 +25,7 @@ def load_recent_data():
     result = {}
 
     # 统一时间索引基准（用上证指数）
-    calendar_df = pd.read_csv(f'{zh_data_dir}/sh.000001/daily.csv')
+    calendar_df = pd.read_csv(f'{zh_data_dir}/sh.000300/daily.csv')
     calendar_df['date'] = pd.to_datetime(calendar_df['date'])
     calendar_df = calendar_df[calendar_df['date'] >= from_date]
     data_index = pd.DataFrame(index=calendar_df['date'].sort_values().unique())
@@ -85,7 +85,7 @@ def load_recent_data():
         zz_code_df = pd.read_csv(zz_code_data_path)
         zz_code_list += zz_code_df['type'].tolist()
 
-    temp_stock_list = ['sh.000300',  'sh.000016', 'sh.000852', 'BK1158', ]
+    temp_stock_list = ['sh.000300',  'sh.000016', 'sh.000852', 'BK1158', 'sh.000905',]
 
     for i, stock_code in enumerate(os.listdir(zh_data_dir)):
         # file_path = f'{zh_data_dir}/{stock_code}/daily.csv'

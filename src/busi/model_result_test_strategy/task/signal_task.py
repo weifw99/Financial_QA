@@ -1,18 +1,22 @@
 from datetime import datetime, timedelta
 
-from src.busi.midcap_strategy.task.seed_message import format_signal_message, send_email, send_wechat_smsg
-from src.busi.midcap_strategy.task.signal_generator import SmallCapSignalGenerator
-from src.busi.midcap_strategy.task.data_loader import load_recent_data
+from src.busi.smallcap_strategy.task.seed_message import format_signal_message, send_email, send_wechat_smsg
+from src.busi.smallcap_strategy.task.signal_generator import SmallCapSignalGenerator
+from src.busi.smallcap_strategy.task.data_loader import load_recent_data
 
 config = dict(
-    smallcap_index=['csi932000', 'sz399101', 'BK1158'],
-    large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'etf_SZ510880', 'sh000905'],
+    # smallcap_index=['csi932000', 'sz399101', 'BK1158'],
+    smallcap_index=['csi932000', 'BK1158'],
+    smallcap_weight=[0.9, 1],
+    # large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'sh000905'],
+    large_indices=['sh.000300', 'sh.000016', 'sh.000905'],
     min_mv=10e8,
     min_profit=0,
     min_revenue=1e8,
-    hight_price=50,
+    hight_price=100,
     momentum_days=15,
-    hold_count_high=12,
+    momentum_days_short=10,
+    hold_count_high=15,
 )
 
 def main():
@@ -26,6 +30,7 @@ def main():
 
         # data_date = today - timedelta(days=3)
     data_date = today
+    # data_date = today - timedelta(days=1)
     # 2. 初始化生成器
     generator = SmallCapSignalGenerator(config)
     generator.load_data(stock_data_dict, data_date)
@@ -37,23 +42,34 @@ def main():
     signal = generator.generate_signals(current_hold=current_hold)
 
     execute_date = datetime.today()
+    signal['execute_date'] = execute_date.date().strftime('%Y-%m-%d')
+    signal['date_date'] = generator.stock_data_date.date().strftime('%Y-%m-%d')
+
     print(f"📅 执行日期: {execute_date.date()}")
-    print(f"📅 数据截止日期: {data_date.date()}")
+    print(f"📅 数据截止日期: {generator.stock_data_date.date()}")
     print(f"🚨 趋势熔断: {signal['trend_crash']}")
     print(f"🚨 趋势动量: {signal['recovery_scores']}")
-    print(f"📊 动量领先: {signal['momentum_ok']}")
-    print(f"🔁 动量排名: {signal['momentum_rank']}")
-    print(f"🔁 动量排名1: {signal['ranks_comp']}")
+    print(f"📊 动量领先top1: {signal['momentum_ok']}")
+    print(f"📊 动量领先top2: {signal['momentum_ok2']}")
+    print(f"📊 动量领先(short top2): {signal['momentum_ok2_short']}")
+    print(f"🔁 所有动量结果: {signal['momentum_rank']}")
+    print(f"🔁 动量排名结果: {signal['ranks_comp']}")
+    print(f"📊 小市值动量排名: {signal['top_n']}")
+    print(f"📊 止损slope: {signal['slope']}")
     print(f"📥 建议买入: {signal['buy']}")
     print(f"💸 持仓: {signal['current_hold']}")
 
     # 假设你已有 signal = {...}
-    content = format_signal_message(signal, execute_date, data_date)
+    content = format_signal_message(signal, execute_date, generator.stock_data_date.date())
 
     print(content)
 
+    print(signal)
+
     # 发送
-    # send_email("【小市值策略信号】", content, "your_friend@example.com")
+    send_email("小市值策略信号", str(signal), "18910770963@163.com")
+    send_email("小狮子明细", content, "837602401@qq.com", is_md= True)
+    # send_email("小狮子明细", content, "77946997@qq.com", is_md= True)
     send_wechat_smsg("小市值策略信号", content)
 
 

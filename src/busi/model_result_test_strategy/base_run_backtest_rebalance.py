@@ -55,6 +55,13 @@ def run():
     ]
     class_model_result_path = []
 
+    rank_model_result_path = [
+        '/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/rolling_train_tree/data/zxzz399101_rec_tree_7_expanding/pre_result.csv',
+        '/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/rolling_train_tree/data/zxzz399101_tree_all_7_expanding/pre_result.csv',
+        '/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/rolling_train_tree/data/zxzz399101_tree_import_7_expanding/pre_result.csv',
+        # '/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/rolling_train_tree/data/zxzz399101_tree_select1_7_expanding/pre_result.csv',
+    ]
+
     extend_datas = {
         300: (rank_model_result_path, class_model_result_path)
     }

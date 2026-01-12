@@ -295,32 +295,40 @@ def load_stock_data(from_idx, to_idx, extend_datas:dict[int, tuple[list, list]] 
         # else:
         #     class_model_result_pd = None
 
-        class_model_result_temp = []
-        for class_result_path in class_model_result_path[:3]:  # 取前三个文件
-            class_result_pd_temp = pd.read_csv(class_result_path)[['datetime', 'instrument', 'score']]
+        if len(class_model_result_path) > 2:
+            class_model_result_temp = []
+            for class_result_path in class_model_result_path[:3]:  # 取前三个文件
+                class_result_pd_temp = pd.read_csv(class_result_path)[['datetime', 'instrument', 'score']]
+                class_result_pd_temp["instrument"] = class_result_pd_temp["instrument"].map(normalize_code)
+                class_result_pd_temp.columns = ['date', 'code', 'score']
+                class_result_pd_temp['date'] = pd.to_datetime(class_result_pd_temp['date'])
+                class_model_result_temp.append(class_result_pd_temp)
+
+            if len(class_model_result_temp) > 0:
+                # 合并所有结果
+                combined_result = pd.concat(class_model_result_temp)
+
+                # 定义投票机制函数
+                def voting_mechanism_agg(scores):
+                    high_scores = scores[scores > 0.52]
+                    if len(high_scores) > len(scores) / 2:
+                        return high_scores.mean()
+                    else:
+                        return 0.5
+
+                # 使用agg方法一次性完成分组计算
+                class_model_result_pd_temp = combined_result.groupby(['date', 'code'])['score'].agg(
+                    voting_mechanism_agg).reset_index()
+                class_model_result_pd_temp.rename(columns={'score': 'class_p'}, inplace=True)
+
+                class_model_result.append(class_model_result_pd_temp)
+
+        else:
+            class_result_pd_temp = pd.read_csv(class_model_result_path[0])[['datetime', 'instrument', 'score']]
             class_result_pd_temp["instrument"] = class_result_pd_temp["instrument"].map(normalize_code)
-            class_result_pd_temp.columns = ['date', 'code', 'score']
+            class_result_pd_temp.columns = ['date', 'code', 'class_p']
             class_result_pd_temp['date'] = pd.to_datetime(class_result_pd_temp['date'])
-            class_model_result_temp.append(class_result_pd_temp)
-
-        if len(class_model_result_temp) > 0:
-            # 合并所有结果
-            combined_result = pd.concat(class_model_result_temp)
-
-            # 定义投票机制函数
-            def voting_mechanism_agg(scores):
-                high_scores = scores[scores > 0.52]
-                if len(high_scores) > len(scores) / 2:
-                    return high_scores.mean()
-                else:
-                    return 0.5
-
-            # 使用agg方法一次性完成分组计算
-            class_model_result_pd_temp = combined_result.groupby(['date', 'code'])['score'].agg(
-                voting_mechanism_agg).reset_index()
-            class_model_result_pd_temp.rename(columns={'score': 'class_p'}, inplace=True)
-
-            class_model_result.append(class_model_result_pd_temp)
+            class_model_result.append(class_result_pd_temp)
 
     model_result_pd = pd.concat(model_result)
     model_codes = model_result_pd['code'].tolist()

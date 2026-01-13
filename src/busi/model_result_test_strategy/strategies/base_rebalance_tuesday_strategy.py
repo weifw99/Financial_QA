@@ -20,8 +20,6 @@ class BaseRebalanceTuesdayStrategy(bt.Strategy):
         hold_count_high=10,  # 行情好时持股数（集中）
         hold_count_low=5,  # 行情差时持股数（分散）
         hight_price=50,  # 个股最高限价
-        momentum_days=15,  # 动量观察窗口
-        trend_threshold=-0.05,  # 快速熔断阈值（小市值单日下跌5%）
         stop_loss_pct=0.06,  # 个股止损线（跌幅超过6%）
         take_profit_pct=0.5,  # 个股止盈线（涨幅超过50%）
     )

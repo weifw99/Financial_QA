@@ -32,11 +32,11 @@ def run():
         '/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/rolling_train_tree/data/zxzz399101_tree_select1_expanding/pre_result.csv',
     ]
 
-    rank_model_result_path = [
+    rank_model_result_path1 = [
         '/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/rolling_train_tree/data/zxzz399101_rec_tree_7_expanding/pre_result.csv',
         '/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/rolling_train_tree/data/zxzz399101_tree_all_7_expanding/pre_result.csv',
         '/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/rolling_train_tree/data/zxzz399101_tree_import_7_expanding/pre_result.csv',
-        # '/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/rolling_train_tree/data/zxzz399101_tree_select1_7_expanding/pre_result.csv',
+        '/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/rolling_train_tree/data/zxzz399101_tree_select1_7_expanding/pre_result.csv',
     ]
     class_model_result_path = [
         '/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/rolling_train_class/data/rolling_exp_rec_tree_expanding/pre_result.csv',

@@ -254,7 +254,8 @@ def merge_stock_with_industry(stock_df: pd.DataFrame, industry_df: pd.DataFrame)
     return merged_df
 
 
-def load_stock_data(from_idx, to_idx, extend_datas:dict[int, tuple[list, list]] ):
+def load_stock_data(from_idx, to_idx, extend_datas:dict[int, tuple[list, list]] ) -> tuple[list[CustomPandasData], list[pd.DataFrame]]:
+
     """
     批量加载 data_dir 下的所有 CSV 文件，返回数据列表
     文件名将作为数据名称注入，如 '600000.csv' -> data._name = '600000'
@@ -262,10 +263,13 @@ def load_stock_data(from_idx, to_idx, extend_datas:dict[int, tuple[list, list]] 
     extend_datas = {
         'csi300': (rank_model_result_path, class_model_result_path)
     }
-    :return: list of data feeds
+    :return: tuple
+        tuple0:list of data feeds 用户回测
+        tuple1:list of pandas df 不包括指数和缺少财务信息的数据， 用于信号生成
     """
 
     datas = []
+    datas_pd = []
 
     model_result = []
     class_model_result = []
@@ -324,11 +328,12 @@ def load_stock_data(from_idx, to_idx, extend_datas:dict[int, tuple[list, list]] 
                 class_model_result.append(class_model_result_pd_temp)
 
         else:
-            class_result_pd_temp = pd.read_csv(class_model_result_path[0])[['datetime', 'instrument', 'score']]
-            class_result_pd_temp["instrument"] = class_result_pd_temp["instrument"].map(normalize_code)
-            class_result_pd_temp.columns = ['date', 'code', 'class_p']
-            class_result_pd_temp['date'] = pd.to_datetime(class_result_pd_temp['date'])
-            class_model_result.append(class_result_pd_temp)
+            if len(class_model_result_path) > 0:
+                class_result_pd_temp = pd.read_csv(class_model_result_path[0])[['datetime', 'instrument', 'score']]
+                class_result_pd_temp["instrument"] = class_result_pd_temp["instrument"].map(normalize_code)
+                class_result_pd_temp.columns = ['date', 'code', 'class_p']
+                class_result_pd_temp['date'] = pd.to_datetime(class_result_pd_temp['date'])
+                class_model_result.append(class_result_pd_temp)
 
     model_result_pd = pd.concat(model_result)
     model_codes = model_result_pd['code'].tolist()
@@ -469,12 +474,13 @@ def load_stock_data(from_idx, to_idx, extend_datas:dict[int, tuple[list, list]] 
                     df['class_p'] = 0
 
                 # 选择需要的列
-                df = df[['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn', 'mv', 'lt_mv', 'lt_share_rate',   'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q', 'openinterest', 'score', 'class_p',  'source_']]
+                col_list = ['date', 'open', 'high', 'low', 'close', 'volume', 'amount', 'turn', 'mv', 'lt_mv', 'lt_share_rate',   'is_st', 'profit_ttm_y', 'profit_y', 'revenue_y', 'roeAvg_y', 'profit_ttm_q', 'profit_q', 'revenue_single_q', 'roeAvg_q', 'openinterest', 'score', 'class_p',  'source_']
+                df1 = df[col_list]
 
-                df.set_index('date', inplace=True)  # 设置 datetime 为索引
-                df = df.sort_index()
+                df1.set_index('date', inplace=True)  # 设置 datetime 为索引
+                df1 = df1.sort_index()
 
-                data_ = pd.merge(data, df, left_index=True, right_index=True, how='left')
+                data_ = pd.merge(data, df1, left_index=True, right_index=True, how='left')
                 data_ = data_.sort_index()  # ✅ 强制升序
                 # 检查并填充关键列
                 # required_cols = ['datetime', 'open', 'high', 'low', 'close', 'volume', 'mv', 'lt_mv', 'lt_share_rate',  'profit', 'revenue', 'is_st']
@@ -507,6 +513,10 @@ def load_stock_data(from_idx, to_idx, extend_datas:dict[int, tuple[list, list]] 
                 # data._name = stock_file.replace('.csv', '')  # 设置数据名称（用于后续匹配指数名等）
                 # print(f'添加数据源：{data._name}，数据日期范围：{df["datetime"].min()} ~ {df["datetime"].max()}，共 {len(df)} 条记录')
                 datas.append(pandas_data)
+                df2 = df[['code'] + col_list]
+                df2.set_index('date', inplace=True)  # 设置 datetime 为索引
+                df2 = df2.sort_index()
+                datas_pd.append(df2)
             else:
                 print(f'{stock_file} 缺少财务信息')
                 # 选择需要的列
@@ -527,5 +537,5 @@ def load_stock_data(from_idx, to_idx, extend_datas:dict[int, tuple[list, list]] 
                                                name=stock_file.replace('.csv', ''))
                 datas.append(pandas_data)
 
-    return datas
+    return datas, datas_pd
 

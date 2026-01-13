@@ -53,7 +53,7 @@ def run():
     }
 
     # 加载所有股票与指数数据
-    datafeeds = load_stock_data(from_idx, to_idx, extend_datas)
+    datafeeds, _ = load_stock_data(from_idx, to_idx, extend_datas)
     for feed in datafeeds:
         cerebro.adddata(feed)
     print('load data DONE.', len(datafeeds))

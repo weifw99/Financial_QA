@@ -166,50 +166,26 @@ def format_signal_message(signal, exe_date, data_date):
 ### 📈 小市值策略信号
 - **执行日期**：{exe_date.strftime('%Y-%m-%d')}
 - **数据截止**：{data_date.strftime('%Y-%m-%d')}
-- **趋势熔断**：{'🚨 是' if signal['small_pct_1'] <= -0.045 or signal['small_pct_2'] <= -0.06 else '✅ 否'} （最近 1 天跌超 4.5% 或者最近 2 天跌超 6%）
-- **动量排名**：{signal['top_n']}
-- **动量是否top1**：{'🚀 是' if signal['momentum_ok'] else '📉 否'} （领先：小市值组合动量排名在top1）
-- **动量是否top2**：{'🚀 是' if signal['momentum_ok2'] else '📉 否'} （领先：小市值组合动量排名在top2）
-- **动量是否top2[short]**：{'🚀 是' if signal['momentum_ok2_short'] else '📉 否'} （领先：short 小市值组合动量排名在top2）
 """
-
-    # 动量排名表格
-    momentum_md = "| 指数名称 | 动量收益 |\n| :-- | --: |\n"
-    for name, val in signal['momentum_rank']:
-        momentum_md += f"| {name} | {val:.2%} |\n"
 
     # 建议买入表格（包含是否已持有 + 收盘价）
     if signal['buy']:
-        i = 1
-        buy_md = "| 编号 | 股票代码 | 市值 (亿) | 当前已持仓 | 最新收盘价 | 无负面消息（最近的Q） |\n| :-- | :-- | --: | :--: | --: | --: |\n"
-        for stock, mv, held, close_price, filter_flag in signal['buy']:
-            held_str = "✅ 是" if held else "❌ 否"
-            filter_str = "✅ 是" if filter_flag else "❌ 否"
+        i = 1 # name, mv, score, close_price
+        buy_md = "| 编号 | 股票代码 | 市值 (亿) | 得分 | 最新收盘价 |\n| :-- | :-- | --: | :--: | --: |\n"
+        for stock, mv, score, close_price in signal['buy']:
+            score_str = score
             price_str = f"{close_price:.2f}" if close_price is not None else "N/A"
-            buy_md += f"| {i} | {stock} | {mv / 1e8:.2f} | {held_str} | {price_str} | {filter_str} |\n"
+            buy_md += f"| {i} | {stock} | {mv / 1e8:.2f} | {score_str} | {price_str} |\n"
             i += 1
     else:
         buy_md = "无"
 
-    # 当前持仓列表
-    # if signal['current_hold']:
-    #     hold_md = "\n".join([f"- {stock}" for stock in signal['current_hold']])
-    # else:
-    #     hold_md = "无"
-
     action_md = f"""\
 **📥 建议买入：**\n
 {buy_md}
-**💼 附加信息：**\n
-- **回测逻辑**：
-    调仓/开仓逻辑：(每周三或者 持仓为 0) AND 小市值动量排名第一。 
-    每日全局止损逻辑： 短期动量跌出 top2  AND （长期动量迭出 top2 OR 长期动量迭出 top1 并且股票的最小持仓天数大于 2）  （**每日止损逻辑比调仓逻辑要松一点**）全部清仓。
-    个股每天止损：跌破 6% 卖出（止损时检测下，避免被刷下去）
-    
-    slope：{signal['slope']}
 """
 
-    return header + "\n" + momentum_md + "\n" + action_md
+    return header + "\n" + action_md
 
 
 if __name__ == '__main__':

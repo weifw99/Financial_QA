@@ -215,6 +215,7 @@ if __name__ == "__main__":
     # 获取当前时间
     now = datetime.now().date()
     weekday = now.weekday()
+    day = now.day # 1-31
     work_dir = "/Users/dabai/liepin/study/llm/Financial_QA/data/qlib_exp"
     busi_name = "small"
 
@@ -287,6 +288,10 @@ if __name__ == "__main__":
 
     result = pd.concat(pre_dfs, axis=0)
     result.to_csv(f"{base_dir}/small_result.csv", index=False)
+
+
+
+
 
 
     # predict_data_model(config_path=config_path, recorder_file='recorder_info_2025-12-25.json')

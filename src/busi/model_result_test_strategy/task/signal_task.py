@@ -1,28 +1,33 @@
 from datetime import datetime, timedelta
 
-from src.busi.smallcap_strategy.task.seed_message import format_signal_message, send_email, send_wechat_smsg
-from src.busi.smallcap_strategy.task.signal_generator import SmallCapSignalGenerator
-from src.busi.smallcap_strategy.task.data_loader import load_recent_data
+from busi.model_result_test_strategy.utils.data_loader import load_stock_data
+from src.busi.model_result_test_strategy.task.seed_message import format_signal_message, send_email, send_wechat_smsg
+from src.busi.model_result_test_strategy.task.signal_generator import SmallCapSignalGenerator
 
 config = dict(
-    # smallcap_index=['csi932000', 'sz399101', 'BK1158'],
-    smallcap_index=['csi932000', 'BK1158'],
-    smallcap_weight=[0.9, 1],
-    # large_indices=['sh.000300', 'etf_SH159919', 'sh.000016', 'etf_SZ510050', 'sh000905'],
-    large_indices=['sh.000300', 'sh.000016', 'sh.000905'],
     min_mv=10e8,
     min_profit=0,
     min_revenue=1e8,
-    hight_price=100,
-    momentum_days=15,
-    momentum_days_short=10,
+    hight_price=50,
     hold_count_high=15,
 )
 
 def main():
     # 1. 加载最近30日的数据（指数 + 个股）
     today = datetime.today()
-    stock_data_dict, data_date = load_recent_data()
+
+    rank_model_result_path = [
+        '/Users/dabai/liepin/study/llm/Financial_QA/data/qlib_exp/small/small_result.csv',
+    ]
+    extend_datas = {
+        1000: (rank_model_result_path, [])
+    }
+    to_idx = datetime.now()
+    from_idx = to_idx - timedelta(days=30)
+
+    # 加载所有股票与指数数据
+    _, data_dfs = load_stock_data(from_idx, to_idx, extend_datas)
+
 
     for i in range(25):
         data_date = today - timedelta(days=i)
@@ -33,13 +38,10 @@ def main():
     # data_date = today - timedelta(days=1)
     # 2. 初始化生成器
     generator = SmallCapSignalGenerator(config)
-    generator.load_data(stock_data_dict, data_date)
-
-    # 3. 当前持仓（如无自动记录可手动传入）
-    current_hold = ["stock_A", "stock_B"]  # 示例
+    generator.load_data(data_dfs, data_date)
 
     # 4. 生成信号
-    signal = generator.generate_signals(current_hold=current_hold)
+    signal = generator.generate_signals()
 
     execute_date = datetime.today()
     signal['execute_date'] = execute_date.date().strftime('%Y-%m-%d')
@@ -47,17 +49,7 @@ def main():
 
     print(f"📅 执行日期: {execute_date.date()}")
     print(f"📅 数据截止日期: {generator.stock_data_date.date()}")
-    print(f"🚨 趋势熔断: {signal['trend_crash']}")
-    print(f"🚨 趋势动量: {signal['recovery_scores']}")
-    print(f"📊 动量领先top1: {signal['momentum_ok']}")
-    print(f"📊 动量领先top2: {signal['momentum_ok2']}")
-    print(f"📊 动量领先(short top2): {signal['momentum_ok2_short']}")
-    print(f"🔁 所有动量结果: {signal['momentum_rank']}")
-    print(f"🔁 动量排名结果: {signal['ranks_comp']}")
-    print(f"📊 小市值动量排名: {signal['top_n']}")
-    print(f"📊 止损slope: {signal['slope']}")
     print(f"📥 建议买入: {signal['buy']}")
-    print(f"💸 持仓: {signal['current_hold']}")
 
     # 假设你已有 signal = {...}
     content = format_signal_message(signal, execute_date, generator.stock_data_date.date())

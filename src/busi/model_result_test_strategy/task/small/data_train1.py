@@ -208,12 +208,17 @@ if __name__ == "__main__":
     config_paths = [
         "config/zxzz399101/workflow_config_lgb_Alpha158_all.yaml",
         "config/zxzz399101/workflow_config_lgb_Alpha158_rec_tree.yaml",
-        # "config/zxzz399101/workflow_config_lgb_Alpha158_rec_tree1.yaml",
-        # "config/zxzz399101/workflow_config_lgb_Alpha158_tree_import.yaml",
+        "config/zxzz399101/workflow_config_lgb_Alpha158_rec_tree1.yaml",
+        "config/zxzz399101/workflow_config_lgb_Alpha158_tree_import.yaml",
+    ]
+
+    class_config_paths = [
+        "config/zxzz399101/class_/workflow_config_lgb_Alpha158_all.yaml",
     ]
 
     # 获取当前时间
     now = datetime.now().date()
+    now = date(2026, 1, 13)
     weekday = now.weekday()
     day = now.day # 1-31
     work_dir = "/Users/dabai/liepin/study/llm/Financial_QA/data/qlib_exp"
@@ -226,44 +231,26 @@ if __name__ == "__main__":
 
     recorder_info_file = f"{base_dir}/small_recorder_info.json"
 
-    '''
-    segments = {
-        'train':[date(2021, 1, 1), now-timedelta(days=61)],
-        'valid':[now-timedelta(days=60), now],
-        'test':[now-timedelta(days=15), now],
-    }
-
-
-    cfg, work_dir, exp_name = init_qlib(config_paths[0])
-
-    dataset_cfg = cfg["task"]["dataset"]
-    # start_time 和 end_time
-    dataset_cfg['kwargs']['handler']['kwargs']['start_time']
-    dataset_cfg['kwargs']['handler']['kwargs']['end_time'] =  now
-    dataset_cfg['kwargs']['handler']['kwargs']['fit_start_time'] = segments['train'][0]
-    dataset_cfg['kwargs']['handler']['kwargs']['fit_end_time'] = segments['train'][1]
-    segments1 = {
-        'train': [dataset_cfg['kwargs']['segments']['train'][0], now - timedelta(days=61)],
-        'valid': [now - timedelta(days=60), now],
-        'test': [now - timedelta(days=15), now],
-    }
-
-    dataset_cfg['kwargs']['segments'] = segments1
-    '''
-
-
     if weekday == 1: # 周二
         # 训练模型，更新模型
-        recorder_list = []
+        class_recorder_list = []
+        rank_recorder_list = []
 
         for config_path in config_paths:
             recorder = train_model_alpha158(config_path=config_path, data_date=now)
+            rank_recorder_list.append(json.dumps(recorder.info, ensure_ascii=False))
 
-            recorder_list.append(json.dumps(recorder.info, ensure_ascii=False))
+        for config_path in class_config_paths:
+            recorder = train_model_alpha158(config_path=config_path, data_date=now)
+            class_recorder_list.append(json.dumps(recorder.info, ensure_ascii=False))
 
-        if len(recorder_list) > 0:
+        if len(rank_recorder_list) > 0:
+            recorder_result = {
+                "class_recorder_list": class_recorder_list,
+                "rank_recorder_list": rank_recorder_list,
+            }
             with open(recorder_info_file, "w", encoding="utf-8") as f:
-                json.dump(recorder_list, f, ensure_ascii=False)
+                json.dump(recorder_result, f, ensure_ascii=False)
                 print("保存 recorder_info 成功")
 
     # 加载阶段
@@ -280,14 +267,25 @@ if __name__ == "__main__":
     print(type(recorder_infos), recorder_infos)
 
     pre_dfs =  []
-    for config_path, recorder_info in zip(config_paths, recorder_infos):
+    for config_path, recorder_info in zip(config_paths, recorder_infos["rank_recorder_list"]):
         print("config_path:", config_path)
         print("recorder_info:", recorder_info)
         pre_df = predict_data_model(config_path=config_path, recorder_info=json.loads(recorder_info))
         pre_dfs.append(pre_df)
 
     result = pd.concat(pre_dfs, axis=0)
-    result.to_csv(f"{base_dir}/small_result.csv", index=False)
+    result.to_csv(f"{base_dir}/small_rank_result.csv", index=False)
+
+
+    pre_dfs =  []
+    for config_path, recorder_info in zip(class_config_paths, recorder_infos["class_recorder_list"]):
+        print("config_path:", config_path)
+        print("recorder_info:", recorder_info)
+        pre_df = predict_data_model(config_path=config_path, recorder_info=json.loads(recorder_info))
+        pre_dfs.append(pre_df)
+
+    result = pd.concat(pre_dfs, axis=0)
+    result.to_csv(f"{base_dir}/small_class_result.csv", index=False)
 
 
 

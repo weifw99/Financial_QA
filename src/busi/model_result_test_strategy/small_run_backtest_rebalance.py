@@ -3,6 +3,7 @@ from datetime import datetime
 
 import backtrader as bt
 
+from busi.model_result_test_strategy.strategies.small_rebalance_tuesday_strategy1 import SmallRebalanceTuesdayStrategy1
 from busi.model_result_test_strategy.utils.backtest_util import cerebro_show
 from busi.model_result_test_strategy.strategies.small_rebalance_tuesday_strategy import SmallRebalanceTuesdayStrategy
 from utils.data_loader import load_stock_data
@@ -31,6 +32,12 @@ def run():
         '/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/rolling_train_tree/data/zxzz399101_tree_import_expanding/pre_result.csv',
         '/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/rolling_train_tree/data/zxzz399101_tree_select1_expanding/pre_result.csv',
     ]
+    # rank_model_result_path = [
+    #     '/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/rolling_train_tree/data/zxzz399101_rec_tree_sliding/pre_result.csv',
+    #     '/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/rolling_train_tree/data/zxzz399101_tree_all_sliding/pre_result.csv',
+    #     '/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/rolling_train_tree/data/zxzz399101_tree_import_sliding/pre_result.csv',
+    #     '/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/rolling_train_tree/data/zxzz399101_tree_select1_sliding/pre_result.csv',
+    # ]
 
     rank_model_result_path1 = [
         '/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/rolling_train_tree/data/zxzz399101_rec_tree_7_expanding/pre_result.csv',
@@ -44,13 +51,13 @@ def run():
         # '/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/rolling_train_class/data/rolling_exp_tree_import_expanding/pre_result.csv',
     ]
 
-    # 沪深 300成分股数据
-    rank_model_result_path = [
-        '/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/rolling_train_tree/data/rolling_exp_rec_tree_expanding/pre_result.csv',
-        '/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/rolling_train_tree/data/rolling_exp_tree_all_expanding/pre_result.csv',
-        '/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/rolling_train_tree/data/rolling_exp_tree_import_expanding/pre_result.csv',
-    ]
-    class_model_result_path = []
+    # # 沪深 300成分股数据
+    # rank_model_result_path = [
+    #     '/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/rolling_train_tree/data/rolling_exp_rec_tree_expanding/pre_result.csv',
+    #     '/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/rolling_train_tree/data/rolling_exp_tree_all_expanding/pre_result.csv',
+    #     '/Users/dabai/liepin/study/llm/Financial_QA/src/qlib_/train_test/rolling_train_tree/data/rolling_exp_tree_import_expanding/pre_result.csv',
+    # ]
+    # class_model_result_path = []
 
     extend_datas = {
         300: (rank_model_result_path, class_model_result_path)
@@ -63,7 +70,8 @@ def run():
     print('load data DONE.', len(datafeeds))
 
     # 添加策略及其参数
-    cerebro.addstrategy(SmallRebalanceTuesdayStrategy)
+    # cerebro.addstrategy(SmallRebalanceTuesdayStrategy)
+    cerebro.addstrategy(SmallRebalanceTuesdayStrategy1)
     print('add strategy DONE.')
 
     # 添加 PyFolio分析组件

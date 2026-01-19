@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 
-class SmallRebalanceTuesdayStrategy(bt.Strategy):
+class SmallRebalanceTuesdayStrategy1(bt.Strategy):
 
     params = dict(
         min_mv=10e8,  # 最小市值 10亿，0.2376； 13/14亿 0.2464
@@ -32,6 +32,7 @@ class SmallRebalanceTuesdayStrategy(bt.Strategy):
         self.do_rebalance_today = False
 
         self.rebalance_flag = False
+        self.stop_loss_count = 0
         self.to_buy_list = []
         self.to_sell_list = []
         self.buy_info = {}  # 每个标的的买入信息 {symbol: {...}}
@@ -83,13 +84,51 @@ class SmallRebalanceTuesdayStrategy(bt.Strategy):
             self.log("next_open 当前持仓如下：")
             self.print_positions()
 
-            candidates = self.filter_stocks()
+            # candidates = self.filter_stocks()
+            # d, mv, score
 
+            import numpy as np
+
+            candidates = self.filter_stocks()
             hold_num = self.p.hold_count_high
 
-            self.to_hold = set(candidates[:hold_num])
+            # 拆数据
+            stocks = [d for d, mv, score, class_p in candidates]
+            mvs = np.array([mv for d, mv, score, class_p in candidates], dtype=float)
+            scores = np.array([score for d, mv, score, class_p in candidates], dtype=float)
+            class_ps = np.array([score for d, mv, score, class_p in candidates], dtype=float)
+
+            # 横截面 Rank（归一到 [0,1]）
+            cap_rank = (-mvs).argsort().argsort() / (len(mvs) - 1)
+            score_rank = scores.argsort().argsort() / (len(scores) - 1)
+            class_p_rank = class_ps.argsort().argsort() / (len(class_ps) - 1)
+
+            # 加权（建议 0.7~0.8 给市值）
+            final_score = 0.9 * cap_rank + 0.06 * score_rank + 0.04 * class_p_rank
+            # final_score = 0.95 * cap_rank + 0.05 * score_rank
+            # final_score = 0.1 * cap_rank + 0.9 * score_rank
+            # final_score = 0.9 * cap_rank + 0.05 * score_rank + 0.05 * class_p_rank
+
+            # 排序选股
+            idx = np.argsort(-final_score)
+            selected = idx[:hold_num]
+
+            to_hold = set()
+            for i in selected:
+                d = stocks[i]
+                to_hold.add( d)
+                self.log(
+                    f"BUY {d._name} | final={final_score[i]:.4f} "
+                    f"mv={mvs[i]:.3f} score={scores[i]:.3f}"
+                    f"cap_rank={cap_rank[i]:.3f} model_rank={score_rank[i]:.3f}"
+                )
+
+            self.to_hold = to_hold
             self.log(f"next_open 待持仓：{self.to_hold}")
             current_hold = {d for d, pos in self.positions.items() if pos.size > 0}
+
+            if len(current_hold) == hold_num:
+                self.stop_loss_count = 0
 
             to_sell = current_hold - self.to_hold
             to_buy = self.to_hold - current_hold
@@ -346,6 +385,7 @@ class SmallRebalanceTuesdayStrategy(bt.Strategy):
             #     continue
 
             if change_pct <= -self.p.stop_loss_pct:
+                self.stop_loss_count += 1
                 print(f"⛔ 止损触发：{data._name} 跌幅 {change_pct:.2%}")
                 self.close(data) # 卖出 , 在 next open 中卖出，价格是 open 价
 
@@ -433,7 +473,7 @@ class SmallRebalanceTuesdayStrategy(bt.Strategy):
                         # and revenue_single_q > self.p.min_revenue
                 ):
 
-                    candidates.append((d, mv, score))
+                    candidates.append((d, mv, score, class_p))
             except:
                 print(f"⚠️ 获取股票数据失败: {d._name}")
                 continue
@@ -447,7 +487,8 @@ class SmallRebalanceTuesdayStrategy(bt.Strategy):
         # candidates = candidates[:100]
         candidates1 = sorted(candidates, key=lambda x: x[1], reverse=False)
 
-        return [x[0] for x in candidates1]
+        return candidates1
+        # return [x[0] for x in candidates1]
 
     def sell_all(self):
         print('💰 清仓 - sell_all')

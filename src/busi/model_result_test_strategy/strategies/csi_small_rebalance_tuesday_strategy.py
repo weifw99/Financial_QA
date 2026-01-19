@@ -151,7 +151,7 @@ class CsiSmallRebalanceTuesdayStrategy(bt.Strategy):
                 continue
 
             buy_price = pos.price
-            current_price = data.close[0]
+            current_price = data.open[0]
 
             if np.isnan(current_price) or current_price == 0:
                 continue
@@ -165,7 +165,7 @@ class CsiSmallRebalanceTuesdayStrategy(bt.Strategy):
 
             if change_pct <= -self.p.stop_loss_pct:
                 print(f"⛔ 止损触发：{data._name} 跌幅 {change_pct:.2%}")
-                self.close(data)
+                self.sell( data, price=current_price)
 
 
     def filter_stocks(self):

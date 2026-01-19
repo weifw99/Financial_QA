@@ -50,8 +50,10 @@ class RollingTaskExample:
         feature_task_config=None,
         rolling_step=550,
         rolling_type=RollingGen.ROLL_SD,
+        ouput_dir='data',
     ):
         self.feature_task_config = feature_task_config
+        self.ouput_dir = ouput_dir
         # TaskManager config
         if task_config is None:
             task_config = [CSI100_RECORD_XGBOOST_TASK_CONFIG, CSI100_RECORD_LGB_TASK_CONFIG]
@@ -100,17 +102,35 @@ class RollingTaskExample:
         print("safe_end:", safe_end)
         temp_tasks = []
         for task in tasks:
-            # 获取测试时间
-            test_start = task['dataset']['kwargs']['segments']['test'][0]
-            test_end = task['dataset']['kwargs']['segments']['test'][1]
 
-            if test_end is None:
-                task['dataset']['kwargs']['segments']['test'] = (test_start, safe_end)
+            if 'dataset_type' in task['dataset']['kwargs'] and task['dataset']['kwargs']['dataset_type'] == 'ratio':
+                # 获取测试时间
+                test_start = task['dataset']['kwargs']['segments']['test'][0]
+                test_end = task['dataset']['kwargs']['segments']['test'][1]
 
-            task['record'][2]['kwargs']['config']['backtest']['start_time'] = task['dataset']['kwargs']['segments']['test'][0]
-            task['record'][2]['kwargs']['config']['backtest']['end_time'] = task['dataset']['kwargs']['segments']['test'][1]
-            task['dataset']['kwargs']['handler']['kwargs']['fit_start_time'] = task['dataset']['kwargs']['segments']['train'][0]
-            task['dataset']['kwargs']['handler']['kwargs']['fit_end_time'] = task['dataset']['kwargs']['segments']['train'][1]
+                if test_end is None:
+                    task['dataset']['kwargs']['segments']['test'] = (test_start, safe_end)
+
+                task['dataset']['kwargs']['segments']['train'] = [task['dataset']['kwargs']['segments']['train'][0],
+                                                                  task['dataset']['kwargs']['segments']['valid'][1]]
+
+                task['record'][2]['kwargs']['config']['backtest']['start_time'] = task['dataset']['kwargs']['segments']['test'][0]
+                task['record'][2]['kwargs']['config']['backtest']['end_time'] = task['dataset']['kwargs']['segments']['test'][1]
+                task['dataset']['kwargs']['handler']['kwargs']['fit_start_time'] = task['dataset']['kwargs']['segments']['train'][0]
+                task['dataset']['kwargs']['handler']['kwargs']['fit_end_time'] = task['dataset']['kwargs']['segments']['train'][1]
+
+            else:
+                # 获取测试时间
+                test_start = task['dataset']['kwargs']['segments']['test'][0]
+                test_end = task['dataset']['kwargs']['segments']['test'][1]
+
+                if test_end is None:
+                    task['dataset']['kwargs']['segments']['test'] = (test_start, safe_end)
+
+                task['record'][2]['kwargs']['config']['backtest']['start_time'] = task['dataset']['kwargs']['segments']['test'][0]
+                task['record'][2]['kwargs']['config']['backtest']['end_time'] = task['dataset']['kwargs']['segments']['test'][1]
+                task['dataset']['kwargs']['handler']['kwargs']['fit_start_time'] = task['dataset']['kwargs']['segments']['train'][0]
+                task['dataset']['kwargs']['handler']['kwargs']['fit_end_time'] = task['dataset']['kwargs']['segments']['train'][1]
 
             if test_start <= safe_end and test_end is not None:
                 temp_tasks.append(task)
@@ -129,7 +149,8 @@ class RollingTaskExample:
                 break
             # 通过底层 collection 安全地 update_one
             _id = running_task["_id"]
-            running_res.append(running_task['res'])
+            if 'res' in running_task:
+                running_res.append(running_task['res'])
             res = self.task_manager.task_pool.update_one({"_id": _id, "status": TaskManager.STATUS_RUNNING},
                                           {"$set": {"status": TaskManager.STATUS_WAITING}})
             print(f"[RECOVER] reset task {_id} result: matched={res.matched_count}, modified={res.modified_count}")
@@ -278,30 +299,30 @@ class RollingTaskExample:
 
             print(rec)
 
-        if not os.path.exists(f"data/{self.experiment_name}"):
-            os.makedirs(f"data/{self.experiment_name}")
+        if not os.path.exists(f"{self.ouput_dir}/{self.experiment_name}"):
+            os.makedirs(f"{self.ouput_dir}/{self.experiment_name}")
 
         metrics_pd = pd.DataFrame(list_metrics)
-        metrics_pd.to_csv(f"data/{self.experiment_name}/metrics.csv", index=False)
+        metrics_pd.to_csv(f"{self.ouput_dir}/{self.experiment_name}/metrics.csv", index=False)
 
         if len(list_result) > 0:
             df_all = pd.concat(list_result, ignore_index=True)
-            df_all.to_csv(f"data/{self.experiment_name}/pre_result.csv", index=False)
+            df_all.to_csv(f"{self.ouput_dir}/{self.experiment_name}/pre_result.csv", index=False)
             print(df_all)
 
         if len(report_normals) > 0:
             report_all = pd.concat(report_normals, ignore_index=True)
-            report_all.to_csv(f"data/{self.experiment_name}/report_normal.csv", index=False)
+            report_all.to_csv(f"{self.ouput_dir}/{self.experiment_name}/report_normal.csv", index=False)
             print(report_all)
 
         if len(port_analysis) > 0:
             post_all = pd.concat(port_analysis, ignore_index=True)
-            post_all.to_csv(f"data/{self.experiment_name}/port_analysis.csv", index=False)
+            post_all.to_csv(f"{self.ouput_dir}/{self.experiment_name}/port_analysis.csv", index=False)
             print(post_all)
 
         if len(feature_importances) > 0:
             feature_all = pd.concat(feature_importances, ignore_index=True)
-            feature_all.to_csv(f"data/{self.experiment_name}/feature_importance.csv", index=False)
+            feature_all.to_csv(f"{self.ouput_dir}/{self.experiment_name}/feature_importance.csv", index=False)
             print(feature_all)
 
         # 基于 rolling 结果进行整体回测
@@ -389,8 +410,8 @@ class RollingTaskExample:
         report_normal_1day = artifact_objects['report_normal_1day.pkl'].reset_index()
         port_analysis_1day = artifact_objects['port_analysis_1day.pkl'].reset_index()
 
-        report_normal_1day.to_csv(f"data/{self.experiment_name}/report_normal_1day_all.csv", index=False)
-        port_analysis_1day.to_csv(f"data/{self.experiment_name}/port_analysis_1day_all.csv", index=False)
+        report_normal_1day.to_csv(f"{self.ouput_dir}/{self.experiment_name}/report_normal_1day_all.csv", index=False)
+        port_analysis_1day.to_csv(f"{self.ouput_dir}/{self.experiment_name}/port_analysis_1day_all.csv", index=False)
         print(report_normal_1day)
 
         positions_normals = artifact_objects['positions_normal_1day.pkl']
@@ -402,7 +423,7 @@ class RollingTaskExample:
 
         position_pd = pd.DataFrame(position_list)
         position_pd.columns = ['date', 'init_cash', 'now_account_value', 'position']
-        position_pd.to_csv(f"data/{self.experiment_name}/positions_normal_1day_all.csv", index=False)
+        position_pd.to_csv(f"{self.ouput_dir}/{self.experiment_name}/positions_normal_1day_all.csv", index=False)
 
         # 生成 回测报表 HTML 报表
         pred_label_df = df_all.reset_index()
@@ -410,7 +431,7 @@ class RollingTaskExample:
         generate_html_report(artifact_objects['port_analysis_1day.pkl'],
                              artifact_objects['report_normal_1day.pkl'],
                              pred_label_df,
-                             output_dir=f"data/{self.experiment_name}/report_output",
+                             output_dir=f"{self.ouput_dir}/{self.experiment_name}/report_output",
                              )
 
 
@@ -481,14 +502,15 @@ if __name__ == "__main__":
     ]
 
     config_task_exps = [
-        ("./config/zxzz399101/workflow_config_lgb_Alpha158_tree_import.yaml", 'zxzz399101_tree_import', None),
-        ("./config/zxzz399101/workflow_config_lgb_Alpha158_all.yaml", 'zxzz399101_tree_all', None),
-        ("./config/zxzz399101/workflow_config_lgb_Alpha158_rec_tree.yaml", 'zxzz399101_rec_tree', None),
-        ("./config/zxzz399101/workflow_config_lgb_Alpha158_rec_tree1.yaml", 'zxzz399101_tree_select1', None),
+        ("./config/zxzz399101_1/workflow_config_lgb_Alpha158_tree_import.yaml", 'zxzz399101_tree_import_test', None),
+        ("./config/zxzz399101_1/workflow_config_lgb_Alpha158_all.yaml", 'zxzz399101_tree_all_test', None),
+        ("./config/zxzz399101_1/workflow_config_lgb_Alpha158_rec_tree.yaml", 'zxzz399101_rec_tree_test', None),
+        ("./config/zxzz399101_1/workflow_config_lgb_Alpha158_rec_tree1.yaml", 'zxzz399101_tree_select1_test', None),
     ]
-    # rolling_types = [RollingGen.ROLL_EX, RollingGen.ROLL_SD]
+    rolling_types = [RollingGen.ROLL_EX, RollingGen.ROLL_SD]
     # ROLL_EX 效果优于 ROLL_SD
-    rolling_types = [RollingGen.ROLL_EX]
+    # rolling_types = [RollingGen.ROLL_EX]
+    # rolling_types = [RollingGen.ROLL_SD]
 
     for config_path, task_exp1, feature_task_config in config_task_exps:
         for rolling_type in rolling_types:
@@ -502,6 +524,7 @@ if __name__ == "__main__":
                 task_pool=task_exp,
                 experiment_name=task_exp,
                 rolling_step=21,
+                # rolling_step=5,
                 rolling_type=rolling_type
             ).main()
 

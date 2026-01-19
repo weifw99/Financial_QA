@@ -64,7 +64,7 @@ class SmallCapSignalGenerator:
                     and row['score'] > 0
 
                 ):
-                    results.append((name, row['mv'], row['score']))
+                    results.append((name, row['mv'], row['score'], row['class_p']))
                     print(f"✅ {name} 通过过滤")
 
             except:
@@ -72,11 +72,12 @@ class SmallCapSignalGenerator:
         candidates = sorted(results, key=lambda x: x[2], reverse=True)
         print('candidates:', candidates)
         print("filter_stocks stage 1 len：", len(candidates))
-        candidates1 = candidates[:100]
-        print("filter_stocks stage 2 len：", len(candidates1))
-        candidates1 = sorted(candidates1, key=lambda x: x[1], reverse=False)
+        # candidates1 = candidates[:100]
+        # print("filter_stocks stage 2 len：", len(candidates1))
+        candidates1 = sorted(candidates, key=lambda x: x[1], reverse=False)
 
-        return [(x[0], x[1], x[2]) for x in candidates1[:self.config['hold_count_high']]]
+        return candidates1
+        # return [(x[0], x[1], x[2]) for x in candidates1[:self.config['hold_count_high']]]
 
     def generate_signals(self):
         """
@@ -89,15 +90,48 @@ class SmallCapSignalGenerator:
 
         candidates = self.filter_candidates()
 
+        hold_num = self.config['hold_count_high']
+
+        # 拆数据
+        stocks = [d for d, mv, score, class_p in candidates]
+        mvs = np.array([mv for d, mv, score, class_p in candidates], dtype=float)
+        scores = np.array([score for d, mv, score, class_p in candidates], dtype=float)
+        class_ps = np.array([score for d, mv, score, class_p in candidates], dtype=float)
+
+        # 横截面 Rank（归一到 [0,1]）
+        cap_rank = (-mvs).argsort().argsort() / (len(mvs) - 1)
+        score_rank = scores.argsort().argsort() / (len(scores) - 1)
+        class_p_rank = class_ps.argsort().argsort() / (len(class_ps) - 1)
+
+        # 加权（建议 0.7~0.8 给市值）
+        final_score = 0.9 * cap_rank + 0.06 * score_rank + 0.04 * class_p_rank
+        # final_score = 0.95 * cap_rank + 0.05 * score_rank
+        # final_score = 0.1 * cap_rank + 0.9 * score_rank
+        # final_score = 0.9 * cap_rank + 0.05 * score_rank + 0.05 * class_p_rank
+
+        # 排序选股
+        idx = np.argsort(-final_score)
+        selected = idx[:hold_num]
+
+        to_hold = list()
+        for i in selected:
+            d = stocks[i]
+            to_hold.append((d, mvs[i], scores[i], class_ps[ i], final_score[i]))
+            print(
+                f"BUY {d} | final={final_score[i]:.4f} "
+                f"mv={mvs[i]:.3f} score={scores[i]:.3f}"
+                f"cap_rank={cap_rank[i]:.3f} model_rank={score_rank[i]:.3f}"
+            )
+
         # ➕ 添加收盘价字段
         to_buy = []
-        for name, mv, score in candidates:
+        for name, mv, score, class_p, final_score in to_hold:
             df = self.stock_data.get(name)
             if df is None or df.empty or 'close' not in df.columns:
                 close_price = None
             else:
                 close_price = df['close'].iloc[-1]  # 最新收盘价
-            to_buy.append((name, mv, score, close_price))
+            to_buy.append((name, mv, final_score, close_price))
 
         sing = {
             'buy': [list(t) for t in to_buy],

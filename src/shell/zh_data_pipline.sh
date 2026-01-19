@@ -36,8 +36,14 @@ log "当前目录: $(pwd)"
 log "开始执行 所有 A 股数据任务 src.data.zh_data.zh_run_sync..."
 python -m src.data.zh_data.zh_run_sync
 
-log "开始执行 重要指数数据任务 src.data.zh_data.index.important_indices_sh_sz..."
-python -m src.data.zh_data.index.important_indices_sh_sz
+log "开始执行 指数成分股拉取任务 src.data.zh_data.index.component_stock_pull ..."
+python -m src.data.zh_data.index.component_stock_pull
+
+log "开始执行 重要指数数据任务 src.data.zh_data.index.important_indices_sh_sz ..."
+python -m src.data.zh_data.index.important_indices_sh_sz_by_code
+
+#log "开始执行 重要指数数据任务 src.data.zh_data.index.important_indices_sh_sz..."
+#python -m src.data.zh_data.index.important_indices_sh_sz
 
 log "当前目录: $(pwd)"
 

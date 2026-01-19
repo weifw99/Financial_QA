@@ -17,10 +17,13 @@ def main():
     today = datetime.today()
 
     rank_model_result_path = [
-        '/Users/dabai/liepin/study/llm/Financial_QA/data/qlib_exp/small/small_result.csv',
+        '/Users/dabai/liepin/study/llm/Financial_QA/data/qlib_exp/small/small_rank_result.csv',
+    ]
+    class_model_result_path = [
+        '/Users/dabai/liepin/study/llm/Financial_QA/data/qlib_exp/small/small_class_result.csv',
     ]
     extend_datas = {
-        1000: (rank_model_result_path, [])
+        1000: (rank_model_result_path, class_model_result_path)
     }
     to_idx = datetime.now()
     from_idx = to_idx - timedelta(days=30)

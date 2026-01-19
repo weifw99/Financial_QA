@@ -1,0 +1,123 @@
+
+qlib_init:
+  provider_uri: "/Users/dabai/liepin/study/llm/Financial_QA/data/qlib_data/cn_data_etf"
+  region: cn
+  exp_manager:
+    class: "MLflowExpManager"
+    module_path: "qlib.workflow.expm"
+    kwargs:
+      uri: "file:/Users/dabai/liepin/study/llm/Financial_QA/data/qlib_exp/mlruns"
+      default_exp_name: "lgb_exp_tree_import"
+
+market: &market zxzz399101
+benchmark: &benchmark SZ510210
+
+data_handler_config: &data_handler_config
+  start_time: 2015-01-01
+  end_time: 2025-12-30
+  fit_start_time: 2015-01-01 # 特征处理器（Processor）的拟合区间 主要用于：RobustZScoreNorm ZScoreNorm CSRankNorm Fillna
+  fit_end_time: 2016-12-31
+  instruments: *market
+  infer_processors:
+    - class: FilterCol
+      kwargs:
+        fields_group: feature
+        col_list:
+          # 价格收益类
+          - ROC5        # 5 日收益率
+          - ROC10       # 10 日收益率
+          - ROC20       # 20 日收益率
+          - RSV5        # 当前价与 5 日区间比率
+          - RSV20       # 当前价与 20 日区间比率
+          - STD20       # 20 日价格波动率（近似 volatility_20）
+
+          # 成交量类
+          - VMA5        # 5 日均量
+          - VMA20       # 20 日均量
+          # volume_ratio 可以在 pipeline 或 infer_processor 里计算 VMA5/VMA20
+
+          # 动量类
+          - RESI5       # RSI 5 日
+          - RESI10      # RSI 10 日
+          - RESI20      # RSI 20 日
+
+          # 价格极值
+          - MAX20       # 20 日最高价
+          - MIN20       # 20 日最低价
+          - HIGH0       # 当日最高价（ATR计算用）
+          - LOW0        # 当日最低价（ATR计算用）
+
+          # ATR 指标
+          # - TR14        # 14 日平均真实波动范围，需在 infer_processor 或 feature pipeline 计算
+          - CLOSE0
+  label: ["If(Ref($close, -10) / Ref($close, -1) - 1 > 0, 1, 0)"]
+
+
+port_analysis_config: &port_analysis_config
+  strategy:
+    class: TopkDropoutStrategy
+    module_path: qlib.contrib.strategy
+    kwargs:
+      signal: <PRED>
+      topk: 5
+      n_drop: 5
+      hold_thresh: 5  # 周频 label 对齐
+  backtest:
+    start_time: 2017-03-02
+    end_time: 2025-12-30
+    account: 1000000
+    benchmark: *benchmark
+    exchange_kwargs:
+      limit_threshold: 0.095
+      deal_price: close
+      open_cost: 0.0005
+      close_cost: 0.0015
+      min_cost: 5
+
+task:
+  model:
+    class: LGBModel
+    module_path: qlib.contrib.model.gbdt
+    kwargs:
+      loss: binary
+      metric: ['binary_logloss','auc']
+      colsample_bytree: 0.8879
+      learning_rate: 0.03
+      subsample: 0.8789
+      lambda_l1: 5
+      lambda_l2: 18
+      max_depth: 4
+      num_leaves: 31
+      min_data_in_leaf: 100
+      num_threads: 20
+      feature_fraction_seed: 42
+      bagging_seed: 42
+  dataset:
+    class: CustomDatasetH
+    module_path: qlib_.train_test.rolling_train_class.custom_datasets
+    kwargs:
+      handler:
+        class: Alpha158
+        module_path: qlib.contrib.data.handler
+        kwargs: *data_handler_config
+      segments:
+        train: [ 2015-01-01, 2016-12-31 ]
+        valid: [ 2017-01-01, 2017-03-01 ]   # ratio 模式下无效
+        test: [ 2017-03-02, 2025-12-30 ]
+      dataset_type: ratio
+      train_ratio: 0.8
+  record:
+    - class: SignalRecord
+      module_path: qlib.workflow.record_temp
+      kwargs:
+        model: <MODEL>
+        dataset: <DATASET>
+    - class: SigAnaRecord
+      module_path: qlib.workflow.record_temp
+      kwargs:
+        ana_long_short: False
+        ann_scaler: 252
+    - class: PortAnaRecord
+      module_path: qlib.workflow.record_temp
+      kwargs:
+        config: *port_analysis_config

@@ -335,7 +335,7 @@ def load_stock_data(from_idx, to_idx, extend_datas:dict[int, tuple[list, list]] 
                 class_result_pd_temp['date'] = pd.to_datetime(class_result_pd_temp['date'])
                 class_model_result.append(class_result_pd_temp)
 
-    model_result_pd = pd.concat(model_result)
+    model_result_pd = pd.concat(model_result).groupby(['date', 'code', 'source_'])['score'].mean().reset_index()
     model_codes = model_result_pd['code'].tolist()
 
     if len(class_model_result)>0:
